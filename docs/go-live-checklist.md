@@ -45,7 +45,7 @@ All of these must be on disk in `qa/gates/` before the go-live script enables an
 - [x] Whether minors are served before counsel clears DPDP: anyone can use; verifiable parental consent (DPDP s.9) is owned by
       the consent team (`qa/gates/g-prod.md`, Answered 2026-10-19, D-102).
 - [ ] Whether the Q3 DPDP legal review must finish before a Pathlynks-supplied profile reaches VC. Not recorded: OPEN, owner Umesh.
-- [x] Who owns the clinical-safety policy: Umesh, interim owner; he signs off the LK10 Hindi/Hinglish/English crisis wording (D-108 item 1).
+- [x] Who owns the clinical-safety policy: Umesh, interim owner; signs off the LK10 Hindi/Hinglish/English crisis wording (D-108 item 1).
 - [ ] Tele-MANAS 14416 test call for adolescents, and Hindi/Hinglish coverage. D-108 item 6 says the team did the call, but no
       record or evidence is on disk. OPEN, owner: Umesh (the team's test-call record is the missing artifact).
 - [ ] Whether authenticated-student exposure, the anonymous route and voice go live together or one at a time. OPEN, owner: Umesh
