@@ -62,4 +62,4 @@ Red: E1 tests ran red before the source edit (4 of 4 held-erasure tests failed w
 
 Metrics: start=2026-10-25T06:53:45+05:30 end=2026-10-25T07:20:00+05:30 wall_min=26 agent_min=26 blocked_min=0 suite_runs=0 repeat_runs=1 mutations=4 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=4 defects_unit=0 defects_6c=0
 Fix cycle: 0
-Status: ready-for-check
+Status: checked-PASS (cycle 0, verdicts e778900 A + 72d181b B, merged 01fe789)
