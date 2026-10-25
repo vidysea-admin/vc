@@ -85,4 +85,4 @@ Red run before the change (tests written first, `... pnpm exec tsx --test --test
 Metrics: builder_min=35 suite_runs=0 mutations=5 mutants=5 tests=790 tests_min=1
 Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 Fix cycle: 0
-Status: ready-for-check
+Status: checked-PASS (cycle 0, verdict fc472c5, merged 12f08ae)
