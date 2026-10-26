@@ -280,3 +280,42 @@ test("VA15: a crisis message that also asks for saved careers or navigation gets
     assert.doesNotMatch(out.response.message ?? "", /Marine Biologist|\/careers/);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Fix cycle 1 E2/E3
+// ---------------------------------------------------------------------------
+test("E2: a third-person pronoun (she / he / they) is refused, never answered with the signed-in student's own saved careers", async () => {
+  for (const text of ["what careers did she save", "what careers did he save?", "show what careers they saved", "Show saved careers for her", "what did she save in the compare list"]) {
+    const { port, calls } = fakePort();
+    const out = await runStudentTurn(deps({ pathlynks: port }), turn(text));
+    assert.equal(out.response.message, PATHLYNKS_OWN_DATA_ONLY_TEXT, text);
+    assert.equal(calls.length, 0, text);
+  }
+  const { port, calls } = fakePort();
+  const own = await runStudentTurn(deps({ pathlynks: port }), turn("what careers did I save"));
+  assert.match(own.response.message ?? "", /Marine Biologist/);
+  assert.deepEqual(calls, [{ method: "getSavedCareers", args: ["stu-A"] }]);
+});
+
+test("E3 (G6): a Pathlynks row carrying phone, email, dob, guardian_name, address, tenant_id and password_hash replies with none of those values", async () => {
+  const sensitive = {
+    phone: "+91 98765 43210", email: "asha.rao@example.com", dob: "2009-03-14", guardian_name: "Mohan Rao-GUARDIAN",
+    address: "12 Lake Road Pune-ADDR", tenant_id: "tenant-TT-77", password_hash: "$2b$10$HASHVALUE",
+  };
+  const rows: Row[] = [{ career: "Marine Biologist", ...sensitive }];
+  const profile: Row = { name: "Asha Rao", grade: "11", ...sensitive };
+  const port: PathlynksPort = {
+    getStudentProfile: async () => ({ status: "ok", data: profile }),
+    getSavedCareers: async () => ({ status: "ok", data: rows }),
+    getCompareList: async () => ({ status: "ok", data: rows }),
+    getAssessmentStatus: async () => ({ status: "ok", data: { status: "completed", ...sensitive } }),
+  };
+  const leak = /98765|asha\.rao@example|2009-03-14|GUARDIAN|ADDR|TT-77|HASHVALUE|Lake Road/;
+  for (const text of ["show my Pathlynks profile", "what careers did I save?", "what is in my compare list", "what is my assessment status"]) {
+    const out = await runStudentTurn(deps({ pathlynks: port }), turn(text));
+    const stored = JSON.stringify(out.response);
+    assert.doesNotMatch(out.response.message ?? "", leak, text);
+    assert.doesNotMatch(stored, leak, `${text}: whole stored response`);
+    assert.ok((out.response.message ?? "").length > 0, text);
+  }
+});

@@ -238,3 +238,48 @@ test("the parser executes nothing: a migration with side effects leaves no trace
   parseSequelizeMigrations([{ path: "m/evil.js", content }]);
   assert.equal(g["__ingest_pwned"], undefined);
 });
+
+// ---------------------------------------------------------------------------
+// Fix cycle 1 E1: a column or call the parser cannot read is REPORTED, never silently dropped.
+// Scenario: an admin syncs a repo whose createTable uses a spread base object, shorthand properties, or raw SQL; the admin must see a diagnostic.
+// ---------------------------------------------------------------------------
+const one = (body: string) => parseSequelizeMigrations([{ path: "m/1.js", content: `module.exports={up:async(queryInterface,S)=>{${body}}}` }]);
+
+test("E1: createTable with a spread base object reports the skipped entry and still parses the literal columns", () => {
+  const r = one("await queryInterface.createTable('users',{...base,id:{type:S.INTEGER}});");
+  assert.deepEqual(Object.keys(r.tables["users"]!.columns), ["id"]);
+  const d = r.diagnostics.filter((x) => x.code === "skipped_columns");
+  assert.equal(d.length, 1, JSON.stringify(r.diagnostics));
+  assert.match(d[0]!.message, /users/);
+  assert.match(d[0]!.message, /1 /);
+});
+
+test("E1: a shorthand property column (`{ id, name:{...} }`) is reported by name, not dropped silently", () => {
+  const r = one("const id={type:S.INTEGER};await queryInterface.createTable('users',{id,name:{type:S.STRING}});");
+  assert.deepEqual(Object.keys(r.tables["users"]!.columns), ["name"]);
+  const d = r.diagnostics.filter((x) => x.code === "dropped_column");
+  assert.equal(d.length, 1, JSON.stringify(r.diagnostics));
+  assert.match(d[0]!.message, /users\.id/);
+});
+
+test("E1: raw queryInterface.sequelize.query(...) and helper calls taking queryInterface are reported as ignored", () => {
+  const r = one("await queryInterface.sequelize.query('ALTER TABLE users ADD COLUMN x int');await addAudit(queryInterface,'users');await queryInterface.createTable('t',{id:{type:S.INTEGER}});");
+  assert.deepEqual(Object.keys(r.tables), ["t"]);
+  const codes = r.diagnostics.map((x) => x.code);
+  assert.equal(codes.filter((c) => c === "unknown_method").length, 2, JSON.stringify(r.diagnostics));
+  assert.ok(r.diagnostics.some((x) => /sequelize/.test(x.message)));
+  assert.ok(r.diagnostics.some((x) => /addAudit|helper|argument|value/i.test(x.message)));
+});
+
+test("E1: for a mixed createTable, parsed columns + diagnosed entries equal the source column count (no column vanishes unreported)", () => {
+  const r = one("const a={type:S.TEXT};await queryInterface.createTable('mix',{...base,a,b:{type:S.TEXT},c:{type:S.TEXT},['d'+1]:{type:S.TEXT}});");
+  const parsed = Object.keys(r.tables["mix"]!.columns).length;
+  const skipped = r.diagnostics.filter((x) => x.code === "skipped_columns").reduce((n, x) => n + Number(/(\d+) entr/.exec(x.message)?.[1] ?? 0), 0);
+  const dropped = r.diagnostics.filter((x) => x.code === "dropped_column").length;
+  assert.equal(parsed + skipped + dropped, 5, JSON.stringify(r.diagnostics));
+});
+
+test("E1: a clean createTable still has no diagnostics (no false positives)", () => {
+  const r = one("await queryInterface.createTable('t',{id:{type:S.INTEGER},n:{type:S.STRING}});await queryInterface.addColumn('t','z',{type:S.TEXT});");
+  assert.deepEqual(r.diagnostics, []);
+});
