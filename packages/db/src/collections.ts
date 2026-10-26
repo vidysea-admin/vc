@@ -84,6 +84,15 @@ export const COLLECTION_NAMES = {
   student_usage: "student_usage",
   student_flags: "student_flags",
   chat_gap_counts: "chat_gap_counts",
+  // vc-admin-control S2 (src/admin-store.ts). The Admin Console's own data, none of it student data, none of it TTL'd.
+  // admin_users: console logins (hash, role). sources: knowledge-source config + the encrypted secret triple. source_artifacts: the
+  // synced schema map / navigation catalogue (never rows). audit_log: append-only record of console writes. turn_usage: one text-free
+  // row per chat or voice turn (HMAC student key, tokens, cost, latency). All are ERASURE_EXEMPT_COLLECTIONS with a reason.
+  admin_users: "admin_users",
+  sources: "sources",
+  source_artifacts: "source_artifacts",
+  audit_log: "audit_log",
+  turn_usage: "turn_usage",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",
