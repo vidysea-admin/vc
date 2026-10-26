@@ -491,12 +491,24 @@ function parseOne(src: string): FileParse {
   const ops: Op[] = [];
   const diags: FileParse["diags"] = [];
   const { toks } = cx;
-  for (let i = up.s; i + 3 < up.e; i++) {
+  for (let i = up.s; i < up.e; i++) {
     const t = toks[i]!;
-    if (t.k !== "id" || t.v !== up.recv || !isP(toks[i + 1], ".")) continue;
+    if (t.k !== "id" || t.v !== up.recv) continue;
     if (isP(toks[i - 1], ".")) continue;
-    const mt = toks[i + 2]!;
-    if (mt.k !== "id" || !isP(toks[i + 3], "(")) continue;
+    if (!isP(toks[i + 1], ".")) {
+      // E1: queryInterface passed to a helper, aliased or otherwise used as a value: whatever it does is not read.
+      diags.push({ code: "unknown_method", message: `ignored use of ${up.recv} as a value (helper call or alias); its effect on the schema is not applied` });
+      continue;
+    }
+    const mt = toks[i + 2];
+    if (mt === undefined || mt.k !== "id") continue;
+    // The transaction wrapper is benign: its callback body is scanned like the rest of up().
+    if (mt.v === "sequelize" && isP(toks[i + 3], ".") && toks[i + 4]?.k === "id" && toks[i + 4]!.v === "transaction") continue;
+    if (!isP(toks[i + 3], "(")) {
+      // E1: queryInterface.sequelize.query(...) and any other member chain that is not a direct method call.
+      diags.push({ code: "unknown_method", message: `ignored ${up.recv}.${short(mt.v)}... (not a direct call); its effect on the schema is not applied` });
+      continue;
+    }
     const method = mt.v;
     if (!HANDLED.has(method)) {
       diags.push({ code: "unknown_method", message: `ignored unsupported call ${up.recv}.${short(method)}()` });
@@ -517,11 +529,16 @@ function parseOne(src: string): FileParse {
         unresolved();
         continue;
       }
-      const { entries } = objectEntries(cx, a[0]);
+      const { entries, skipped } = objectEntries(cx, a[0]);
       const columns = new Map<string, SchemaColumn>();
       let bad = false;
+      // E1: never drop a column silently. Report what cannot be read; never invent columns.
+      if (skipped > 0) diags.push({ code: "skipped_columns", message: `${short(table)}: ${skipped} entries (spread or computed) in createTable were not parsed; the column list is incomplete` });
       for (const en of entries) {
-        if (en.value === null) continue;
+        if (en.value === null) {
+          diags.push({ code: "dropped_column", message: `${short(table)}.${short(en.key)}: shorthand or method property has no readable definition; column not recorded` });
+          continue;
+        }
         const d = columnDef(cx, en.value);
         if (!d.ok) {
           bad = true;

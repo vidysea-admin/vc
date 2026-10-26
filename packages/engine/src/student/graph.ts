@@ -225,7 +225,7 @@ function namesAnotherStudent(text: string, ownStudentId: string): boolean {
   return (
     /\b(someone|somebody|anyone|anybody)\s+else\b/i.test(t) ||
     /\b(another|other|different)\s+(student|person|user|child|kid)s?\b/i.test(t) ||
-    /\b(his|her|their|friend'?s?|brother'?s?|sister'?s?|classmate'?s?|son'?s?|daughter'?s?)\b/i.test(t) ||
+    /\b(he|she|they|him|them|his|her|hers|their|theirs|friend'?s?|brother'?s?|sister'?s?|classmate'?s?|son'?s?|daughter'?s?)\b/i.test(t) ||
     /\b(?:student|user|learner|pupil|child|kid)s?[\s_-]*(?:id\b)?\s*[#:=]?\s*(?!(?:and|who|in|at|of|on|for|with|here|can|how|what|from|is|to|the|a|my|i|asking|looking|login|logged|account|id|data|profile)\b)[a-z0-9][\w-]*/i.test(t) ||
     /\b(?:stu|usr|uid)[-_]?[a-z0-9]+/i.test(t) ||
     /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(t) ||
