@@ -16,7 +16,7 @@ Failed criteria (B, cycle 2): VA1, VA8, VA6
 Repair base (cycle 2): 78ddaef
 Failed criteria (A): VA1, VA8, VA12, VA19 (P1 env-ref exfiltration, P2 live-port takeover, P3 dashboard window excludes today)
 Failed criteria (B): VA1, VA5, VA8 (F1 env-ref exfiltration)
-**Status:** ready-for-check
+**Status:** checked-PASS (dual, cycle 2: A qa/verdicts/vc-admin-control.md @1e31f00, B qa/verdicts/vc-admin-control.b.md @28dadbf; head 6b8674c)
 **Executor:** claude-sonnet-subagent (maker role, unit vca-api)
 **Base:** branch wave/vc-admin-control (worktree D:/vc/.worktrees/vca-int) from e99842c. Code commits d0e48c1 and 2798e5e; this manifest is the next commit.
 **Tier:** L (auth/security)
