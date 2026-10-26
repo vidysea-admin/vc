@@ -16,7 +16,7 @@ Failed criteria (B, cycle 2): VA1, VA8, VA6
 Repair base (cycle 2): 78ddaef
 Failed criteria (A): VA1, VA8, VA12, VA19 (P1 env-ref exfiltration, P2 live-port takeover, P3 dashboard window excludes today)
 Failed criteria (B): VA1, VA5, VA8 (F1 env-ref exfiltration)
-**Status:** building (fix cycle 2)
+**Status:** ready-for-check
 **Executor:** claude-sonnet-subagent (maker role, unit vca-api)
 **Base:** branch wave/vc-admin-control (worktree D:/vc/.worktrees/vca-int) from e99842c. Code commits d0e48c1 and 2798e5e; this manifest is the next commit.
 **Tier:** L (auth/security)
@@ -120,6 +120,21 @@ Process note: the engine builder ran its E3 falsification in its own worktree an
 Open risks (builders): login limiter and audit dedupe are in memory (reset on restart); the per-email guard lets someone lock a named admin out for 60 s; failed-sync diagnostics are capped text; E2 refuses any Pathlynks question containing "they" (fail-closed).
 mutant-cap-raise: apps/api/src/admin-routes.ts:389 the 11 are floor falsifications, one per repair item (R1-R6, R9, E1-E3 plus R1 schema), not .9-4 mutants
 Metrics: start=2026-10-27T00:05:00+05:30 end=2026-10-27T01:20:00+05:30 wall_min=75 agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=0 mutations=11 cycle=1 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=0 defects_unit=0 defects_6c=0
+
+## Fix cycle 2 (repair base 78ddaef; head 6b8674c, Opus builder)
+F1 boundEnvRef: an env credential is released only to the exact seeded source (same id, kind, ref, host/port/database/user/sslmode or owner/repo); admin-created or edited sources use their own super-admin secret or get "No credential is set"; the live port binds through `seeded`; schema binds github tokenRef to GITHUB_* and postgres passwordRef to PATHLYNKS_*. F2 one audit row per login attempt (success, failure, 429, malformed), dedupe removed. F3 createLoginGuard LRU eviction, never fails closed. F4 `diagnostics >= files` rule removed.
+Evidence: qa/evidence/vc-admin-20261026/fix2.md, fix2/falsify.log (M1, M1b, M2, M3, M4 each green before, red after, in copies outside the repo).
+Out-of-owned-list edit for the checkers to judge: apps/api/src/index.ts (two one-line spreads passing `sourcesFile.sources` to withAdminRoutes and createLivePathlynksPort; without them no source gets an env credential).
+- Pre-check[VA1]: 6b8674c apps/api: pnpm exec tsx --test tests/admin-auth.test.ts tests/admin-routes.test.ts tests/admin-secrets-leak.test.ts tests/admin-sync.test.ts tests/chat-pathlynks.test.ts -> pass 133 of 133; packages/schemas: pnpm exec tsx --test tests/sources.test.ts -> pass 15 of 15
+- Pre-check[VA5]: 6b8674c apps/api: pnpm exec tsx --test tests/admin-routes.test.ts (same run) -> pass 133 of 133
+- Pre-check[VA6]: 6b8674c apps/api: pnpm exec tsx --test tests/admin-auth.test.ts tests/admin-routes.test.ts (same run) -> pass 133 of 133
+- Pre-check[VA8]: 6b8674c apps/api: pnpm exec tsx --test tests/admin-sync.test.ts tests/admin-routes.test.ts (same run) -> pass 133 of 133
+- Pre-check[VA12]: 6b8674c apps/api: pnpm exec tsx --test tests/chat-pathlynks.test.ts tests/admin-routes.test.ts (same run) -> pass 133 of 133
+- Pre-check[VA17]: 6b8674c apps/web: pnpm exec tsx --test tests/admin-session-routes.test.ts tests/admin-client.test.ts -> pass 27 of 27
+- Pre-check[VA19]: 6b8674c apps/web: pnpm exec tsx --test tests/admin-session-routes.test.ts tests/admin-client.test.ts -> pass 27 of 27
+Typecheck exit 0 in schemas, api, web @6b8674c. No full suite.
+Open risks (builder): a flood of more than 10,000 fresh emails can evict a locked email from the web guard (the API per-IP limit still applies); a login flood writes one audit row per attempt, as VA6 requires.
+Metrics: start=2026-10-27T01:30:00+05:30 end=2026-10-27T01:42:00+05:30 wall_min=12 agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=0 mutations=5 cycle=2 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=0 defects_unit=0 defects_6c=0
 
 ## Interpretations (flag if wrong)
 1. G1 vs contract VA12 text: VA12 says `vc_readonly`; the answered gate G1 uses `pathlynksadm` with the override. The port still refuses a writer role by default and only skips that probe when `PATHLYNKS_ALLOW_PRIVILEGED_ROLE` is exactly `1`; SELECT-only SQL, read-only transaction, 3 s timeout, 50-row cap are unchanged. The startup log carries a warn event (no secret).
