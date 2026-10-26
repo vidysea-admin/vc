@@ -87,6 +87,7 @@ import {
   type ReplyLang,
 } from "./lang.js";
 import { classifyIntent, classifyQuestion, type StudentIntentTool } from "./classify.js";
+import { NAVIGATE_UNKNOWN_TEXT, navigateSteps, type NavCatalogue } from "../tools/navigate.js";
 import {
   DEFAULT_STALE_AFTER_MONTHS,
   countriesIn,
@@ -167,7 +168,7 @@ const COACH_FALLBACK =
   "exactly did you do in it? What do you want to do after this course, and how does this programme get you there? " +
   "Send me your answers or your own draft and I'll give feedback on structure and clarity.";
 
-const TOOL_MESSAGES: Record<Exclude<StudentToolName, "search_kb" | "ask_knowledge_base" | "get_session" | "coach_draft_feedback">, string> = {
+const TOOL_MESSAGES: Record<Exclude<StudentToolName, "search_kb" | "ask_knowledge_base" | "get_session" | "coach_draft_feedback" | PathlynksToolName | "navigate_steps">, string> = {
   kb_source_detail: "Here is where my last answer came from.",
   source_freshness: "Here are the dates of the sources behind my last answer, and whether any are old.",
   coverage: "Here is what I have sourced answers for so far, and what is not covered yet.",
@@ -179,6 +180,88 @@ const TOOL_MESSAGES: Record<Exclude<StudentToolName, "search_kb" | "ask_knowledg
   data_erasure: "I can erase your data. You'll be asked to confirm first.",
   channel_switch: "Sure, you can switch between text and voice on this same conversation.",
 };
+
+// ---------------------------------------------------------------------------
+// Pathlynks port (vc-admin-control S5/S6) - the live, read-only view of the signed-in student's own Pathlynks rows
+// ---------------------------------------------------------------------------
+
+/** What a port call answers. `unavailable` = the database is down, slow, refused or not configured (never a reason text). */
+export type PathlynksResult<T> = { status: "ok"; data: T } | { status: "unavailable" };
+
+/**
+ * Spec S5. Every method takes the VERIFIED student id of the turn (never an id from the message text) and must read only that student's
+ * rows. The production implementation is `createPathlynksPort` (mcp/pathlynks); tests use a fake. Rows are display data only.
+ */
+export interface PathlynksPort {
+  getStudentProfile(studentId: string): Promise<PathlynksResult<Record<string, unknown> | null>>;
+  getSavedCareers(studentId: string): Promise<PathlynksResult<ReadonlyArray<Record<string, unknown>>>>;
+  getCompareList(studentId: string): Promise<PathlynksResult<ReadonlyArray<Record<string, unknown>>>>;
+  getAssessmentStatus(studentId: string): Promise<PathlynksResult<Record<string, unknown> | null>>;
+}
+
+export type PathlynksToolName = "pathlynks_profile" | "pathlynks_saved_careers" | "pathlynks_compare" | "pathlynks_assessment";
+const PATHLYNKS_TOOLS: readonly PathlynksToolName[] = ["pathlynks_profile", "pathlynks_saved_careers", "pathlynks_compare", "pathlynks_assessment"];
+const isPathlynksTool = (t: unknown): t is PathlynksToolName => PATHLYNKS_TOOLS.includes(t as PathlynksToolName);
+
+/** The one reply when the port is down, slow, absent or returns anything but rows: no reason, no host, no SQL, no stack. */
+export const PATHLYNKS_UNAVAILABLE_TEXT = "I can't see your Pathlynks data right now";
+/** The reply when the message asks for another student's data. The port is not called. */
+export const PATHLYNKS_OWN_DATA_ONLY_TEXT = "I can only show your own Pathlynks data, so I can't look up another student's.";
+const PATHLYNKS_DEFAULT_TIMEOUT_MS = 5_000;
+const PATHLYNKS_MAX_ROWS_SHOWN = 10;
+const PATHLYNKS_VALUE_MAX_CHARS = 120;
+const PATHLYNKS_MESSAGE_MAX = 3_000;
+/** Columns never shown back, whatever the table holds. */
+const PATHLYNKS_HIDDEN_KEYS = /pass|secret|token|hash|salt|student_?id|tenant|^id$|_id$/i;
+const ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
+
+/**
+ * Does the message point at someone other than the signed-in student? A fail-closed convenience for the student, NOT the isolation
+ * mechanism: the port is only ever called with the verified id, so even a missed phrase returns the student's OWN rows, never another's.
+ * The student's own id in the text is removed first.
+ */
+function namesAnotherStudent(text: string, ownStudentId: string): boolean {
+  const t = text.replace(new RegExp(ownStudentId.replace(ESCAPE_REGEX, "\\$&"), "gi"), " ");
+  return (
+    /\b(someone|somebody|anyone|anybody)\s+else\b/i.test(t) ||
+    /\b(another|other|different)\s+(student|person|user|child|kid)s?\b/i.test(t) ||
+    /\b(his|her|their|friend'?s?|brother'?s?|sister'?s?|classmate'?s?|son'?s?|daughter'?s?)\b/i.test(t) ||
+    /\b(?:student|user|learner|pupil|child|kid)s?[\s_-]*(?:id\b)?\s*[#:=]?\s*(?!(?:and|who|in|at|of|on|for|with|here|can|how|what|from|is|to|the|a|my|i|asking|looking|login|logged|account|id|data|profile)\b)[a-z0-9][\w-]*/i.test(t) ||
+    /\b(?:stu|usr|uid)[-_]?[a-z0-9]+/i.test(t) ||
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(t) ||
+    /\b\d{5,}\b/.test(t)
+  );
+}
+
+const cleanText = (s: string) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+const humanKey = (k: string) => cleanText(k.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ")).toLowerCase();
+
+/** A row as one display line: scalar columns only, hidden columns dropped, each value bounded. A single visible column shows just its value. */
+function rowLine(row: unknown): string | undefined {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return undefined;
+  const parts: [string, string][] = [];
+  for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
+    if (PATHLYNKS_HIDDEN_KEYS.test(k)) continue;
+    if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") continue;
+    const value = cleanText(String(v)).slice(0, PATHLYNKS_VALUE_MAX_CHARS);
+    if (value) parts.push([humanKey(k), value]);
+  }
+  if (parts.length === 0) return undefined;
+  return parts.length === 1 ? parts[0]![1] : parts.map(([k, v]) => `${k}: ${v}`).join(", ");
+}
+
+function listMessage(title: string, empty: string, rows: ReadonlyArray<unknown>): string {
+  const lines = rows.map(rowLine).filter((l): l is string => l !== undefined);
+  if (lines.length === 0) return empty;
+  const shown = lines.slice(0, PATHLYNKS_MAX_ROWS_SHOWN).map((l, i) => `${i + 1}. ${l}`);
+  const more = lines.length > shown.length ? [`...and ${lines.length - shown.length} more.`] : [];
+  return [`${title}`, ...shown, ...more].join("\n");
+}
+
+function recordMessage(title: string, empty: string, row: Record<string, unknown> | null): string {
+  const line = row ? rowLine(row) : undefined;
+  return line === undefined ? empty : `${title} ${line}`;
+}
 
 // ---------------------------------------------------------------------------
 // Capability manifest (A21(c), B1(d))
@@ -208,6 +291,12 @@ export const STUDENT_TOOLS: readonly StudentTool[] = [
   { name: "data_export", executedBy: "api", anonymous: false },
   { name: "data_erasure", executedBy: "api", anonymous: false },
   { name: "channel_switch", executedBy: "api", anonymous: false },
+  // vc-admin-control S6: executed by this graph, authenticated students only (the anonymous route never reaches the tool node).
+  { name: "pathlynks_profile", executedBy: "graph", anonymous: false },
+  { name: "pathlynks_saved_careers", executedBy: "graph", anonymous: false },
+  { name: "pathlynks_compare", executedBy: "graph", anonymous: false },
+  { name: "pathlynks_assessment", executedBy: "graph", anonymous: false },
+  { name: "navigate_steps", executedBy: "graph", anonymous: false },
   { name: "coach_draft_feedback", executedBy: "graph", anonymous: false },
 ];
 
@@ -336,9 +425,21 @@ export interface StudentGraphDeps {
   hasPriorFlag: (thread: { tenantId: string; studentId: string; threadId: string }) => Promise<boolean>;
   /** A store write/read failed (never transcript text: only which one). Default: a text-free console.warn. */
   onWriteError?: (write: StudentWriteKind, error: unknown) => void;
+  /**
+   * vc-admin-control S5/S6: the live Pathlynks reads behind the four `pathlynks_*` tools (production: `createPathlynksPort`). Called ONLY
+   * with the verified `auth.studentId` of an authenticated turn. Absent, failing, slow or malformed = the fixed PATHLYNKS_UNAVAILABLE_TEXT.
+   */
+  pathlynks?: PathlynksPort;
+  /** Hard stop for one port call (default 5 s); an overrun is the fixed unavailable line. */
+  pathlynksTimeoutMs?: number;
+  /**
+   * vc-admin-control S6: the stored navigation catalogue for `navigate_steps` (production: the latest `nav_catalogue` source artifact).
+   * Nothing is fetched from the host site or GitHub at chat time. Absent, failing or empty = "I don't know that page yet".
+   */
+  navCatalogue?: () => NavCatalogue | undefined | Promise<NavCatalogue | undefined>;
 }
 
-export type StudentWriteKind = "flag_log" | "flag_read" | "escalate" | "gap" | "safety_screen" | `counter:${AnonymousCounterKind}`;
+export type StudentWriteKind = "flag_log" | "flag_read" | "escalate" | "gap" | "safety_screen" | "pathlynks" | "nav_catalogue" | `counter:${AnonymousCounterKind}`;
 
 const StudentAuthSchema = z
   .object({
@@ -696,7 +797,9 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     })
     .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input, Boolean(s.priorFlag), { detected: s.detectedLang, reply: s.replyLang ?? "en" }, s.screen) }))
     .addNode(STUDENT_NODES.coach, async (s: State) => ({ result: await coach(s.input, Boolean(s.priorFlag)) }))
-    .addNode(STUDENT_NODES.tool, (s: State) => {
+    .addNode(STUDENT_NODES.tool, async (s: State) => {
+      if (isPathlynksTool(s.tool)) return { result: await pathlynksTool(s.input, s.tool) };
+      if (s.tool === "navigate_steps") return { result: await navigateTool(s.input) };
       const tool = s.tool as keyof typeof TOOL_MESSAGES;
       return { result: { response: emptyResponse(s.input, "ok", TOOL_MESSAGES[tool]), selectedTool: tool, claimSourceKinds: [] } };
     })
@@ -731,6 +834,86 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     .addEdge(STUDENT_NODES.coach, STUDENT_NODES.finish)
     .addEdge(STUDENT_NODES.tool, STUDENT_NODES.finish)
     .addEdge(STUDENT_NODES.finish, END);
+
+  /**
+   * vc-admin-control S6: one of the four `pathlynks_*` reads. The student id is the VERIFIED `auth.studentId`; nothing in the message text
+   * can change it. A message that points at another student is refused before the port is touched. An anonymous input never gets here (the
+   * route node answers it with sign_in_required) and is refused again here. Every failure (absent port, `unavailable`, throw, timeout,
+   * malformed rows) is the one fixed line: no reason, host, SQL or stack ever reaches the reply or the stored response.
+   */
+  async function pathlynksTool(input: StudentTurnInput, tool: PathlynksToolName): Promise<StudentTurnResult> {
+    const done = (message: string): StudentTurnResult => ({ response: emptyResponse(input, "ok", message), selectedTool: tool, claimSourceKinds: [] });
+    if (input.mode !== "authenticated") return { response: emptyResponse(input, "sign_in_required", ANONYMOUS_SIGN_IN_TEXT), claimSourceKinds: [] };
+    const studentId = input.auth.studentId;
+    if (namesAnotherStudent(input.text, studentId)) return done(PATHLYNKS_OWN_DATA_ONLY_TEXT);
+    const port = deps.pathlynks;
+    if (!port) return done(PATHLYNKS_UNAVAILABLE_TEXT);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const stop = new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), deps.pathlynksTimeoutMs ?? PATHLYNKS_DEFAULT_TIMEOUT_MS);
+      });
+      const call = (): Promise<PathlynksResult<unknown>> => {
+        switch (tool) {
+          case "pathlynks_profile":
+            return port.getStudentProfile(studentId);
+          case "pathlynks_saved_careers":
+            return port.getSavedCareers(studentId);
+          case "pathlynks_compare":
+            return port.getCompareList(studentId);
+          case "pathlynks_assessment":
+            return port.getAssessmentStatus(studentId);
+        }
+      };
+      const out = await Promise.race([call(), stop]);
+      if (!out || out.status !== "ok") return done(PATHLYNKS_UNAVAILABLE_TEXT);
+      const data = out.data;
+      const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+      let message: string;
+      switch (tool) {
+        case "pathlynks_saved_careers":
+          if (!Array.isArray(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
+          message = listMessage("Your saved careers on Pathlynks:", "You have no saved careers on Pathlynks yet.", data);
+          break;
+        case "pathlynks_compare":
+          if (!Array.isArray(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
+          message = listMessage("Your compare list on Pathlynks:", "Your compare list on Pathlynks is empty.", data);
+          break;
+        case "pathlynks_profile":
+          if (data !== null && !isRecord(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
+          message = recordMessage("Your Pathlynks profile:", "I don't see a Pathlynks profile for you yet.", data);
+          break;
+        case "pathlynks_assessment":
+          if (data !== null && !isRecord(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
+          message = recordMessage("Your Pathlynks assessment:", "I don't see an assessment on your Pathlynks account yet.", data);
+          break;
+      }
+      return done(message.slice(0, PATHLYNKS_MESSAGE_MAX));
+    } catch (err) {
+      report("pathlynks", err);
+      return done(PATHLYNKS_UNAVAILABLE_TEXT);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /**
+   * vc-admin-control S6/VA14: `navigate_steps`. Text steps from the stored catalogue only (`navigateSteps` returns nothing outside it); a
+   * missing, failing or empty catalogue is the fixed "I don't know that page yet". It never clicks or fetches anything.
+   */
+  async function navigateTool(input: StudentTurnInput): Promise<StudentTurnResult> {
+    const done = (message: string): StudentTurnResult => ({ response: emptyResponse(input, "ok", message), selectedTool: "navigate_steps", claimSourceKinds: [] });
+    if (input.mode !== "authenticated") return { response: emptyResponse(input, "sign_in_required", ANONYMOUS_SIGN_IN_TEXT), claimSourceKinds: [] };
+    let catalogue: NavCatalogue | undefined;
+    try {
+      catalogue = deps.navCatalogue ? await deps.navCatalogue() : undefined;
+    } catch (err) {
+      report("nav_catalogue", err);
+      return done(NAVIGATE_UNKNOWN_TEXT);
+    }
+    const { steps, routes } = navigateSteps(catalogue, input.text);
+    return done(routes.length === 0 ? NAVIGATE_UNKNOWN_TEXT : steps.join("\n"));
+  }
 
   /**
    * D-110 + p1-nosource-grounded: the reply when the knowledge base gives no servable source. The gap is counted first (unchanged). Then, in order:
