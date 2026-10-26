@@ -17,6 +17,8 @@
   <p>This page stands in for a partner website. The chat bubble at the bottom right is the VC widget.</p>
   <p>Mode: <code id="mode"></code>. Add <code>?mode=proxy</code> for proxy mode (posts to <code>/api/vc</code> with no key).
      Local API: run <code>node apps/widget/tests/stub-server.js 5174</code> and open <code>http://127.0.0.1:5174/demo.html</code>.
+     Add <code>?voice=on</code> for the Chat | Voice toggle (needs the voice add-on served next to the widget file).
+     The panel floats: drag the header, resize from the bottom-right corner, or use the pop-out button (opens <code>/vc-popout?site=demo</code> on this origin).
      To point at a real API instead, set <code>data-vc-api</code> to its origin (the API must allow this page origin, K4).</p>
   <p>Stub triggers: <code>crisis</code>, <code>nosource</code>, <code>xss</code>, <code>ratelimit</code>, <code>revoke</code>, <code>slow</code>, <code>boom</code>.</p>
 </div>
@@ -29,6 +31,8 @@
     var s = document.createElement("script");
     s.src = "/widget/vc-widget.v1.js";
     if (proxy) s.setAttribute("data-vc-proxy", "/api/vc"); else s.setAttribute("data-vc-key", "vck_demo_key");
+    s.setAttribute("data-vc-site", "demo");
+    if (q.get("voice") === "on") s.setAttribute("data-vc-voice", "on");
     s.setAttribute("data-vc-title", q.get("title") || "Career Counsellor");
     if (q.get("color")) s.setAttribute("data-vc-color", q.get("color"));
     s.defer = true;
