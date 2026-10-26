@@ -1,0 +1,6 @@
+{"at":"2026-10-26T16:06:03.084Z","tool":"Agent","schema":"claude-agent","decision":"deny","handoff_sha256":"c9bdf6535dd5acd6c19f525f883932e77ad660afe5a1b802325893f610027d01","prompt_bytes":0}
+{"at":"2026-10-26T16:06:04.742Z","tool":"Agent","schema":"claude-agent","decision":"deny","handoff_sha256":"4f58154fdc794dc781864ae58c052507393f13d2dd97867d930425eb1cfb8e32","prompt_bytes":0}
+{"at":"2026-10-26T16:06:06.971Z","tool":"Agent","schema":"claude-agent","decision":"deny","handoff_sha256":"b47ced9a7e7eb323ad91bfc4c33bc1fea97342d2c0a9363370bda25b56897504","prompt_bytes":0}
+{"at":"2026-10-26T16:06:08.877Z","tool":"Agent","schema":"claude-agent","decision":"deny","handoff_sha256":"46a604b8d3507f72c4f4b8089312731d5f078535e95aa13dfcbff60f00045446","prompt_bytes":0}
+{"at":"2026-10-26T16:06:11.525Z","tool":"Agent","schema":"claude-agent","decision":"deny","handoff_sha256":"d5a217030b471630b7283fd31836bc1755dcecac185b3afbc78b9badabae7bfc","prompt_bytes":0}
+{"at":"2026-10-26T16:06:13.489Z","tool":"Agent","schema":"claude-agent","decision":"deny","handoff_sha256":"2c8b7beb35ef4095cbfd640085bcf1927b4106b0c9ba0aae16754acb0770741d","prompt_bytes":0}
