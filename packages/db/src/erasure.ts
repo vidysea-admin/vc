@@ -1592,6 +1592,16 @@ export const ERASURE_EXEMPT_COLLECTIONS = {
     "P1 U8: per-day, per-kind counts of turns the engine could not answer from a source; the row holds only the date, the kind, a count and the tenant, with no student, thread, text or topic, so there is nothing to erase for a student",
   [COLLECTION_NAMES.email_outbox]:
     "T-029: the approver's approval-request record; it holds the opaque request id, reason code and staff actor ids, never the studentId or any student data, and is kept as part of the erasure audit trail",
+  [COLLECTION_NAMES.admin_users]:
+    "vc-admin-control: Admin Console logins (staff email, password hash, role); staff data, not student data, so there is nothing to erase for a student",
+  [COLLECTION_NAMES.sources]:
+    "vc-admin-control: knowledge-source config (repo, branch, host, table names) plus the encrypted connection secret; holds no student document or identifier",
+  [COLLECTION_NAMES.source_artifacts]:
+    "vc-admin-control: the synced schema map and navigation catalogue (table and column names, route paths), never row data, so no student data to erase",
+  [COLLECTION_NAMES.audit_log]:
+    "vc-admin-control: append-only record of Admin Console writes (staff actor id, action, target, ok); it must survive and names no student",
+  [COLLECTION_NAMES.turn_usage]:
+    "vc-admin-control: one text-free usage row per turn (site, HMAC student key, tokens, cost, latency, guardrail name); no message text and no raw student id, so there is nothing to erase for a student",
 } as const;
 
 /** A resolve read failed; carries WHICH anchor collection, so the receipt labels it accurately (ISS-t-011-c1-rev-3). */

@@ -199,6 +199,15 @@ export const INDEX_PLAN: IndexSpec[] = [
   { collection: COLLECTION_NAMES.student_usage, keys: { studentId: 1 }, name: "student_usage_studentId" },
   { collection: COLLECTION_NAMES.student_flags, keys: { studentId: 1 }, name: "student_flags_studentId" },
   { collection: COLLECTION_NAMES.chat_gap_counts, keys: { tenantId: 1, date: 1 }, name: "chat_gap_counts_tenantId_date" },
+  // vc-admin-control S2: the Admin Console collections (src/admin-store.ts). None is tenant-scoped or student-bearing, none is unique
+  // beyond the built-in _id (admin_users._id IS the lower-cased email, so email uniqueness needs no extra index) and none expires.
+  { collection: COLLECTION_NAMES.admin_users, keys: { role: 1 }, name: "admin_users_role" },
+  { collection: COLLECTION_NAMES.sources, keys: { siteId: 1, kind: 1 }, name: "sources_siteId_kind" },
+  { collection: COLLECTION_NAMES.source_artifacts, keys: { sourceId: 1, kind: 1, builtAt: -1 }, name: "source_artifacts_sourceId_kind_builtAt" },
+  { collection: COLLECTION_NAMES.audit_log, keys: { at: -1 }, name: "audit_log_at" },
+  { collection: COLLECTION_NAMES.audit_log, keys: { actorId: 1, at: -1 }, name: "audit_log_actorId_at" },
+  { collection: COLLECTION_NAMES.turn_usage, keys: { siteId: 1, at: 1 }, name: "turn_usage_siteId_at" },
+  { collection: COLLECTION_NAMES.turn_usage, keys: { at: 1 }, name: "turn_usage_at" },
 ];
 
 async function ensureCollection(db: import("mongodb").Db, name: string): Promise<void> {
