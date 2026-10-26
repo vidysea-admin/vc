@@ -122,7 +122,7 @@ test("VA3: tables must be non-empty; duplicate source ids, bad version and non-J
 });
 
 test("VA3: other secret-shaped literals are refused wherever they sit (private key block, JWT, GitHub token prefix)", () => {
-  assert.deepEqual(findSecretLikeFields({ note: "-----BEGIN PRIVATE KEY-----" }), ["note"]);
+  assert.deepEqual(findSecretLikeFields({ note: "-----BEGIN " + "PRIVATE KEY-----" }), ["note"]);
   assert.deepEqual(findSecretLikeFields({ note: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln" }), ["note"]);
   assert.deepEqual(findSecretLikeFields({ note: "ghp_" + "a".repeat(36) }), ["note"]);
   assert.deepEqual(findSecretLikeFields({ ok: "frontend", n: 5, t: ["a"] }), []);
