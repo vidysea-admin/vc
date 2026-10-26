@@ -99,6 +99,12 @@ export type StudentIntentTool =
   | "kb_source_detail"
   | "coverage"
   | "channel_switch"
+  // vc-admin-control S6: the live Pathlynks reads (own rows only) and the text-only navigation steps.
+  | "pathlynks_profile"
+  | "pathlynks_saved_careers"
+  | "pathlynks_compare"
+  | "pathlynks_assessment"
+  | "navigate_steps"
   | "search_kb";
 
 // Repair R6: each rule needs the student's own reference ("my" data, "this/that" answer, "these"
@@ -109,6 +115,13 @@ const INTENT_RULES: [StudentIntentTool, RegExp][] = [
   ["data_erasure", /\b(delete|erase|remove|forget|wipe)\b.*\bmy\b.*\b(data|information|account|history|details|profile|everything)\b|\b(delete|erase|remove|wipe)\b\s+my\b|\b(mera|meri|mere)\b.*\b(data|account|jankari)\b.*\b(delete|hata|mita)|(मेरा|मेरी|मेरे).*(डेटा|जानकारी).*(हटा|डिलीट|मिटा)/i],
   ["data_export", /\b(export|download|copy of)\b.*\bmy\b.*\b(data|information|history)\b|\bexport my\b/i],
   ["profile_correct", /\b(that'?s|this is|it'?s)\s+(wrong|incorrect|not right)\b|\bcorrect (it|that|my)\b|\bnot \d+\b.*\b(budget|score|percentage|marks)\b|\b(budget|score|percentage|marks) is\b.*\bnot\b/i],
+  // vc-admin-control S6. navigate_steps first: "where do I see my saved careers" asks for a PAGE, not for the rows. Each rule needs a
+  // site-shaped cue (a page word, "my saved/compare/assessment ...") so a KB question ("how can I find universities in Germany") stays search_kb.
+  ["navigate_steps", /\btake me to\b|\bnavigate (me )?to\b|\b(which|what) (page|screen|section|menu)\b|\b(where|how)\b.{0,30}\b(i|we)\b.{0,20}\b(find|see|get to|go to|open|view|access|reach)\b.{0,60}\b(page|section|menu|tab|screen|button|dashboard|settings|link|site|website|app|portal|pathlynks)\b|\bwhere (do|can|would) i (see|find|view|check|access) my (saved|compare|compared|assessment|profile|results?|shortlist|reports?)\b|\bwhere is the (\w+ ){0,2}(page|section|tab|menu|screen|button)\b/i],
+  ["pathlynks_saved_careers", /\b(saved|shortlisted|bookmarked|favou?rited?)\s+(careers?|pathways?)\b|\bcareers?\b.{0,30}\b(i|we|he|she|they|student\s+[\w-]+)\b.{0,15}\b(sav(e|ed)|shortlist(ed)?|bookmark(ed)?|favou?rite[d]?)\b|\b(i|we)\b.{0,15}\b(saved|shortlisted|bookmarked)\b.{0,20}\bcareers?\b/i],
+  ["pathlynks_compare", /\b(my|the)\s+compar(e|ison)\s+(list|basket|tray)\b|\bcompar(e|ison) list\b|\bcareers?\b.{0,30}\b(i|we)\b.{0,15}\b(am|was|were)?\s*compar(ing|ed)\b/i],
+  ["pathlynks_assessment", /\bassessments?\b.{0,40}\b(status|done|complete[d]?|finish(ed)?|pending|results?|score|progress|taken|submitted)\b|\b(did|have)\s+i\b.{0,25}\b(complete[d]?|finish(ed)?|take|taken|do|done|submit(ted)?)\b.{0,25}\b(assessment|test|quiz)\b/i],
+  ["pathlynks_profile", /\bpathlynks\b.{0,20}\b(profile|details|account|info)\b|\bmy\b.{0,10}\bpathlynks\b/i],
   ["profile_view", /\bwhat do you know about me\b|\b(show|see|view)\b.*\bmy (profile|details|facts)\b|\bmy profile\b\s*\??$|मेरे बारे में क्या/i],
   ["rank_options", new RegExp(String.raw`\bcompare\b.*\b(these|those|them|both|the two|my (options|choices|shortlist|universities)|the options|options)\b|\b(vs\.?|versus)\b|\bwhich of (these|those|them)\b|\brank (these|them|those|my)\b|\bbest (one|option) for me\b|\bmy shortlist\b|\bshortlist (these|them|those)\b`, "i")],
   ["source_freshness", new RegExp(String.raw`\b(is|are|was|were)\s+(${PREVIOUS})\b.*\b(stale|outdated|out of date|up to date|old|recent|latest|current)\b|\bhow (old|recent|current) (is|are) (${PREVIOUS})\b|\b(${PREVIOUS})\b.*\b(stale|outdated|out of date)\b`, "i")],
