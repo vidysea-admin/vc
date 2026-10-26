@@ -1,0 +1,26 @@
+{
+  "name": "@vc/mcp-pathlynks",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only Pathlynks student-data port (vc-admin-control S5, VA12): getStudentProfile, getSavedCareers, getCompareList, getAssessmentStatus. Scoped to the verified student, fail-closed on write privilege.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "pg": "^8.13.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0",
+    "@types/pg": "^8.11.10"
+  }
+}

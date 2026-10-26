@@ -1,0 +1,74 @@
+/* vc-admin-control S8: plain CSS for the admin console. Uses the colour tokens from ../globals.css. Mobile first: works at 360 px with no page-level horizontal scroll. */
+.adm-root { min-height: 100vh; }
+.adm-root, .adm-root * { min-width: 0; }
+.adm-root h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+.adm-root h2 { font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 0 0 10px; }
+.adm-root a { color: var(--accent); }
+.adm-main { max-width: 1040px; margin: 0 auto; padding: 16px 16px 64px; }
+.adm-login { max-width: 420px; margin: 0 auto; padding: 32px 16px; }
+.adm-pagehead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0 16px; }
+.adm-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 0 0 16px; }
+.adm-note { color: var(--muted); margin: 0 0 12px; overflow-wrap: anywhere; }
+.adm-muted { color: var(--muted); font-size: 13px; }
+.adm-mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.adm-ok { color: var(--ok); font-weight: 600; }
+.adm-bad { color: var(--bad); font-weight: 600; }
+
+.adm-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.adm-nav nav { display: flex; flex-wrap: wrap; gap: 4px; }
+.adm-navlink { padding: 6px 10px; border-radius: 8px; text-decoration: none; color: var(--ink) !important; }
+.adm-navlink-current { background: var(--info-bg); font-weight: 600; }
+.adm-who { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.adm-who-email { overflow-wrap: anywhere; }
+
+.adm-field { display: block; margin: 0 0 12px; }
+.adm-field > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; overflow-wrap: anywhere; }
+.adm-root input[type="text"], .adm-root input[type="email"], .adm-root input[type="password"], .adm-root input[type="date"], .adm-root select, .adm-root textarea {
+  width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+.adm-root textarea { resize: vertical; }
+.adm-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.adm-inline input[type="password"] { flex: 1 1 180px; width: auto; }
+.adm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.adm-filters { display: grid; grid-template-columns: 1fr; gap: 0 12px; margin-bottom: 8px; }
+@media (min-width: 640px) { .adm-filters { grid-template-columns: repeat(3, 1fr); } }
+
+.adm-btn { font: inherit; cursor: pointer; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; }
+.adm-btn:hover:not(:disabled) { border-color: var(--accent); }
+.adm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.adm-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.adm-btn-danger { color: var(--bad); border-color: var(--bad); }
+.adm-btn-small { padding: 4px 10px; font-size: 13px; }
+
+.adm-alert { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; overflow-wrap: anywhere; }
+.adm-reveal { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: var(--radius); padding: 16px; margin: 0 0 16px; }
+.adm-keyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.adm-keyrow code { flex: 1 1 220px; overflow-wrap: anywhere; font-size: 13px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+
+.adm-badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--ink); }
+.adm-badge-ok { background: var(--ok-bg); color: var(--ok); }
+.adm-badge-bad { background: var(--bad-bg); color: var(--bad); }
+
+.adm-scroll { overflow-x: auto; max-width: 100%; }
+.adm-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.adm-table th, .adm-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.adm-table th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.adm-num { text-align: right !important; }
+
+.adm-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 0 0 16px; }
+@media (min-width: 720px) { .adm-tiles { grid-template-columns: repeat(4, 1fr); } }
+.adm-tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.adm-tile-label { font-size: 12px; color: var(--muted); }
+.adm-tile-value { font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.adm-tile-unit { font-size: 13px; font-weight: 400; color: var(--muted); }
+.adm-tile-sub { font-size: 12px; color: var(--muted); }
+.adm-bar { height: 12px; border-radius: 6px; background: var(--info-bg); overflow: hidden; }
+.adm-bar-chat { height: 100%; background: var(--accent); }
+.adm-bar-legend { margin: 8px 0 0; font-size: 13px; }
+
+.adm-dl { margin: 0 0 8px; }
+.adm-dl > div { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 2px 0; }
+.adm-dl dt { color: var(--muted); font-size: 13px; width: 110px; flex: none; }
+.adm-dl dd { margin: 0; overflow-wrap: anywhere; }
+/* The counsellor-screen language selector (root layout) is not part of the console: hide it whenever the console is on the page. */
+body:has(.adm-root) > label:has([data-testid="ui-locale"]) { display: none; }

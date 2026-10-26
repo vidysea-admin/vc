@@ -1,0 +1,2 @@
+  .regex(ENV_NAME_PATTERN, "must be an environment variable NAME (UPPER_SNAKE_CASE)")
+  .regex(CREDENTIAL_REF_PATTERN, "must name a PATHLYNKS_* or GITHUB_* environment variable");

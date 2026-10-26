@@ -226,6 +226,23 @@ export interface ChatRankingDeps {
 
 export type ChatLogLine = { level: "error"; event: string; ts: string; status?: number; error?: string; write?: string };
 
+/** vc-admin-control VA17: the tokens and cost one turn spent, summed by the provider's usage callback while the turn runs inside `TurnUsageSink.scope`. */
+export interface UsageMeter {
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+}
+
+/**
+ * vc-admin-control VA17: where a finished turn's text-free usage row goes (production: `createAdminStore(db).usage.record`, wrapped in index.ts).
+ * `scope` runs the model-calling part of a turn with a fresh meter in scope; `record` writes one row. No text, no raw student id crosses this seam:
+ * the implementation turns `studentId` into the HMAC `studentKey` and an anonymous turn passes none. A failure here never fails or changes a turn.
+ */
+export interface TurnUsageSink {
+  scope<T>(fn: (meter: UsageMeter) => Promise<T>): Promise<T>;
+  record(entry: { siteId: string; studentId?: string; mode: "chat" | "voice"; latencyMs: number; answered: boolean; guardrail?: string }, meter: UsageMeter): Promise<void>;
+}
+
 export interface ChatApiDeps {
   verifier: StudentJwtVerifier;
   /**
@@ -251,6 +268,16 @@ export interface ChatApiDeps {
   /** Per-tenant override of the D-088 limits (only `requestsPerMinute` is read). */
   limitsForTenant?(tenantId: string): Parameters<typeof resolveLimits>[0];
   config?: Partial<StudentGraphConfig>;
+  /**
+   * vc-admin-control S5/S6: the live read-only Pathlynks port, its timeout and the stored navigation catalogue. They are handed ONLY to the tenant named by
+   * `pathlynksTenantId` (the Pathlynks site): another tenant's student id is never looked up in the Pathlynks database, whatever the id is.
+   */
+  pathlynks?: StudentGraphDeps["pathlynks"];
+  pathlynksTimeoutMs?: number;
+  navCatalogue?: StudentGraphDeps["navCatalogue"];
+  pathlynksTenantId?: string;
+  /** vc-admin-control VA17: per-turn usage rows (tokens, cost, latency). Absent = nothing is recorded. */
+  usage?: TurnUsageSink;
   /**
    * P1 LK7 (D-105): the language and safety parts of the student graph's deps, passed through unchanged to every variant of the graph
    * (the model language detector, the reply-language allow-list, the LK5 safety screen). Absent = the offline script test and no screen.
@@ -537,6 +564,13 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
           ? { grounding: deps.groundingBudget ? deps.groundingBudget.bind(deps.graph.grounding, () => groundingThread.getStore() ?? "unknown") : deps.graph.grounding }
           : {}),
         ...(deps.now ? { now: deps.now } : {}),
+        ...(deps.pathlynksTenantId !== undefined && tenantId === deps.pathlynksTenantId
+          ? {
+              ...(deps.pathlynks ? { pathlynks: deps.pathlynks } : {}),
+              ...(deps.pathlynksTimeoutMs !== undefined ? { pathlynksTimeoutMs: deps.pathlynksTimeoutMs } : {}),
+              ...(deps.navCatalogue ? { navCatalogue: deps.navCatalogue } : {}),
+            }
+          : {}),
         ...(variant === "quiet" ? {} : { recordGap: () => incrementGapCount(db, { kind: "no_sourced_answer" }, { now: nowDate() }) }),
         ...(variant === "quiet"
           ? {}
@@ -781,18 +815,22 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
 
       const variant: GraphVariant = quiet ? "quiet" : !consentOk || overlong ? "textless" : "full";
       let result;
+      const turnStartedMs = nowMs();
+      const meter: UsageMeter = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
       try {
-        result = await redactionScope.run(redactors, () =>
-          groundingThread.run(`${ctx.tenantId}|${ctx.studentId}|${threadId}`, () =>
-            runStudentTurn(graphDepsFor(ctx.tenantId, db, variant), {
-              mode: "authenticated",
-              auth: { role: "student", studentId: ctx.studentId, tenantId: ctx.tenantId },
-              threadId,
-              turnId,
-              text,
-            }),
-          ),
-        );
+        const runGraph = () =>
+          redactionScope.run(redactors, () =>
+            groundingThread.run(`${ctx.tenantId}|${ctx.studentId}|${threadId}`, () =>
+              runStudentTurn(graphDepsFor(ctx.tenantId, db, variant), {
+                mode: "authenticated",
+                auth: { role: "student", studentId: ctx.studentId, tenantId: ctx.tenantId },
+                threadId,
+                turnId,
+                text,
+              }),
+            ),
+          );
+        result = deps.usage ? await deps.usage.scope((m) => runGraph().finally(() => Object.assign(meter, m))) : await runGraph();
       } catch (err) {
         await abandon();
         if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
@@ -843,6 +881,13 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       }
 
       await recordStudentUsage(db, { studentId: ctx.studentId, textTurns: 1 }, { now });
+      // vc-admin-control VA17: one text-free usage row per completed turn. The sink gets the verified student id (it HMACs it) and nothing the student wrote.
+      if (deps.usage) {
+        const guardrail = response.state === "escalated" ? "crisis" : response.state === "concern" ? "concern" : undefined;
+        await deps.usage
+          .record({ siteId: ctx.tenantId, studentId: ctx.studentId, mode: "chat", latencyMs: Math.max(0, nowMs() - turnStartedMs), answered: response.state === "ok", ...(guardrail ? { guardrail } : {}) }, meter)
+          .catch(() => logEvent("chat_usage_write_failed"));
+      }
       if (response.state === "concern") await recordStudentFlag(db, { studentId: ctx.studentId, threadId, turnId, kind: "concern" }, { now });
       if (response.claims.some((c) => c.status === "unverified")) await incrementGapCount(db, { kind: "unverified_claim" }, { now });
       const reply = respond(200, response);

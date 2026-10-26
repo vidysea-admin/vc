@@ -39,3 +39,42 @@ drifts from the tools registered in the student graph (`STUDENT_TOOLS` in
 | `data_erasure` | erases the student's data (confirm required) | "delete my data" |
 | `channel_switch` | switches between text and voice on the same thread | "switch to voice", "type instead" |
 | `coach_draft_feedback` | coaching on the student's own SOP/essay; never writes one | any request to write or review an SOP/essay |
+| `pathlynks_profile` | reads the signed-in student's own Pathlynks profile row (live, read-only) | "show my Pathlynks profile" (authenticated only) |
+| `pathlynks_saved_careers` | reads the signed-in student's own saved careers on Pathlynks | "what careers did I save?" (authenticated only) |
+| `pathlynks_compare` | reads the signed-in student's own compare list on Pathlynks | "what is in my compare list?" (authenticated only) |
+| `pathlynks_assessment` | reads the signed-in student's own assessment status on Pathlynks | "did I finish my assessment?" (authenticated only) |
+| `navigate_steps` | text steps (at most 7) to a page of the host site, from the stored route catalogue only; never clicks | "where do I see my saved careers?" (authenticated only) |
+
+## Pathlynks tools and navigation (vc-admin-control)
+
+- The four `pathlynks_*` tools read only the verified student's own rows. The student id comes from the verified identity, never from the
+  message; a request for another student's data is refused. They run for an authenticated student only: the anonymous route reaches none of them.
+- If Pathlynks data cannot be read, the whole reply is "I can't see your Pathlynks data right now" - no reason, host, SQL or stack.
+- `navigate_steps` names only pages that exist in the stored route catalogue (skill `vc-navigation`); an unknown page is "I don't know that page yet".
+- The crisis check runs first, before any tool: a distress message that also asks for one of these tools gets the fixed crisis reply, and no tool is called.
+
+## Tool flags
+
+Checked against `STUDENT_TOOLS` by `packages/engine/tests/pathlynks-tools.test.ts` (name, who executes it, whether the anonymous route may use it); keep it equal to the registry. Tool names are written without backticks here so the tool-name drift check reads only the first table.
+
+| tool | executedBy | anonymous |
+|---|---|---|
+| search_kb | graph | yes |
+| ask_knowledge_base | graph | no |
+| get_session | graph | no |
+| kb_source_detail | api | no |
+| source_freshness | api | no |
+| coverage | api | no |
+| rank_options | api | no |
+| profile_view | api | no |
+| profile_confirm | api | no |
+| profile_correct | api | no |
+| data_export | api | no |
+| data_erasure | api | no |
+| channel_switch | api | no |
+| coach_draft_feedback | graph | no |
+| pathlynks_profile | graph | no |
+| pathlynks_saved_careers | graph | no |
+| pathlynks_compare | graph | no |
+| pathlynks_assessment | graph | no |
+| navigate_steps | graph | no |

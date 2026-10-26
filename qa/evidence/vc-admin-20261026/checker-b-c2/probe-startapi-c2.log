@@ -1,0 +1,24 @@
+﻿2026-10-27T01:49:57.9217745+05:30
+bash.exe : [testlock] running slot 0 (free RAM 4.44 GB): pnpm exec tsx --test 
+D:/vc/.worktrees/vca-int/qa/evidence/vc-admin-20261026/checker-b-c2/probe-startapi-c2.mts
+At line:1 char:499
++ ... oding utf8; & "C:\Program Files\Git\bin\bash.exe" D:/vc/scripts/vc-te ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([testlock] runn...startapi-c2.mts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-26T20:20:02.430Z"}
+sources list 200 pathlynks-auth,pathlynks-career,pathlynks-db,pathlynks-frontend,pathlynks-school
+seeded pg test 200 {"ok":true,"message":"Connection works."}
+evil create 201
+evil test 200 {"ok":false,"message":"No credential is set for this source. A super-admin can store one for it."}
+✔ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (197.3285ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2534.3729
+exit=0

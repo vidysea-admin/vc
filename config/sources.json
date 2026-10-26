@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "siteId": "pathlynks",
+  "sources": [
+    {
+      "kind": "github",
+      "id": "pathlynks-frontend",
+      "owner": "Himanshu-Vidysea",
+      "repo": "vidyaksh-frontend",
+      "branch": "production_frontend",
+      "service": "frontend",
+      "tokenRef": "GITHUB_TOKEN"
+    },
+    {
+      "kind": "github",
+      "id": "pathlynks-auth",
+      "owner": "Himanshu-Vidysea",
+      "repo": "vidyaksh-backend",
+      "branch": "production_auth_service",
+      "service": "auth",
+      "tokenRef": "GITHUB_TOKEN"
+    },
+    {
+      "kind": "github",
+      "id": "pathlynks-school",
+      "owner": "Himanshu-Vidysea",
+      "repo": "vidyaksh-backend",
+      "branch": "production_school_mgt_service",
+      "service": "school",
+      "tokenRef": "GITHUB_TOKEN"
+    },
+    {
+      "kind": "github",
+      "id": "pathlynks-career",
+      "owner": "Himanshu-Vidysea",
+      "repo": "vidyaksh-backend",
+      "branch": "production_career_service",
+      "service": "career",
+      "tokenRef": "GITHUB_TOKEN"
+    },
+    {
+      "kind": "postgres",
+      "id": "pathlynks-db",
+      "host": "pathlynks-prod.clk264aaira9.ap-south-1.rds.amazonaws.com",
+      "port": 5432,
+      "database": "pathlynks_prod_121125",
+      "user": "pathlynksadm",
+      "sslmode": "require",
+      "passwordRef": "PATHLYNKS_DB_PASSWORD",
+      "tables": [
+        "students",
+        "saved_careers",
+        "compare_lists",
+        "assessments"
+      ]
+    }
+  ]
+}

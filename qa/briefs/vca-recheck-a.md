@@ -1,0 +1,12 @@
+# /checker Mode A — vc-admin-control REPAIR check, coordinator A of a dual check (blind), fix cycle 1
+You are /checker. Read your protocol first: C:/Users/Lenovo/.claude/skills/checker/SKILL.md. Fresh context, read-only toward the code.
+- Project/worktree: D:/vc/.worktrees/vca-int, branch wave/vc-admin-control. Contract qa/contracts/vc-admin-control.md; manifest qa/manifests/vc-admin-control.md (Status ready-for-check, Fix cycle 1, Tier L, dual-trigger auth apps/api/src/admin-auth.ts:139). Gate answers qa/gates/vc-admin-control.md.
+- Policy: proportional-verification/2026-10-19.17. Budget L: 45 min wall, 135 agent-min. Cycle: 1.
+- Repair base: 914a61d (verify with git). Head 78ddaef. Read the repair diff 914a61d..HEAD in full and scan for files outside the declared scope; the manifest flags apps/web/src/app/admin/(console)/dashboard/page.tsx as an out-of-owned-list one-line edit: judge it.
+- Failed criteria (yours only): VA1, VA8, VA12, VA19 (P1 env-ref exfiltration via passwordRef/tokenRef, P2 live Pathlynks port taken over by an admin-created postgres source, P3 dashboard default window excludes today). Re-run your own probes T6 and T8 from your checkpoint first.
+- Evidence identities: read your own checkpoint qa/checkpoints/vc-admin-control.a.md only (read-only). Do not read any earlier verdict or reasoning for this feature.
+- Scope: re-run the failed criteria, any criterion whose input files the repair diff touches, and the affected tests of the repair diff; one falsification per repaired criterion in a throwaway copy OUTSIDE the repo (the builder did one in its worktree; do not rely on it). Add hostile variants for VA1 (lowercase/whitespace/unicode ref names, a stored legacy doc, error text leaking the env value). Do not repeat passed criteria whose files are untouched.
+- Verdict path: qa/verdicts/vc-admin-control.md with `Cycle checked: 1` (rename any same-cycle file per protocol). Checkpoint: qa/checkpoints/vc-admin-control.a.md.
+- DUAL check: never read qa/verdicts/vc-admin-control.b.md, qa/checkpoints/vc-admin-control.b.md, or their git history/evidence. Findings as PROPOSED-ISSUE lines; write no qa/issues.jsonl rows, no QUEUE edits, close no task.
+- Tests only through `bash D:/vc/scripts/vc-testlock.sh <cmd>` from the package dir (long lock waits are normal, count as blocked_min). No full suite. Never connect to Pathlynks Postgres, GitHub or any live service. Kill only PIDs you started.
+- Commit the verdict and checkpoint with a narrow pathspec. Return the verdict word first, then per-criterion lines.

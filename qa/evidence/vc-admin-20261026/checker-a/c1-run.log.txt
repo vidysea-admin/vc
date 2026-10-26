@@ -1,0 +1,31 @@
+﻿bash.exe : [testlock] running slot 1 (free RAM 3 GB): pnpm exec tsx --test tests/chk-a-c1.test.ts
+At line:1 char:530
++ ...  -Format o; & $b D:/vc/scripts/vc-testlock.sh pnpm exec tsx --test te ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([testlock] runn...hk-a-c1.test.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+✔ C1-T6 rerun: VC_ADMIN_JWT_SECRET / VC_ADMIN_MASTER_KEY / MONGODB_URL refs are 400 for postgres and github; Test on the non-stored id is 404; nothing stored (117.8154ms)
+✔ C1-VA1 hostile ref-name matrix at POST sources (65.6023ms)
+LEGACY {"ok":false,"message":"This source names a credential reference that is not allowed (only PATHLYNKS_* and GITHUB_* names are)."} | {"ok":false,"message":"This source names a credential reference that is not allowed (only PATHLYNKS_* and GITHUB_* names are)."} | {"status":"error","counts":{},"message":"This source names a credential reference that is not allowed (only PATHLYNKS_* and GITHUB_* names are)."} | {"status":"error","counts":{},"message":"This source names a credential reference that is not allowed (only PATHLYNKS_* and GITHUB_* names are)."}
+✔ C1-VA1 legacy stored docs (predate the allow-list): test/sync/live port never read the env value; no leak in response, logs, audit (19.1253ms)
+C1-T8 before: [ 'pathlynks-prod.clk264aaira9.ap-south-1.rds.amazonaws.com' ]
+C1-T8 create aaa-evil 201
+C1-T8 create 00-evil 201
+C1-T8 create pathlynks-db-2 201
+C1-T8 create pathlynks 201
+C1-T8 duplicate seeded id -> 409
+C1-T8 after: [ 'pathlynks-prod.clk264aaira9.ap-south-1.rds.amazonaws.com' ] [ true ]
+✔ C1-T8 rerun: an admin-created postgres source (any id, incl. one that sorts first) does not become the live chat port; the seeded id still does (12.6955ms)
+RESIDUAL create 201 201 test {"ok":false,"message":"The database could not be reached."} | {"ok":false,"message":"The database could not be reached."}
+RESIDUAL pg.Client saw hosts [ 'attacker.example.com', 'attacker.example.com' ] passwords equal REAL/GH: [ [ true, false ], [ false, true ] ]
+RESIDUAL github create 201 github port token equals the DB password: true
+✔ C1-RESIDUAL: allow-listed env names can still be sent to an admin-chosen host: postgres source host=attacker passwordRef=PATHLYNKS_DB_PASSWORD, then Test (9.8226ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3228.4505

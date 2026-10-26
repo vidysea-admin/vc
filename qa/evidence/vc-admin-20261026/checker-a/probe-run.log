@@ -1,0 +1,13 @@
+[testlock] running slot 0 (free RAM 3.62 GB): pnpm exec tsx --test --test-name-pattern=T8 tests/chk-a-probe.test.ts
+T8 before the admin acts, port connects to: [ 'pathlynks-prod.clk264aaira9.ap-south-1.rds.amazonaws.com' ]
+T8 admin POST sources -> 201
+T8 after, port connects to: [ 'attacker.example.com' ] password is the real DB password: [ true ]
+✔ T8 FINDING probe: an ADMIN-created postgres source with an id that sorts first hijacks the LIVE chat Pathlynks port (host + DB password + student ids go to the attacker host) (131.6905ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3222.82

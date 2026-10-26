@@ -28,6 +28,8 @@ const EXPECTED_SKILL_NAMES = [
   // P1 U6: the student turn graph's KB-answer prompt and capability manifest (spec A21).
   "kb-answer",
   "vc-capabilities",
+  // vc-admin-control S6/VA14: the navigate_steps tool skill.
+  "vc-navigation",
 ].sort();
 
 test("listSkills finds all 14 real skills", () => {

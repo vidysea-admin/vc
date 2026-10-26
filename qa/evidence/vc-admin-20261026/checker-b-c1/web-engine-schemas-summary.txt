@@ -1,0 +1,16 @@
+[testlock] running slot 0 (free RAM 3.78 GB): pnpm exec tsx --test tests/admin-client.test.ts tests/admin-session-routes.test.ts
+ℹ tests 26
+ℹ pass 26
+ℹ fail 0
+exit=0
+[testlock] running slot 1 (free RAM 3.74 GB): pnpm exec tsx --test tests/ingest-migrations.test.ts tests/pathlynks-tools.test.ts tests/student-graph.test.ts
+ℹ tests 152
+ℹ pass 152
+ℹ fail 0
+exit=0
+[testlock] waiting for lock held by: 
+[testlock] running slot 0 (free RAM 2.95 GB): pnpm exec tsx --test tests/sources.test.ts
+ℹ tests 14
+ℹ pass 14
+ℹ fail 0
+exit=0

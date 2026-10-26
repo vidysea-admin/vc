@@ -1,0 +1,53 @@
+﻿2026-10-27T01:47:49.2738366+05:30
+bash.exe : [testlock] running slot 0 (free RAM 3.87 GB): pnpm exec tsx --test 
+D:/vc/.worktrees/vca-int/qa/evidence/vc-admin-20261026/checker-b-c2/probe-h1-c2.mts
+At line:1 char:493
++ ... oding utf8; & "C:\Program Files\Git\bin\bash.exe" D:/vc/scripts/vc-te ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([testlock] runn...probe-h1-c2.mts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+✔ P0 positive: seeded pathlynks-db + seeded repos still receive their env credentials (Test and Sync) (95.0549ms)
+create statuses [201,201,201,201,201,201,201] clone create 201
+clone test body {"ok":false,"message":"No credential is set for this source. A super-admin can store one for it."}
+H1d calls []
+✔ P1 H1d: admin-created postgres source naming the allowed ref gets NO env password, whatever its host (15.5516ms)
+wrong-kind create statuses 400 400
+✔ P2 github: admin-created github sources with the seeded token ref get no token; wrong-kind refs refused (34.0329ms)
+tables-only change gets password: true
+uppercase same host gets password: true
+pathlynks-frontend branch-only change gets token: true
+pathlynks-auth branch-only change gets token: true
+pathlynks-school branch-only change gets token: true
+pathlynks-career branch-only change gets token: true
+✔ P3 'PATCH' (store-level upsert, the only way a seeded doc changes): any connection-field change withholds the credential; branch/tables change keeps it (17.9899ms)
+✔ P4 no HTTP route changes a source's connection; PATCH/PUT/DELETE on sources/:id are not served (1.8669ms)
+✔ P5 live port: PATCHed seeded host -> unavailable & no connect; restore connects; no seeded list -> never (2.9009ms)
+wrong password: status 401 rows+1
+unknown email: status 401 rows+1
+attacker email 300 chars: status 401 rows+1
+malformed email: status 401 rows+1
+empty body: status 401 rows+1
+malformed json: status 400 rows+1
+array body: status 400 rows+1
+too large: status 413 rows+1
+read failure: status 400 rows+1
+success: status 200 rows+1
+disabled: ok
+GET login: 405 rows+0
+PUT login: 405 rows+0
+DELETE login: 405 rows+0
+audit sample [{"_id":"b61e7c2f-5102-4880-b6ca-48e01e5b1ba2","at":"2026-10-26T10:02:00.000Z","actorId":"admin@vc.test","action":"login","target":"login","ok":false},{"_id":"a9e12a6a-1c48-4e4e-97e2-7da08bc6d205","at":"2026-10-26T10:04:00.000Z","actorId":"unknown","action":"login","target":"login","ok":false},{"_id":"db588bc6-a893-47dd-b671-fa73ed4dbdb5","at":"2026-10-26T10:06:00.000Z","actorId":"unknown","action":"login","target":"login","ok":false}]
+✔ P6 VA6: every login attempt writes exactly one audit row, none with a secret/body/password (1134.6009ms)
+success w/ failing audit: 500 token in body: false
+✔ P7 VA6: audit store failure on a failed login keeps the 401; success with failing audit mints no token (196.3608ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4076.6635
+exit=0
+2026-10-27T01:47:55.8836204+05:30

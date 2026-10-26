@@ -1,0 +1,233 @@
+[
+  {
+    "role": "anon",
+    "step": "no cookie -> /admin/dashboard lands on login",
+    "expected": "redirect",
+    "observed": "http://localhost:4520/admin/login",
+    "pass": true
+  },
+  {
+    "role": "anon",
+    "step": "wrong password and unknown e-mail show same generic error; no cookie",
+    "expected": "same text",
+    "observed": "\"Email or password is incorrect.\"",
+    "pass": true
+  },
+  {
+    "role": "anon",
+    "step": "tampered session cookie redirects to login",
+    "expected": "redirect",
+    "observed": "landed on /admin/login",
+    "pass": true
+  },
+  {
+    "role": "super-admin",
+    "step": "login -> dashboard; cookie HttpOnly+SameSite; no storage",
+    "expected": "ok",
+    "observed": "HttpOnly=true SameSite=Strict Secure=false; localStorage/sessionStorage empty; URL and document.cookie hold no token",
+    "pass": true
+  },
+  {
+    "role": "super-admin",
+    "step": "dashboard tiles present",
+    "expected": "all tiles + per-site-day table",
+    "observed": "active-students=0; tokens=0; cost-per-student=0.00; latency-p50=0; latency-p95=0; guardrail=0; unanswered=0; chat=0; voice=0; cost-status=Under target; DEFAULT range(to=today) tokens=0; with To=tomorrow tokens=900 cps=1.70 rows=1",
+    "pass": true
+  },
+  {
+    "role": "super-admin",
+    "step": "Admins: create admin, set role, persists after reload",
+    "expected": "ok",
+    "observed": "newbie created viewer->admin, persisted",
+    "pass": true
+  },
+  {
+    "role": "super-admin",
+    "step": "Sources: set secret; never re-displayed",
+    "expected": "ok",
+    "observed": "initial state",
+    "pass": false
+  },
+  {
+    "role": "super-admin",
+    "step": "sign out clears cookie",
+    "expected": "ok",
+    "observed": "signed out",
+    "pass": true
+  },
+  {
+    "role": "admin",
+    "step": "login; no Admins link; /admin/admins denied",
+    "expected": "ok",
+    "observed": "denied page shown",
+    "pass": true
+  },
+  {
+    "role": "admin",
+    "step": "Sites: add site; keys shown once, gone after reload",
+    "expected": "ok",
+    "observed": "locator.waitFor: Timeout 30000ms exceeded.",
+    "pass": false
+  },
+  {
+    "role": "admin",
+    "step": "Keys: rotate (confirm), revoke, unrevoke",
+    "expected": "ok",
+    "observed": "rotate shown once, revoke hides rotate, unrevoke restores",
+    "pass": true
+  },
+  {
+    "role": "admin",
+    "step": "Sources: add GitHub source, Test, Sync; no secret setter",
+    "expected": "ok",
+    "observed": "Test \"Connection works.\" Sync \"Sync ok (files 1, tables 1, diagnostics 1)\"",
+    "pass": true
+  },
+  {
+    "role": "admin",
+    "step": "admin forced super-admin-only routes are 403",
+    "expected": "403",
+    "observed": "{\"list\":403,\"create\":403,\"secret\":403}",
+    "pass": true
+  },
+  {
+    "role": "viewer",
+    "step": "login; lists visible; all write controls absent/disabled",
+    "expected": "ok",
+    "observed": "zero enabled write controls on sites, site detail, sources",
+    "pass": true
+  },
+  {
+    "role": "viewer",
+    "step": "forced writes through proxy: 403 for every write route",
+    "expected": "403",
+    "observed": "{\"POST sites\":403,\"POST sources/gh-1/test\":403,\"POST sources/gh-1/sync\":403,\"POST sites/demo-college/revoke\":403,\"PUT sources/gh-1/secret\":403,\"POST admins\":403}",
+    "pass": true
+  },
+  {
+    "role": "viewer",
+    "step": "cookie alone authorises nothing (no Authorization header) incl. a write",
+    "expected": "401",
+    "observed": "{\"get\":401,\"post\":401}",
+    "pass": true
+  },
+  {
+    "role": "viewer",
+    "step": "proxy hostile paths do not escape the admin API",
+    "expected": "no foreign 200",
+    "observed": "{\"..%2fme\":400,\"%2e%2e/%2e%2e/api/sessions\":404,\"http://evil.example/x\":400,\"//evil.example/x\":404,\"me%00\":400}",
+    "pass": true
+  },
+  {
+    "role": "super-admin@360",
+    "step": "no horizontal scroll /admin/dashboard",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "super-admin@360",
+    "step": "no horizontal scroll /admin/sites",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "super-admin@360",
+    "step": "no horizontal scroll /admin/sites/demo-college",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "super-admin@360",
+    "step": "no horizontal scroll /admin/sources",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "super-admin@360",
+    "step": "no horizontal scroll /admin/audit",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "super-admin@360",
+    "step": "no horizontal scroll /admin/admins",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "admin@360",
+    "step": "no horizontal scroll /admin/dashboard",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "admin@360",
+    "step": "no horizontal scroll /admin/sites",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "admin@360",
+    "step": "no horizontal scroll /admin/sites/demo-college",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "admin@360",
+    "step": "no horizontal scroll /admin/sources",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "admin@360",
+    "step": "no horizontal scroll /admin/audit",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "viewer@360",
+    "step": "no horizontal scroll /admin/dashboard",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "viewer@360",
+    "step": "no horizontal scroll /admin/sites",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "viewer@360",
+    "step": "no horizontal scroll /admin/sites/demo-college",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "viewer@360",
+    "step": "no horizontal scroll /admin/sources",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  },
+  {
+    "role": "viewer@360",
+    "step": "no horizontal scroll /admin/audit",
+    "expected": "scrollWidth<=clientWidth",
+    "observed": "360 <= 360",
+    "pass": true
+  }
+]

@@ -455,6 +455,33 @@ export async function revokePartner(store: PartnerStore, partnerId: string): Pro
   return summaryOf({ ...existing, status: "revoked" });
 }
 
+/**
+ * vc-admin-control S3: edits a partner's name and/or allowed origins (the admin console's "PATCH sites/:id"). The id and both keys are never touched, so no key
+ * changes and no new key path exists. Origins go through the same `normalizeOrigin` as `addPartner`. A revoked partner can still be renamed (its keys stay dead).
+ */
+export async function updatePartner(store: PartnerStore, partnerId: string, input: { name?: string; origins?: readonly string[] }): Promise<PartnerSummary> {
+  const existing = await store.get(partnerId);
+  if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+  const patch: PartnerPatch = {};
+  if (input.name !== undefined) {
+    const name = typeof input.name === "string" ? input.name.trim() : "";
+    if (name === "" || name.length > 120 || /[\u0000-\u001f\u007f]/.test(name)) throw new PartnerError("usage", "a partner needs a name of 1 to 120 printable characters");
+    patch.name = name;
+  }
+  if (input.origins !== undefined) patch.allowedOrigins = normalizeOrigins(input.origins);
+  if (Object.keys(patch).length === 0) throw new PartnerError("usage", "nothing to update (give a name or origins)");
+  if (!(await store.update(partnerId, patch))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+  return summaryOf({ ...existing, ...patch });
+}
+
+/** vc-admin-control S3: the undo of `revokePartner` (idempotent). Both keys work again within PARTNER_CACHE_TTL_MS; no key is minted or changed. */
+export async function unrevokePartner(store: PartnerStore, partnerId: string): Promise<PartnerSummary> {
+  const existing = await store.get(partnerId);
+  if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+  if (existing.status !== "active") await store.update(partnerId, { status: "active" });
+  return summaryOf({ ...existing, status: "active" });
+}
+
 export async function listPartners(store: PartnerStore): Promise<PartnerSummary[]> {
   return (await store.list()).map(summaryOf);
 }

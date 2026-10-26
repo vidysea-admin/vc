@@ -9,3 +9,4 @@ export * from "./tenant.js";
 export * from "./chat-threads.js";
 export * from "./profile-facts.js";
 export * from "./student-logs.js";
+export * from "./admin-store.js";

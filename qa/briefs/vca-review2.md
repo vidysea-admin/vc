@@ -1,0 +1,5 @@
+# senior-software-engineer review — vc-admin-control fix cycle 2 (read-only)
+Review the diff 78ddaef..6b8674c in D:/vc/.worktrees/vca-int (branch wave/vc-admin-control). Read-only: never edit, never commit.
+Focus: apps/api/src/admin-routes.ts `boundEnvRef` and every env-credential read path (credentialFor, source test/sync, createLivePathlynksPort, index.ts spreads); can any admin-reachable input make an env credential (PATHLYNKS_*, GITHUB_*) reach a host, port, database, user or repo other than the one seeded in config/sources.json? Also: packages/schemas/src/sources.ts kind-to-prefix binding; apps/web/src/app/admin/_lib/session-handlers.ts createLoginGuard LRU eviction; the login audit path (one row per attempt, no secret in the row); the sync status rule.
+You may run tests only via `bash D:/vc/scripts/vc-testlock.sh pnpm exec tsx --test <files>` from the package dir. No live services.
+Return: Approve / Warning / Block, then findings with file:line and the concrete wrong behaviour, >80% confidence only.

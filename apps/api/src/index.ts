@@ -18,6 +18,7 @@ import {
   MIN_AUDIT_HMAC_KEY_LENGTH,
   anonymousCountersCollection,
   connectFromEnv,
+  createAdminStore,
   erasureConfigFromEnv,
   errorLabel,
   startErasureFenceSweep,
@@ -44,6 +45,20 @@ import {
 } from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, refuseTenantClaims, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
+import { loadSourcesFile, type SourcesFile } from "@vc/schemas";
+import { adminJwtSecretFromEnv } from "./admin-auth.js";
+import {
+  createGithubPort,
+  createLivePathlynksPort,
+  createNavCatalogueLoader,
+  createPostgresTestPort,
+  createUsageSink,
+  seedSourcesFromConfig,
+  usdInrFromEnv,
+  withAdminRoutes,
+  type AdminPostgresPort,
+  type AdminRoutesDeps,
+} from "./admin-routes.js";
 import {
   AnonymousConfigError,
   DEFAULT_GATES_DIR,
@@ -91,6 +106,8 @@ import {
 } from "./voice.js";
 
 export * from "./auth.js";
+export * from "./admin-auth.js";
+export * from "./admin-routes.js";
 export * from "./server.js";
 export { OPENAPI_DOCUMENT, PARTNER_OPENAPI, STUDENT_API_DRAFT } from "./openapi.js";
 export * from "./partners.js";
@@ -433,7 +450,26 @@ export interface Api {
   port?: number;
 }
 
+/**
+ * vc-admin-control: the admin console and the Pathlynks wiring. Everything defaults to the real thing (GitHub over fetch, the Postgres port over
+ * `@vc/mcp-pathlynks`, config/sources.json); tests inject fakes. The console is served only when VC_ADMIN_JWT_SECRET is set.
+ */
+export interface StartApiAdminOptions {
+  github?: AdminRoutesDeps["github"];
+  postgres?: AdminPostgresPort;
+  /** A parsed sources file, or a path; default: the repo's config/sources.json (missing file = nothing seeded). */
+  sources?: SourcesFile | string;
+  /** Replaces the live Pathlynks port (tests). */
+  pathlynks?: ChatApiDeps["pathlynks"];
+  nowMs?: () => number;
+  log?: (line: Record<string, unknown>) => void;
+}
+
+export const DEFAULT_SOURCES_FILE = fileURLToPath(new URL("../../../config/sources.json", import.meta.url));
+
 export interface StartApiOptions extends ErasureFenceSweepOptions {
+  /** vc-admin-control: the admin console, usage rows and the Pathlynks port. */
+  admin?: StartApiAdminOptions;
   /** Tests inject a fake (see @vc/db/testing createFakeMongoClient); omit for the real driver. */
   clientFactory?: MongoClientFactory;
   /** T-025: also serve the HTTP API. */
@@ -545,11 +581,20 @@ export async function startApi(
   // P1 LK7: a chain spends real money, so it never starts without a valid monthly cap (fail closed, before anything connects). Every hop of the
   // chain is charged through this one guard; a refused request is the existing degraded reply, never a crash.
   const chainGuard = textChain ? createChainSpendGuard({ capUsd: parseChainMonthlyCap(env), ...(http?.chainSpend ?? {}) }) : undefined;
+  const usageRef: { sink?: ReturnType<typeof createUsageSink> } = {};
   const httpSetup = httpBase
     ? {
         ...httpBase,
         studentProvider: textChain
-          ? createProvider(textChain, { beforeRequest: chainGuard!.beforeRequest, onUsage: chainGuard!.onUsage, onExhausted: chainGuard!.onExhausted })
+          ? createProvider(textChain, {
+              beforeRequest: chainGuard!.beforeRequest,
+              // vc-admin-control VA17: the same usage report also feeds the per-turn meter (a no-op outside a metered turn or before the sink exists).
+              onUsage: (u) => {
+                chainGuard!.onUsage(u);
+                usageRef.sink?.addUsage(u);
+              },
+              onExhausted: chainGuard!.onExhausted,
+            })
           : httpBase.provider,
       }
     : undefined;
@@ -558,6 +603,21 @@ export async function startApi(
   const partnerPepper = httpSetup ? partnerPepperFromEnv(env) : undefined;
   const partnerKeyRequired = httpSetup ? partnerKeyRequiredFromEnv(env) : false;
   if (partnerKeyRequired && partnerPepper === undefined) throw new PartnerConfigError(`${PARTNER_KEY_REQUIRED_ENV} is true but ${PARTNER_PEPPER_ENV} is not set`);
+  // vc-admin-control: every configuration error (JWT secret length, USD/INR rate, master key shape, sources file) surfaces BEFORE anything connects.
+  const adminJwtSecret = httpSetup ? adminJwtSecretFromEnv(env) : undefined;
+  const adminUsdInr = httpSetup ? usdInrFromEnv(env) : undefined;
+  const adminMasterKey = env.VC_ADMIN_MASTER_KEY !== undefined && env.VC_ADMIN_MASTER_KEY !== "" ? env.VC_ADMIN_MASTER_KEY : undefined;
+  let sourcesFile: SourcesFile | undefined;
+  if (httpSetup) {
+    const s = options.admin?.sources;
+    if (typeof s === "object") sourcesFile = s;
+    else {
+      const path = s ?? DEFAULT_SOURCES_FILE;
+      const exists = (process.getBuiltinModule("node:fs") as typeof import("node:fs")).existsSync(path);
+      if (exists) sourcesFile = loadSourcesFile(path); // a bad file (a secret-looking value, an unknown key) is a startup error naming the path of the field
+    }
+  }
+  const pathlynksSiteId = sourcesFile?.siteId;
   const partnerStoreRef: { store?: PartnerStore } = {};
   const partnerStore: PartnerStore = http?.partners?.store ?? deferredPartnerStore(partnerStoreRef);
   // pc-reserved-ids (R2): the tenant ids a partner key may never carry as its partner id = the operator's VC_RESERVED_TENANT_IDS (a bad list throws here, before anything
@@ -731,6 +791,21 @@ export async function startApi(
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
   partnerStoreRef.store = createMongoPartnerStore(db);
+  // vc-admin-control: the store is built before connecting (a bad master key throws here, nothing connected). Console off + no master key = no store.
+  const adminStore = httpSetup && (adminJwtSecret !== undefined || adminMasterKey !== undefined) ? createAdminStore(db, adminMasterKey ? { masterKey: adminMasterKey } : {}) : undefined;
+  const adminLog = options.admin?.log ?? ((line: Record<string, unknown>) => console.error(JSON.stringify({ ...line, ts: new Date().toISOString() })));
+  // VA17: usage rows need the HMAC key derived from the master key; without it none are written (the console says nothing about students it cannot key).
+  const usageSink = adminStore && adminMasterKey ? createUsageSink(adminStore, adminMasterKey) : undefined;
+  if (usageSink) usageRef.sink = usageSink;
+  // S5/S6: the live Pathlynks port and the stored navigation catalogue, handed ONLY to the Pathlynks tenant (the config file's siteId).
+  const livePathlynks =
+    chatSetup && adminStore && pathlynksSiteId
+      ? (options.admin?.pathlynks ??
+        createLivePathlynksPort(adminStore, { env, ...(sourcesFile ? { seeded: sourcesFile.sources } : {}), onEvent: (e) => adminLog({ level: e.type === "privileged_role_override" ? "warn" : "error", event: `pathlynks_${e.type}` }) }))
+      : undefined;
+  if (livePathlynks && env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE === "1") adminLog({ level: "warn", event: "pathlynks_privileged_role_override", message: "PATHLYNKS_ALLOW_PRIVILEGED_ROLE=1: the connect-time write-privilege refusal is skipped; SELECT-only SQL in a read-only transaction still applies" });
+  const pathlynksTimeoutMs = env.VC_PATHLYNKS_TIMEOUT_MS !== undefined && /^[0-9]+$/.test(env.VC_PATHLYNKS_TIMEOUT_MS) ? Number(env.VC_PATHLYNKS_TIMEOUT_MS) : undefined;
+  const navCatalogue = chatSetup && adminStore && pathlynksSiteId ? createNavCatalogueLoader(adminStore, pathlynksSiteId) : undefined;
   // Built before connecting so every voice configuration error (secret length, base URL) is a startup error with nothing connected.
   let voice: VoiceApi | undefined;
   if (voiceSetup) {
@@ -762,6 +837,7 @@ export async function startApi(
         ...(partnerRegistry ? { partners: partnerRegistry } : {}),
         ...(anonymousVoice ? { anonymous: anonymousVoice } : { anonymous: undefined }),
         ...(passThrough.extractFacts === undefined && defaultExtractFacts ? { extractFacts: defaultExtractFacts } : {}),
+        ...(usageSink && passThrough.usage === undefined ? { usage: usageSink } : {}),
         verifier,
         dbForTenant: (tenantId) => tenantScopedDb(db, tenantId),
         live,
@@ -845,11 +921,45 @@ export async function startApi(
               ...(chatSetup.chat.nowMs ? { nowMs: chatSetup.chat.nowMs } : {}),
               ...(chatSetup.chat.log ? { log: chatSetup.chat.log } : {}),
               ...(chatSetup.chat.alert ? { alert: chatSetup.chat.alert } : {}),
+              ...(usageSink ? { usage: usageSink } : {}),
+              ...(livePathlynks && pathlynksSiteId ? { pathlynks: livePathlynks, pathlynksTenantId: pathlynksSiteId } : {}),
+              ...(navCatalogue ? { navCatalogue: navCatalogue as NonNullable<ChatApiDeps["navCatalogue"]> } : {}),
+              ...(pathlynksTimeoutMs !== undefined ? { pathlynksTimeoutMs } : {}),
             },
             { enabled: true, gatesDir: chatSetup.chat.gatesDir ?? DEFAULT_GATES_DIR, env },
           )
         : undefined;
-      const s = createApiServer(withPartnerRoutes(withVoiceRoutes(withChatRoutes(withAnonymousRoutes(handler, anonymousHandler), chatHandler), voice?.handler), partnerRegistry), {
+      const publicHandler = withPartnerRoutes(withVoiceRoutes(withChatRoutes(withAnonymousRoutes(handler, anonymousHandler), chatHandler), voice?.handler), partnerRegistry);
+      // vc-admin-control: /admin/api/* is answered here, before every other wrapper; with no VC_ADMIN_JWT_SECRET nothing is mounted.
+      const mountedHandler =
+        adminStore && adminJwtSecret
+          ? withAdminRoutes(publicHandler, {
+              store: adminStore,
+              db,
+              partnerStore,
+              ...(partnerPepper !== undefined ? { partnerCtx: { pepper: partnerPepper, reservedIds: partnerReservedIds, ownTenants: partnerOwnTenants } } : {}),
+              jwtSecret: adminJwtSecret,
+              ...(adminUsdInr !== undefined ? { usdInrRate: adminUsdInr } : {}),
+              ...(options.admin?.nowMs ? { nowMs: options.admin.nowMs } : {}),
+              github: options.admin?.github ?? ((token) => createGithubPort(token)),
+              postgres: options.admin?.postgres ?? createPostgresTestPort({ env }),
+              env,
+              // fix2 F1: env credentials are released only to the exact connections seeded from config/sources.json.
+              ...(sourcesFile ? { seededSources: sourcesFile.sources } : {}),
+              ...(pathlynksSiteId ? { defaultSiteId: pathlynksSiteId } : {}),
+              log: adminLog,
+            })
+          : publicHandler;
+      if (adminStore && sourcesFile) {
+        // Seed config/sources.json once per start; a source that already exists (with its stored secret and last sync) is left exactly as it is.
+        try {
+          const r = await seedSourcesFromConfig(adminStore, sourcesFile);
+          adminLog({ level: "info", event: "admin_sources_seeded", created: r.created, existing: r.existing });
+        } catch (err) {
+          adminLog({ level: "error", event: "admin_sources_seed_failed", error: errorLabel(err) });
+        }
+      }
+      const s = createApiServer(mountedHandler, {
         ...(voice ? { onUpgrade: voice.upgrade } : {}),
       });
       server = s;

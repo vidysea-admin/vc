@@ -1,0 +1,1 @@
+        if (counts.routes === 0) return fail("No page routes were found in the repository, so the stored catalogue was kept.", counts);
