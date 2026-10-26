@@ -33,13 +33,23 @@ async function worldWith(files: Record<string, string>, extra: Parameters<typeof
       tokens.push(t);
       return gh;
     },
+    seededSources: WORLD_SEED.sources,
     ...extra,
   });
-  await w.store.sources.upsert({ id: "school-be", siteId: "pathlynks", kind: "github", config: { owner: "acme", repo: "backend", branch: "main", service: "school", tokenRef: "GITHUB_TOKEN" } });
+  await seedSourcesFromConfig(w.store, WORLD_SEED);
   await w.store.sources.upsert({ id: "web-fe", siteId: "pathlynks", kind: "github", config: { owner: "acme", repo: "frontend", branch: "main", service: "frontend" } });
-  await w.store.sources.upsert({ id: "pathlynks-db", siteId: "pathlynks", kind: "postgres", config: { host: "db.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "PATHLYNKS_DB_PASSWORD", tables: ["students"] } });
   return Object.assign(w, { gh, tokens });
 }
+
+/** The fixture's own "config/sources.json": the two sources whose env refs the server may resolve (fix2 F1). */
+const WORLD_SEED = parseSourcesFile({
+  version: 1,
+  siteId: "pathlynks",
+  sources: [
+    { kind: "github", id: "school-be", owner: "acme", repo: "backend", branch: "main", service: "school", tokenRef: "GITHUB_TOKEN" },
+    { kind: "postgres", id: "pathlynks-db", host: "db.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "PATHLYNKS_DB_PASSWORD", tables: ["students"] },
+  ],
+});
 
 test("VA8: syncing a backend source fetches only migrations, writes a schema_map artifact, records lastSync ok with counts, and the list shows it", async () => {
   const w = await worldWith({ ...migrations(), "src/index.js": "console.log(1)" });
@@ -296,7 +306,8 @@ test("fix1 R2: an admin-created postgres source with id aaa-evil does not become
   const base = { host: "evil.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "PATHLYNKS_DB_PASSWORD" };
   await w.store.sources.upsert({ id: "aaa-evil", siteId: "pathlynks", kind: "postgres", config: { ...base, tables: ["students", "saved_careers_evil", "compare_lists", "assessments"] } });
   const clock = { ms: 0 };
-  const port = createLivePathlynksPort(w.store, { env: { PATHLYNKS_DB_PASSWORD: "dummy-pg-password-0001" }, nowMs: () => clock.ms, connect: connect as never });
+  const seeded = [{ kind: "postgres" as const, id: PATHLYNKS_POSTGRES_SOURCE_ID, ...base, sslmode: "require" as const, host: "real.example", tables: ["students", "saved_careers", "compare_lists", "assessments"] }];
+  const port = createLivePathlynksPort(w.store, { env: { PATHLYNKS_DB_PASSWORD: "dummy-pg-password-0001" }, seeded, nowMs: () => clock.ms, connect: connect as never });
   assert.deepEqual(await port.getSavedCareers("stu-A"), { status: "unavailable" }, "only the evil source exists: the live port stays unavailable");
   assert.equal(connects, 0, "no connection was attempted for the evil source");
   await w.store.sources.upsert({ id: PATHLYNKS_POSTGRES_SOURCE_ID, siteId: "pathlynks", kind: "postgres", config: { ...base, host: "real.example", tables: ["students", "saved_careers", "compare_lists", "assessments"] } });
@@ -304,6 +315,43 @@ test("fix1 R2: an admin-created postgres source with id aaa-evil does not become
   assert.deepEqual(await port.getSavedCareers("stu-A"), { status: "ok", data: [{ career_name: "Chef" }] });
   const selects = statements.filter((q) => /^SELECT \*/i.test(q));
   assert.ok(selects.length > 0 && selects.every((q) => q.includes('"saved_careers"') && !q.includes("saved_careers_evil")), JSON.stringify(selects));
+});
+
+test("fix2 F1: the seeded pathlynks-db with its host PATCHed to attacker.example never becomes a live chat connection carrying the env password; restored, it connects again", async () => {
+  const w = await adminWorld();
+  const { loadSourcesFile } = await import("@vc/schemas");
+  const file = loadSourcesFile(join(here, "..", "..", "..", "config", "sources.json"));
+  await seedSourcesFromConfig(w.store, file);
+  const seededPg = file.sources.find((s) => s.kind === "postgres")!;
+  // An injected connect is called with no driver config, so a connection here means the port was built WITH a password (no password = no port).
+  const connected: number[] = [];
+  const connect = async () => {
+    connected.push(1);
+    return {
+      async query(text: string) {
+        if (/has_table_privilege/i.test(text)) return { rows: [{ ins: false, upd: false, del: false }] };
+        if (/^SET/i.test(text)) return { rows: [] };
+        return { rows: [] };
+      },
+      async end() {},
+    };
+  };
+  const clock = { ms: 0 };
+  const ENV_PW = "env-pg-password-not-real-0002";
+  const port = createLivePathlynksPort(w.store, { env: { PATHLYNKS_DB_PASSWORD: ENV_PW }, seeded: file.sources, nowMs: () => clock.ms, connect: connect as never });
+  const { kind, id, ...config } = seededPg;
+  await w.store.sources.upsert({ id, siteId: file.siteId, kind, config: { ...config, host: "attacker.example" } });
+  assert.deepEqual(await port.getSavedCareers("stu-A"), { status: "unavailable" });
+  assert.equal(connected.length, 0, "no connection was opened for the PATCHed host");
+  await w.store.sources.upsert({ id, siteId: file.siteId, kind, config });
+  clock.ms += 61_000;
+  await port.getSavedCareers("stu-A");
+  assert.ok(connected.length > 0, "the unchanged seeded source still gets its env password and connects");
+  // and with no seeded list handed in, the env password is never used at all
+  const closed = createLivePathlynksPort(w.store, { env: { PATHLYNKS_DB_PASSWORD: ENV_PW }, nowMs: () => clock.ms, connect: connect as never });
+  const n = connected.length;
+  assert.deepEqual(await closed.getSavedCareers("stu-A"), { status: "unavailable" });
+  assert.equal(connected.length, n);
 });
 
 test("fix1 R2: the fixed live-port source id is the postgres entry of config/sources.json", async () => {
@@ -350,20 +398,37 @@ test("fix1 R6: migration files that define no table (all no-ops) record error an
   assert.equal((await w.store.sources.get("school-be"))!.lastSync!.status, "error");
 });
 
-test("fix1 R6: every migration file failing to parse (diagnostics >= files) records error with the diagnostics in the response and does not replace the artifact", async () => {
+test("fix2 F4: one migration that defines a table AND has one unparsed statement is a usable sync: status ok, the diagnostic recorded, the artifact replaced", async () => {
   const w = await worldWith(migrations());
   await syncOf(w, "school-be");
-  const good = await w.store.artifacts.getLatest("school-be", "schema_map");
-  // one file that yields a table AND an unparsed statement: diagnostics (1) >= files (1)
   w.deps.github = () => fakeGithub({ "migrations/20260101-m.js": MIG_OK_ONE.replace("}); }, down", "}); await queryInterface.addColumn(tbl, col, def); }, down") });
   w.clock.ms += 60_000;
   const res = await syncOf(w, "school-be");
-  assert.equal(res.json.status, "error", res.body);
-  assert.match(res.json.message, /could not be parsed/i);
+  assert.equal(res.json.status, "ok", res.body);
   assert.equal(res.json.counts.diagnostics, 1);
   assert.equal(res.json.diagnostics.length, 1);
   assert.equal(res.json.diagnostics[0].code, "unresolved_args");
-  assert.deepEqual(await w.store.artifacts.getLatest("school-be", "schema_map"), good);
+  const art = await w.store.artifacts.getLatest("school-be", "schema_map");
+  assert.deepEqual(Object.keys(art!.data.tables as object), ["users"]);
+});
+
+test("fix2 F4: four valid createTable migrations, each with one raw sequelize.query, sync as ok with 4 tables, the artifact stored and 4 diagnostics recorded (no false error)", async () => {
+  const w = await worldWith(migrations());
+  const files: Record<string, string> = {};
+  for (const t of ["alpha", "beta", "gamma", "delta"]) {
+    files[`migrations/2026010${["alpha", "beta", "gamma", "delta"].indexOf(t)}-${t}.js`] =
+      `module.exports = { up: async (queryInterface, Sequelize) => { await queryInterface.createTable('${t}', { id: { type: Sequelize.INTEGER, primaryKey: true } }); await queryInterface.sequelize.query('UPDATE ${t} SET id = id'); }, down: async () => {} };`;
+  }
+  w.deps.github = () => fakeGithub(files);
+  const res = await syncOf(w, "school-be");
+  assert.equal(res.json.status, "ok", res.body);
+  assert.equal(res.json.counts.files, 4);
+  assert.equal(res.json.counts.tables, 4);
+  assert.ok(res.json.counts.diagnostics >= 4, res.body);
+  const art = await w.store.artifacts.getLatest("school-be", "schema_map");
+  assert.deepEqual(Object.keys(art!.data.tables as object).sort(), ["alpha", "beta", "delta", "gamma"]);
+  assert.ok((art!.data.diagnostics as unknown[]).length >= 4);
+  assert.equal((await w.store.sources.get("school-be"))!.lastSync!.status, "ok");
 });
 
 test("fix1 R6: a migration over the size cap is counted as skipped, and the sync still succeeds for the others", async () => {

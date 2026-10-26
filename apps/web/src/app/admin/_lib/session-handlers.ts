@@ -162,24 +162,31 @@ export interface LoginGuard {
 /**
  * A per-key attempt budget (in memory, per server process). Keyed by e-mail it stops one account being guessed at from many addresses, which the
  * admin API's per-client limit alone cannot: this layer never forwards an attacker-supplied address, so it cannot know the client.
+ *
+ * Bounded at `maxKeys`, and it never fails closed (fix cycle 2, F3): when the table is full, expired keys go first, then the least recently used
+ * one, so a flood of fresh attacker-chosen e-mails can never make a legitimate admin's first attempt a 429.
  */
 export function createLoginGuard(opts: { limit?: number; windowMs?: number; maxKeys?: number; now?: () => number } = {}): LoginGuard {
   const limit = opts.limit ?? 5;
   const windowMs = opts.windowMs ?? 60_000;
-  const maxKeys = opts.maxKeys ?? 10_000;
+  const maxKeys = Math.max(1, opts.maxKeys ?? 10_000);
   const now = opts.now ?? Date.now;
+  // Insertion order = least recently used first: every touch deletes and re-inserts the key.
   const hits = new Map<string, number[]>();
   return {
     check(key) {
       const t = now();
       const recent = (hits.get(key) ?? []).filter((at) => t - at < windowMs);
+      hits.delete(key);
       if (recent.length >= limit) {
         hits.set(key, recent);
         return false;
       }
-      if (hits.size >= maxKeys && !hits.has(key)) {
-        for (const [k, list] of hits) if (list.every((at) => t - at >= windowMs)) hits.delete(k);
-        if (hits.size >= maxKeys) return false; // table full of live keys: fail closed
+      // Full: drop from the least recently used end (expired keys sit there), and if every key is still live, drop the least recently used one
+      // anyway instead of refusing this attempt. O(1) amortised: a flood cannot turn each check into a full-table scan.
+      for (const k of hits.keys()) {
+        if (hits.size < maxKeys) break;
+        hits.delete(k);
       }
       recent.push(t);
       hits.set(key, recent);

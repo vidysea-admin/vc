@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { studentKeyOf } from "@vc/db";
-import { adminIdOf, adminRouteSignatures } from "../src/admin-routes.js";
+import { loadSourcesFile } from "@vc/schemas";
+import { adminIdOf, adminRouteSignatures, seedSourcesFromConfig } from "../src/admin-routes.js";
 import {
   PartnerError,
   addPartner,
@@ -182,11 +183,15 @@ test("VA6: validation failures and downstream errors are audited ok:false, succe
       ["login", false],
     ],
   );
-  // a rate-limited login is a row too
-  for (let i = 0; i < 4; i++) await login("wrong-password-xyz");
+  // fix2 F2: every login attempt is exactly one row, a repeated failure and the rate-limited attempt included.
+  for (let i = 0; i < 3; i++) assert.equal((await login("wrong-password-xyz")).status, 401);
+  const beforeLimited = w.auditRows().length;
   assert.equal((await login(PASSWORD)).status, 429);
-  const last = w.auditRows().at(-1)!;
-  assert.deepEqual([last.action, last.ok], ["login", false]);
+  const after = w.auditRows();
+  assert.equal(after.length, beforeLimited + 1, "the rate-limited attempt wrote exactly one row");
+  assert.deepEqual([after.at(-1)!.action, after.at(-1)!.ok, after.at(-1)!.target], ["login", false, "login"]);
+  assert.equal(after.filter((r) => r.action === "login").length, 6, "2 + 3 repeated failures + 1 limited = one row per attempt");
+  assert.ok(!JSON.stringify(after).includes(PASSWORD), "no row carries a password");
 });
 
 test("VA6: GET audit returns rows newest first for a viewer, and a row holds only at, actorId, action, target and ok (no body, no secret)", async () => {
@@ -498,9 +503,145 @@ test("fix1 R1: an admin creates a source naming VC_ADMIN_MASTER_KEY / VC_ADMIN_J
     assert.equal(res.status, 400, JSON.stringify(body));
   }
   assert.deepEqual((await w.store.sources.list()).map((s) => s.id), ["gh-1"], "none of the evil sources was stored");
+  // fix2 F1: an allow-listed name may still be STORED on an admin-created source, but it is never resolved for it (see the fix2 F1 tests below).
   const fine = await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body: { ...pg, id: "pg-ok", passwordRef: "PATHLYNKS_DB_PASSWORD" } });
   assert.equal(fine.status, 201);
   assert.equal((await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body: { ...GITHUB_BODY, id: "gh-ok", tokenRef: "GITHUB_TOKEN_2" } })).status, 201);
+  const test = await w.call("POST", `${ADMIN_PATH}sources/pg-ok/test`, { token: admin, body: {} });
+  assert.equal(test.json.ok, false, "an admin-created source never gets the env password");
+});
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 2 (F1): env credentials bound to the seeded connection
+
+const ENV_PG_PASSWORD = "env-pg-password-not-real-0001";
+const ENV_GH_TOKEN = "env-gh-token-not-real-0001";
+const REAL_SOURCES = loadSourcesFile(fileURLToPath(new URL("../../../config/sources.json", import.meta.url)));
+const SEEDED_PG = REAL_SOURCES.sources.find((s) => s.kind === "postgres")!;
+const SEEDED_GH = REAL_SOURCES.sources.filter((s) => s.kind === "github");
+
+/** A world seeded from the real config/sources.json, with the env holding dummy values for its refs, a recording Postgres port and a recording GitHub factory. */
+async function exfilWorld(opts: { seeded?: boolean } = {}) {
+  const pgCalls: { host: unknown; password: string | undefined }[] = [];
+  const ghTokens: { token: string | undefined }[] = [];
+  const w = await adminWorld({
+    env: { PATHLYNKS_DB_PASSWORD: ENV_PG_PASSWORD, GITHUB_TOKEN: ENV_GH_TOKEN },
+    ...(opts.seeded === false ? {} : { seededSources: REAL_SOURCES.sources }),
+    postgres: {
+      async test(config, password) {
+        pgCalls.push({ host: config.host, password });
+        return { ok: true };
+      },
+    },
+    github: (token) => {
+      ghTokens.push({ token });
+      return fakeGithub({ "src/app/page.tsx": "" });
+    },
+  });
+  await seedSourcesFromConfig(w.store, REAL_SOURCES);
+  const leaked = (): boolean => {
+    const all = JSON.stringify([pgCalls, ghTokens, w.logs, w.auditRows(), w.fakeDb.collection("sources").all()]);
+    return all.includes(ENV_PG_PASSWORD) || all.includes(ENV_GH_TOKEN);
+  };
+  return Object.assign(w, { pgCalls, ghTokens, leaked });
+}
+
+test("fix2 F1: an admin creates a postgres source host=attacker.example with passwordRef PATHLYNKS_DB_PASSWORD and presses Test: the attacker's port never receives the env password", async () => {
+  const w = await exfilWorld();
+  const admin = await w.token("admin");
+  const body = { kind: "postgres", id: "pg-evil", host: "attacker.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "PATHLYNKS_DB_PASSWORD", tables: ["students", "saved_careers", "compare_lists", "assessments"] };
+  const created = await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body });
+  assert.ok(created.status === 201 || created.status === 400, created.body);
+  if (created.status === 201) {
+    const res = await w.call("POST", `${ADMIN_PATH}sources/pg-evil/test`, { token: admin, body: {} });
+    assert.equal(res.json.ok, false);
+    assert.match(res.json.message, /no credential/i);
+  }
+  // Same host, port and database as the seeded one but a different id: still not the seeded connection.
+  const twin = { ...body, id: "pg-twin", host: SEEDED_PG.host, port: SEEDED_PG.port, database: SEEDED_PG.database, user: SEEDED_PG.user };
+  if ((await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body: twin })).status === 201) {
+    assert.equal((await w.call("POST", `${ADMIN_PATH}sources/pg-twin/test`, { token: admin, body: {} })).json.ok, false);
+  }
+  assert.ok(!w.pgCalls.some((c) => c.password === ENV_PG_PASSWORD), JSON.stringify(w.pgCalls.map((c) => c.host)));
+  assert.ok(!w.leaked(), "the env password is nowhere: port calls, logs, audit rows, stored sources");
+});
+
+test("fix2 F1: an admin creates a github source owner=evil with tokenRef GITHUB_TOKEN and presses Test and Sync: no token is sent to the evil repository", async () => {
+  const w = await exfilWorld();
+  const admin = await w.token("admin");
+  const body = { kind: "github", id: "gh-evil", owner: "evil", repo: "loot", branch: "main", service: "frontend", tokenRef: "GITHUB_TOKEN" };
+  assert.equal((await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body })).status, 201);
+  const test = await w.call("POST", `${ADMIN_PATH}sources/gh-evil/test`, { token: admin, body: {} });
+  assert.equal(test.json.ok, false);
+  assert.match(test.json.message, /no credential/i);
+  const sync = await w.call("POST", `${ADMIN_PATH}sources/gh-evil/sync`, { token: admin, body: {} });
+  assert.equal(sync.json.status, "error");
+  assert.ok(!w.ghTokens.some((t) => t.token === ENV_GH_TOKEN));
+  assert.ok(!w.leaked());
+});
+
+test("fix2 F1: a github source whose tokenRef is PATHLYNKS_DB_PASSWORD (the DB password as a GitHub bearer) is a 400 and nothing is stored", async () => {
+  const w = await exfilWorld();
+  const admin = await w.token("admin");
+  const before = (await w.store.sources.list()).length;
+  const res = await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body: { kind: "github", id: "gh-x", owner: "evil", repo: "loot", branch: "main", service: "frontend", tokenRef: "PATHLYNKS_DB_PASSWORD" } });
+  assert.equal(res.status, 400);
+  const pg = await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body: { kind: "postgres", id: "pg-x", host: "attacker.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "GITHUB_TOKEN", tables: ["students"] } });
+  assert.equal(pg.status, 400);
+  assert.equal((await w.store.sources.list()).length, before);
+});
+
+test("fix2 F1: the seeded pathlynks-db with its host (or port, database, user, sslmode) PATCHed to attacker.example gets no env password on Test; a seeded repo with owner/repo PATCHed gets no token", async () => {
+  const admin = async (w: Awaited<ReturnType<typeof exfilWorld>>) => w.token("admin");
+  const pgPatches: Record<string, unknown>[] = [{ host: "attacker.example" }, { port: 5433 }, { database: "other" }, { user: "postgres" }, { sslmode: SEEDED_PG.sslmode === "require" ? "verify-full" : "require" }, { passwordRef: "PATHLYNKS_OTHER" }];
+  for (const patch of pgPatches) {
+    const w = await exfilWorld();
+    const { kind, id, ...config } = SEEDED_PG;
+    await w.store.sources.upsert({ id, siteId: REAL_SOURCES.siteId, kind, config: { ...config, ...patch } });
+    const res = await w.call("POST", `${ADMIN_PATH}sources/${id}/test`, { token: await admin(w), body: {} });
+    assert.equal(res.json.ok, false, JSON.stringify(patch));
+    assert.ok(!w.leaked(), JSON.stringify(patch));
+  }
+  for (const patch of [{ owner: "evil" }, { repo: "loot" }]) {
+    const w = await exfilWorld();
+    const { kind, id, ...config } = SEEDED_GH[0]!;
+    await w.store.sources.upsert({ id, siteId: REAL_SOURCES.siteId, kind, config: { ...config, ...patch } });
+    assert.equal((await w.call("POST", `${ADMIN_PATH}sources/${id}/test`, { token: await admin(w), body: {} })).json.ok, false, JSON.stringify(patch));
+    await w.call("POST", `${ADMIN_PATH}sources/${id}/sync`, { token: await admin(w), body: {} });
+    assert.ok(!w.leaked(), JSON.stringify(patch));
+  }
+});
+
+test("fix2 F1: the seeded pathlynks-db and the 4 seeded repos, unchanged, still get their env credentials on Test", async () => {
+  const w = await exfilWorld();
+  const admin = await w.token("admin");
+  const res = await w.call("POST", `${ADMIN_PATH}sources/${SEEDED_PG.id}/test`, { token: admin, body: {} });
+  assert.deepEqual(res.json, { ok: true, message: "Connection works." });
+  assert.deepEqual(w.pgCalls, [{ host: SEEDED_PG.host, password: ENV_PG_PASSWORD }]);
+  assert.equal(SEEDED_GH.length, 4);
+  for (const s of SEEDED_GH) {
+    const before = w.ghTokens.length;
+    assert.deepEqual((await w.call("POST", `${ADMIN_PATH}sources/${s.id}/test`, { token: admin, body: {} })).json, { ok: true, message: "Connection works." }, s.id);
+    assert.equal(w.ghTokens.at(-1)?.token, ENV_GH_TOKEN, s.id);
+    assert.equal(w.ghTokens.length, before + 1);
+  }
+});
+
+test("fix2 F1: with no seeded config handed to the admin routes, no source ever gets an env credential (fail closed)", async () => {
+  const w = await exfilWorld({ seeded: false });
+  const admin = await w.token("admin");
+  assert.equal((await w.call("POST", `${ADMIN_PATH}sources/${SEEDED_PG.id}/test`, { token: admin, body: {} })).json.ok, false);
+  assert.ok(!w.leaked());
+});
+
+test("fix2 F1: an admin-created source that a super-admin gave its own encrypted secret uses that secret, never the env value", async () => {
+  const w = await exfilWorld();
+  const admin = await w.token("admin");
+  const body = { kind: "postgres", id: "pg-own", host: "own.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "PATHLYNKS_DB_PASSWORD", tables: ["students"] };
+  assert.equal((await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body })).status, 201);
+  assert.equal((await w.call("PUT", `${ADMIN_PATH}sources/pg-own/secret`, { token: await w.token("super-admin"), body: { secret: DUMMY_SECRET } })).status, 200);
+  assert.equal((await w.call("POST", `${ADMIN_PATH}sources/pg-own/test`, { token: admin, body: {} })).json.ok, true);
+  assert.deepEqual(w.pgCalls.at(-1), { host: "own.example", password: DUMMY_SECRET });
+  assert.ok(!w.leaked());
 });
 
 // ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R4): the one-time key survives an audit failure

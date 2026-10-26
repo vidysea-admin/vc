@@ -801,7 +801,7 @@ export async function startApi(
   const livePathlynks =
     chatSetup && adminStore && pathlynksSiteId
       ? (options.admin?.pathlynks ??
-        createLivePathlynksPort(adminStore, { env, onEvent: (e) => adminLog({ level: e.type === "privileged_role_override" ? "warn" : "error", event: `pathlynks_${e.type}` }) }))
+        createLivePathlynksPort(adminStore, { env, ...(sourcesFile ? { seeded: sourcesFile.sources } : {}), onEvent: (e) => adminLog({ level: e.type === "privileged_role_override" ? "warn" : "error", event: `pathlynks_${e.type}` }) }))
       : undefined;
   if (livePathlynks && env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE === "1") adminLog({ level: "warn", event: "pathlynks_privileged_role_override", message: "PATHLYNKS_ALLOW_PRIVILEGED_ROLE=1: the connect-time write-privilege refusal is skipped; SELECT-only SQL in a read-only transaction still applies" });
   const pathlynksTimeoutMs = env.VC_PATHLYNKS_TIMEOUT_MS !== undefined && /^[0-9]+$/.test(env.VC_PATHLYNKS_TIMEOUT_MS) ? Number(env.VC_PATHLYNKS_TIMEOUT_MS) : undefined;
@@ -944,6 +944,8 @@ export async function startApi(
               github: options.admin?.github ?? ((token) => createGithubPort(token)),
               postgres: options.admin?.postgres ?? createPostgresTestPort({ env }),
               env,
+              // fix2 F1: env credentials are released only to the exact connections seeded from config/sources.json.
+              ...(sourcesFile ? { seededSources: sourcesFile.sources } : {}),
               ...(pathlynksSiteId ? { defaultSiteId: pathlynksSiteId } : {}),
               log: adminLog,
             })

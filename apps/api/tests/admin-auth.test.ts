@@ -234,27 +234,35 @@ test("VA4 CLI: with stdin not a terminal, a short password, mismatched repeats, 
 
 // ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R5): the anonymous audit flood
 
-test("fix1 R5: 50 failed logins for one e-mail from one client write one audit row; the 429-limited ones and malformed bodies write none", async () => {
+test("fix2 F2 (VA6): 50 failed logins for one e-mail from one client write 50 audit rows: 5 refused 401s and 45 rate-limited 429s, one row each, none holding the password", async () => {
   const w = await adminWorld();
-  for (let i = 0; i < 50; i++) await login(w, "nobody@vc.test", "wrong-password-xyz");
-  const failed = w.auditRows().filter((r) => r.action === "login");
-  assert.equal(failed.length, 1, `rows: ${failed.length}`);
-  assert.equal(failed[0]!.ok, false);
-  // a malformed anonymous body from a fresh client is not a login attempt anyone can be blamed for
-  const before = w.auditRows().length;
-  const bad = await w.call("POST", `${ADMIN_PATH}login`, { headers: { "x-real-ip": "198.51.100.50" }, raw: "{not json" });
-  assert.equal(bad.status, 400);
-  assert.equal(w.auditRows().filter((r) => r.action === "login").length, before, "no row for a malformed anonymous body");
+  const statuses: number[] = [];
+  for (let i = 0; i < 50; i++) statuses.push((await login(w, "nobody@vc.test", "wrong-password-xyz")).status);
+  assert.deepEqual([statuses.filter((s) => s === 401).length, statuses.filter((s) => s === 429).length], [5, 45]);
+  const rows = w.auditRows().filter((r) => r.action === "login");
+  assert.equal(rows.length, 50, `rows: ${rows.length}`);
+  assert.ok(rows.every((r) => r.ok === false && r.target === "login"));
+  assert.ok(!JSON.stringify(rows).includes("wrong-password-xyz"));
 });
 
-test("fix1 R5: 50 attempts rotating 50 e-mails from one client are cut off by the 5-per-minute limiter and leave at most 5 rows; a new window records a new failure; success is always audited", async () => {
+test("fix2 F2 (VA6): a malformed or oversized login body from a fresh client is one ok:false row with no body in it", async () => {
+  const w = await adminWorld();
+  const bad = await w.call("POST", `${ADMIN_PATH}login`, { headers: { "x-real-ip": "198.51.100.50" }, raw: "{not json secret-ish-body" });
+  assert.equal(bad.status, 400);
+  const rows = w.auditRows().filter((r) => r.action === "login");
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0]!.ok, rows[0]!.target, rows[0]!.actorId], [false, "login", "unknown"]);
+  assert.ok(!JSON.stringify(rows).includes("secret-ish-body"));
+});
+
+test("fix2 F2 (VA6): attempts rotating e-mails are one row each, limited ones included; a new window still records; success is always audited", async () => {
   const w = await adminWorld();
   for (let i = 0; i < 50; i++) await login(w, `rot${i}@vc.test`, "wrong-password-xyz");
-  assert.equal(w.auditRows().filter((r) => r.action === "login").length, 5);
+  assert.equal(w.auditRows().filter((r) => r.action === "login").length, 50);
   w.clock.ms = T0 + 61_000;
   await login(w, "rot0@vc.test", "wrong-password-xyz");
   await login(w, "rot0@vc.test", "wrong-password-xyz");
-  assert.equal(w.auditRows().filter((r) => r.action === "login").length, 6, "one more row for the repeated pair in the new window");
+  assert.equal(w.auditRows().filter((r) => r.action === "login").length, 52, "the repeated pair is two rows");
   assert.equal((await login(w, ADMIN_EMAILS.admin, PASSWORD)).status, 200);
   const last = w.auditRows().filter((r) => r.action === "login").at(-1)!;
   assert.deepEqual([last.actorId, last.ok], [ADMIN_EMAILS.admin, true]);

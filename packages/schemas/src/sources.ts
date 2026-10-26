@@ -21,10 +21,21 @@ export const ENV_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
  */
 export const CREDENTIAL_REF_PATTERN = /^(PATHLYNKS|GITHUB)_[A-Z0-9_]+$/;
 
-const EnvName = z
-  .string()
-  .regex(ENV_NAME_PATTERN, "must be an environment variable NAME (UPPER_SNAKE_CASE)")
-  .regex(CREDENTIAL_REF_PATTERN, "must name a PATHLYNKS_* or GITHUB_* environment variable");
+/**
+ * The ref prefix is bound to the source kind (fix cycle 2, F1): a github `tokenRef` names only GITHUB_*, a postgres `passwordRef` only PATHLYNKS_*,
+ * so the database password can never be sent to GitHub as a bearer token (or a GitHub token to a database host).
+ */
+export const GITHUB_REF_PATTERN = /^GITHUB_[A-Z0-9_]+$/;
+export const PATHLYNKS_REF_PATTERN = /^PATHLYNKS_[A-Z0-9_]+$/;
+export function credentialRefPatternFor(kind: "github" | "postgres"): RegExp {
+  return kind === "github" ? GITHUB_REF_PATTERN : PATHLYNKS_REF_PATTERN;
+}
+
+const envName = (kind: "github" | "postgres") =>
+  z
+    .string()
+    .regex(ENV_NAME_PATTERN, "must be an environment variable NAME (UPPER_SNAKE_CASE)")
+    .regex(credentialRefPatternFor(kind), kind === "github" ? "must name a GITHUB_* environment variable" : "must name a PATHLYNKS_* environment variable");
 const SourceId = z.string().regex(/^[a-z0-9][a-z0-9_-]{1,63}$/, "source id: lowercase letters, digits, - and _");
 const Identifier = z.string().regex(/^[A-Za-z0-9_.-]{1,63}$/);
 const HostName = z.string().regex(/^[A-Za-z0-9]([A-Za-z0-9.-]{0,253}[A-Za-z0-9])?$/, "host name only (no scheme, userinfo or path)");
@@ -38,7 +49,7 @@ export const GithubSourceConfig = z
     repo: z.string().regex(/^[A-Za-z0-9._-]{1,100}$/),
     branch: z.string().regex(/^[A-Za-z0-9._/-]{1,200}$/).refine((b) => !b.includes(".."), "branch must not contain .."),
     service: z.enum(["frontend", "auth", "school", "career", "other"]),
-    tokenRef: EnvName.optional(),
+    tokenRef: envName("github").optional(),
   })
   .strict();
 
@@ -51,7 +62,7 @@ export const PostgresSourceConfig = z
     database: Identifier,
     user: Identifier,
     sslmode: z.enum(["require", "verify-full"]),
-    passwordRef: EnvName,
+    passwordRef: envName("postgres"),
     tables: z.array(TableName).min(1),
   })
   .strict();

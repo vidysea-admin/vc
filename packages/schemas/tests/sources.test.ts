@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
   CREDENTIAL_REF_PATTERN,
   SourceConfig,
+  credentialRefPatternFor,
   SourcesFile,
   SourcesConfigError,
   findSecretLikeFields,
@@ -158,9 +159,16 @@ test("fix1 R1: a source naming VC_ADMIN_MASTER_KEY, VC_ADMIN_JWT_SECRET or MONGO
     assert.equal(SourceConfig.safeParse({ ...gh, tokenRef: bad }).success, false, `tokenRef ${bad}`);
     assert.equal(SourceConfig.safeParse({ ...pg, passwordRef: bad }).success, false, `passwordRef ${bad}`);
   }
-  for (const good of ["GITHUB_TOKEN", "GITHUB_TOKEN_2", "PATHLYNKS_DB_PASSWORD"]) {
-    assert.equal(SourceConfig.safeParse({ ...gh, tokenRef: good }).success, true, good);
-    assert.equal(SourceConfig.safeParse({ ...pg, passwordRef: good }).success, true, good);
-  }
+  for (const good of ["GITHUB_TOKEN", "GITHUB_TOKEN_2"]) assert.equal(SourceConfig.safeParse({ ...gh, tokenRef: good }).success, true, good);
+  for (const good of ["PATHLYNKS_DB_PASSWORD", "PATHLYNKS_DB_PASSWORD_2"]) assert.equal(SourceConfig.safeParse({ ...pg, passwordRef: good }).success, true, good);
   assert.equal(CREDENTIAL_REF_PATTERN.test("VC_ADMIN_MASTER_KEY"), false);
+});
+
+test("fix2 F1: a github source naming PATHLYNKS_DB_PASSWORD as its tokenRef (the DB password sent to GitHub as a bearer) is refused; a postgres source naming GITHUB_TOKEN is refused", () => {
+  for (const bad of ["PATHLYNKS_DB_PASSWORD", "PATHLYNKS_TOKEN"]) assert.equal(SourceConfig.safeParse({ ...gh, tokenRef: bad }).success, false, `github tokenRef ${bad}`);
+  for (const bad of ["GITHUB_TOKEN", "GITHUB_DB_PASSWORD"]) assert.equal(SourceConfig.safeParse({ ...pg, passwordRef: bad }).success, false, `postgres passwordRef ${bad}`);
+  assert.equal(credentialRefPatternFor("github").test("PATHLYNKS_DB_PASSWORD"), false);
+  assert.equal(credentialRefPatternFor("postgres").test("GITHUB_TOKEN"), false);
+  assert.equal(credentialRefPatternFor("github").test("GITHUB_TOKEN"), true);
+  assert.equal(credentialRefPatternFor("postgres").test("PATHLYNKS_DB_PASSWORD"), true);
 });

@@ -270,3 +270,20 @@ test("fix1 R9: ten login attempts for one e-mail from ten rotating addresses sto
   const other = await handleSessionLogin(new Request("http://localhost:3108/api/admin-session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "someone-else@x.org", password: "pw-long-enough" }) }), d);
   assert.equal(other.status, 401, "another e-mail is unaffected");
 });
+
+test("fix2 F3 (R9): an attacker tries 10,000 distinct e-mails within one window; a legitimate admin's first login is then still forwarded (the guard evicts, it never fails closed)", async () => {
+  const calls: Call[] = [];
+  let now = 2_000_000;
+  const guard = createLoginGuard({ limit: 5, windowMs: 60_000, now: () => now });
+  for (let i = 0; i < 10_000; i++) assert.equal(guard.check(`bot${i}@x.test`), true);
+  const d: SessionDeps = { ...deps(() => json(401, { error: "nope" }), calls), loginGuard: guard };
+  const res = await handleSessionLogin(loginRequest({ email: "super@vc.test", password: "pw-long-enough" }), d);
+  assert.equal(res.status, 401, "reached the admin API instead of a 429 from a full guard table");
+  assert.equal(calls.length, 1);
+  // ten thousand MORE fresh e-mails at the very same instant still never lock a new one out
+  for (let i = 10_000; i < 20_000; i++) guard.check(`bot${i}@x.test`);
+  assert.equal(guard.check("another-admin@vc.test"), true);
+  // and the per-e-mail limit itself still holds for an address that is being guessed at
+  for (let i = 0; i < 5; i++) assert.equal(guard.check("victim@x.test"), true);
+  assert.equal(guard.check("victim@x.test"), false);
+});

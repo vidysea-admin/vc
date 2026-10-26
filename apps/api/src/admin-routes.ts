@@ -11,11 +11,16 @@
  * Order for every request other than login: bearer token (HS256, typ "vc-admin", the user still exists and is not disabled; the STORED role is
  * used, so a demotion applies at once) -> role check (403) -> body validation (400) -> the handler. Each of those failures after authentication
  * writes one `audit_log` row with ok:false; a success writes one with ok:true; GETs write none. An unauthenticated request (no valid token) is
- * a 401 with no row: there is no actor to record, and an anonymous flood must not be able to fill the log. The one exception is login: a failed
- * well-formed attempt IS audited, but at most one row per client+e-mail per limiter window; a 429-limited or malformed anonymous attempt writes none.
+ * a 401 with no row: there is no actor to record. The one exception is login (contract VA6): EVERY login attempt writes exactly one row, success
+ * (ok:true, the admin's e-mail) and failure alike, a wrong password, an unknown e-mail, a malformed body and a 429 rate-limited attempt included
+ * (ok:false; the actor is the matched admin's e-mail or "unknown"). A row never holds the request body or the password.
  *
  * Secrets: no response carries a stored secret, a password hash or the master key. `hasSecret` is the only signal. A created or rotated API key is
  * in that one response and nowhere else. Error bodies are fixed codes; no exception text is ever copied into a response, a log line or an audit row.
+ *
+ * Credentials (fix cycle 2, F1): a source's credential is its own encrypted secret (set by a super-admin) or, ONLY for the exact connection seeded
+ * from config/sources.json (same id, kind and host/port/database/user/sslmode, or owner/repo), the env var that seeded entry names. Any other source,
+ * an admin-created one or a seeded doc whose connection fields were changed, never gets an env value: Test / Sync answer "no credential".
  *
  * Sites reuse partners.ts end to end (addPartner / rotatePartner / revokePartner / unrevokePartner / updatePartner / listPartners): there is no
  * second key format or key lookup (VA7). Admin password hashing and the JWT are in admin-auth.ts and are the only HMAC/scrypt use here.
@@ -42,7 +47,7 @@ import {
   parseSequelizeMigrations,
   type GithubPort,
 } from "@vc/engine";
-import { CREDENTIAL_REF_PATTERN, SourceConfig, findSecretLikeFields, type SourcesFile } from "@vc/schemas";
+import { SourceConfig, credentialRefPatternFor, findSecretLikeFields, type SourcesFile } from "@vc/schemas";
 import { createPathlynksPort, type PathlynksEvent, type PathlynksResult as McpPathlynksResult } from "@vc/mcp-pathlynks";
 import { studentKeyOf } from "@vc/db";
 import type { StudentGraphDeps } from "@vc/engine";
@@ -50,8 +55,6 @@ import type { TurnUsageSink, UsageMeter } from "./chat.js";
 
 import {
   ADMIN_TOKEN_TTL_SEC,
-  LOGIN_MAX_AUDIT_KEYS,
-  LOGIN_WINDOW_MS,
   burnPasswordCheck,
   createLoginLimiter,
   hashPassword,
@@ -96,6 +99,35 @@ class CredentialRefError extends Error {
 }
 const CREDENTIAL_REF_REFUSED = "This source names a credential reference that is not allowed (only PATHLYNKS_* and GITHUB_* names are).";
 
+/** The source names an env credential, but it is not the exact connection that credential was seeded for (and no encrypted secret is stored). */
+class NoCredentialError extends Error {
+  constructor() {
+    super("no credential for this source");
+    this.name = "NoCredentialError";
+  }
+}
+const NO_CREDENTIAL = "No credential is set for this source. A super-admin can store one for it.";
+
+type SeededSource = SourcesFile["sources"][number];
+
+/**
+ * The env var NAME a stored source may read, or undefined. Only the exact connection seeded from config/sources.json qualifies: the same id and kind,
+ * the same ref, and the same host, port, database, user and sslmode (postgres) or owner and repo (github). Without a seeded list nothing qualifies.
+ */
+export function boundEnvRef(src: Pick<SourceSummary, "id" | "kind" | "config">, seeded: readonly SeededSource[] | undefined): string | undefined {
+  const seed = seeded?.find((s) => s.id === src.id);
+  if (!seed || seed.kind !== src.kind) return undefined;
+  const c = src.config as Record<string, unknown>;
+  const lower = (v: unknown): string | undefined => (typeof v === "string" ? v.toLowerCase() : undefined);
+  if (seed.kind === "postgres") {
+    const same =
+      lower(c.host) === seed.host.toLowerCase() && c.port === seed.port && c.database === seed.database && c.user === seed.user && c.sslmode === seed.sslmode && c.passwordRef === seed.passwordRef;
+    return same && credentialRefPatternFor("postgres").test(seed.passwordRef) ? seed.passwordRef : undefined;
+  }
+  const same = lower(c.owner) === seed.owner.toLowerCase() && lower(c.repo) === seed.repo.toLowerCase() && c.tokenRef === seed.tokenRef;
+  return same && seed.tokenRef !== undefined && credentialRefPatternFor("github").test(seed.tokenRef) ? seed.tokenRef : undefined;
+}
+
 /** What the Postgres test port answers. `cause` is one of a fixed set; the route maps it to a fixed sentence. */
 export interface PostgresTestResult {
   ok: boolean;
@@ -124,6 +156,8 @@ export interface AdminRoutesDeps {
   postgres?: AdminPostgresPort;
   /** Where `tokenRef` / `passwordRef` names are resolved when no encrypted secret is stored. */
   env?: Record<string, string | undefined>;
+  /** The sources of config/sources.json: an env credential is released only to the exact connection seeded here (undefined = to none). */
+  seededSources?: readonly SeededSource[];
   /** siteId for a source created without one (the config file's siteId). */
   defaultSiteId?: string;
   log?: (line: Record<string, unknown>) => void;
@@ -245,28 +279,23 @@ export function withAdminRoutes(inner: ApiHandler, deps: AdminRoutesDeps | undef
     }
   }
 
-  /** client+e-mail -> start of the window in which a failed login was last audited. A flood of the same failure is one row per window. */
-  const failedLoginSeen = new Map<string, number>();
-  async function auditFailedLogin(req: ApiRequest, email: string, actor: string): Promise<void> {
-    const t = nowMs();
-    const key = `${clientKey(req) ?? "-"}|${email.trim().toLowerCase().slice(0, 254)}`;
-    const seen = failedLoginSeen.get(key);
-    if (seen !== undefined && t - seen < LOGIN_WINDOW_MS) return;
-    if (failedLoginSeen.size >= LOGIN_MAX_AUDIT_KEYS) {
-      for (const [k, at] of failedLoginSeen) if (t - at >= LOGIN_WINDOW_MS) failedLoginSeen.delete(k);
-      if (failedLoginSeen.size >= LOGIN_MAX_AUDIT_KEYS) return; // table full of live keys: bounded, so write nothing more
-    }
-    failedLoginSeen.set(key, t);
+  /** VA6: every failed login attempt is one ok:false row (never the body or the password). A failed audit write does not change the answer. */
+  const auditFailedLogin = async (actor: string): Promise<void> => {
     await audit(actor, "login", "login", false);
-  }
+  };
 
   async function login(req: ApiRequest): Promise<ApiResponse> {
     const d = deps!;
     const verdict = limiter.check(clientKey(req));
-    // A limited or malformed anonymous attempt writes no audit row: nobody can be blamed for it and a flood of them must not fill the log.
-    if (!verdict.allowed) return respond(429, { error: "rate_limited" }, { "retry-after": String(verdict.retryAfterSec) });
+    if (!verdict.allowed) {
+      await auditFailedLogin(UNKNOWN_ACTOR);
+      return respond(429, { error: "rate_limited" }, { "retry-after": String(verdict.retryAfterSec) });
+    }
     const body = await readJson(req);
-    if (typeof body === "string") return respond(body === "too_large" ? 413 : 400, { error: body === "too_large" ? "too_large" : "invalid_request" });
+    if (typeof body === "string") {
+      await auditFailedLogin(UNKNOWN_ACTOR);
+      return respond(body === "too_large" ? 413 : 400, { error: body === "too_large" ? "too_large" : "invalid_request" });
+    }
     const email = typeof body.email === "string" ? body.email : "";
     const password = typeof body.password === "string" ? body.password : "";
     let user = null;
@@ -277,7 +306,7 @@ export function withAdminRoutes(inner: ApiHandler, deps: AdminRoutesDeps | undef
     }
     const good = user !== null && !user.disabled ? await verifyPassword(password, user.passwordHash) : await burnPasswordCheck(password);
     if (!good || user === null) {
-      await auditFailedLogin(req, email, user?.email ?? UNKNOWN_ACTOR);
+      await auditFailedLogin(user?.email ?? UNKNOWN_ACTOR);
       return respond(401, { error: "invalid_credentials" });
     }
     const { token, exp } = await signAdminToken({ sub: user.email, role: user.role }, d.jwtSecret, nowMs());
@@ -424,14 +453,19 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
   const sourceIdOf = (c: Ctx): string => c.segs[1]!;
   const partnerSummary = async (id: string) => (await listPartners(d.partnerStore)).find((p) => p.partnerId === id);
 
-  /** The credential for a source: the encrypted secret when one is stored, else the env var its `*Ref` names (public repos need none). */
+  /**
+   * The credential for a source: its own encrypted secret when one is stored; else, only for the exact seeded connection (boundEnvRef), the env var
+   * that seeded entry names; else none for a source that names no ref (a public repo), and NoCredentialError for one that does.
+   */
   async function credentialFor(src: SourceSummary): Promise<string | undefined> {
     if (src.hasSecret) return d.store.sources.readSecret(src.id);
     const ref = src.kind === "github" ? src.config.tokenRef : src.config.passwordRef;
     if (ref === undefined) return undefined;
-    // A stored doc may predate the schema allow-list: re-check it here so no env var outside PATHLYNKS_* / GITHUB_* is ever read for a source.
-    if (typeof ref !== "string" || !CREDENTIAL_REF_PATTERN.test(ref)) throw new CredentialRefError();
-    const value = (d.env ?? process.env)[ref];
+    // A stored doc may predate the schema: re-check the name AND its kind binding here (PATHLYNKS_* only for postgres, GITHUB_* only for github).
+    if (typeof ref !== "string" || !credentialRefPatternFor(src.kind === "github" ? "github" : "postgres").test(ref)) throw new CredentialRefError();
+    const bound = boundEnvRef(src, d.seededSources);
+    if (bound === undefined) throw new NoCredentialError();
+    const value = (d.env ?? process.env)[bound];
     return value !== undefined && value !== "" ? value : undefined;
   }
 
@@ -663,6 +697,7 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
     } catch (e) {
       if (e instanceof SecretsError) return { ok: false, message: "The secrets store is not configured on this server." };
       if (e instanceof CredentialRefError) return { ok: false, message: CREDENTIAL_REF_REFUSED };
+      if (e instanceof NoCredentialError) return { ok: false, message: NO_CREDENTIAL };
       return { ok: false, message: src.kind === "github" ? "The repository could not be read." : "The database could not be reached." };
     }
   }
@@ -689,7 +724,7 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
     try {
       token = await credentialFor(src);
     } catch (e) {
-      return fail(e instanceof CredentialRefError ? CREDENTIAL_REF_REFUSED : "The stored credential could not be read.");
+      return fail(e instanceof CredentialRefError ? CREDENTIAL_REF_REFUSED : e instanceof NoCredentialError ? NO_CREDENTIAL : "The stored credential could not be read.");
     }
     const port = d.github(token);
     const coords = { owner: cfg.owner, repo: cfg.repo, branch: cfg.branch };
@@ -722,15 +757,14 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
       const tables = Object.keys(schema.tables).length;
       const counts = { files: files.length, tables, diagnostics: schema.diagnostics.length, skipped };
       const diagnostics = safeDiagnostics(schema.diagnostics, token);
-      // Nothing usable must never become the latest artifact (it would blank the schema the chat reads) nor be reported as ok.
+      // Nothing usable must never become the latest artifact (it would blank the schema the chat reads) nor be reported as ok. Parser diagnostics alone
+      // never make a sync an error (fix cycle 2, F4): a migration with one raw query still defines its tables; the diagnostics are stored with them.
       const problem =
         files.length === 0
           ? "No migration files were found in the repository, so the stored schema was kept."
           : tables === 0
             ? "The migration files define no tables, so the stored schema was kept."
-            : schema.diagnostics.length >= files.length
-              ? "Too many migration files could not be parsed, so the stored schema was kept."
-              : undefined;
+            : undefined;
       if (problem !== undefined) return fail(problem, counts, diagnostics);
       await d.store.artifacts.put({ sourceId: src.id, kind: "schema_map", data: { tables: schema.tables, diagnostics } });
       await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "ok", counts });
@@ -925,11 +959,19 @@ function mcpPortFor(cfg: Record<string, unknown>, password: string, extra: { onE
 /**
  * The engine PathlynksPort the chat path uses, built LAZILY from the stored postgres source (console edits and a newly stored password apply within 60 s)
  * and failing closed: no source, no password or a missing table is `unavailable`, never a throw. The password is read per build (the encrypted secret,
- * else the env var the source names) and goes only into a private env object handed to the port.
+ * else, only for the exact seeded connection, the env var the seeded entry names) and goes only into a private env object handed to the port.
  */
 export function createLivePathlynksPort(
   store: Pick<AdminStore, "sources">,
-  opts: { env: Record<string, string | undefined>; nowMs?: () => number; onEvent?: (e: PathlynksEvent) => void; connect?: PortConnect; sourceId?: string },
+  opts: {
+    env: Record<string, string | undefined>;
+    /** config/sources.json's sources: the env password is used only while the stored doc is still the exact seeded connection (undefined = never). */
+    seeded?: readonly SeededSource[];
+    nowMs?: () => number;
+    onEvent?: (e: PathlynksEvent) => void;
+    connect?: PortConnect;
+    sourceId?: string;
+  },
 ): EnginePathlynksPort {
   const nowMs = opts.nowMs ?? Date.now;
   let cached: { at: number; port: EnginePathlynksPort } | undefined;
@@ -945,9 +987,9 @@ export function createLivePathlynksPort(
       // The seeded id only: an admin-created postgres source (any other id) can never become the live student-data port.
       const src = await store.sources.get(opts.sourceId ?? PATHLYNKS_POSTGRES_SOURCE_ID);
       if (!src || src.kind !== "postgres") return none;
-      const ref = (src.config as { passwordRef?: unknown }).passwordRef;
-      const refOk = typeof ref === "string" && CREDENTIAL_REF_PATTERN.test(ref);
-      const password = src.hasSecret ? await store.sources.readSecret(src.id) : refOk ? opts.env[ref] : undefined;
+      // fix2 F1: the env password only for the unchanged seeded connection; a doc whose host/port/database/user/sslmode/ref changed gets none.
+      const bound = src.hasSecret ? undefined : boundEnvRef(src, opts.seeded);
+      const password = src.hasSecret ? await store.sources.readSecret(src.id) : bound !== undefined ? opts.env[bound] : undefined;
       if (!password) return none;
       const port = mcpPortFor(src.config, password, { ...(opts.onEvent ? { onEvent: opts.onEvent } : {}), ...(opts.connect ? { connect: opts.connect } : {}), allowPrivileged: opts.env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE });
       return port ? adaptPathlynksPort(port) : none;
