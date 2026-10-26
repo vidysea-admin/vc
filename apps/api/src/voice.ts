@@ -67,6 +67,7 @@ import {
   type VoiceServerEvent,
 } from "@vc/schemas";
 import { TELE_MANAS_LINE, crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
+import type { TurnUsageSink } from "./chat.js";
 import {
   LiveConfigError,
   createSimpleOutputAuditor,
@@ -265,6 +266,11 @@ export interface VoiceApiDeps {
   /** The student (Pathlynks) JWT verifier: only the session route uses it. */
   verifier: StudentJwtVerifier;
   /**
+   * vc-admin-control VA17: one text-free usage row per started voice session, written when it finalizes (mode "voice", latencyMs = the session's length,
+   * tokens 0: the Live provider reports none). A student session carries the HMAC student key (the sink derives it); an anonymous one carries none.
+   */
+  usage?: TurnUsageSink;
+  /**
    * pc-voice V2 (D-111): the partner registry. With it, the student session route also takes a partner SERVER key as the bearer (`vck_srv_`; the partner's backend
    * vouches for the student in the K3 headers and the tenant is the partner id), and the anonymous routes (see `anonymous`) take a PAGE key. A key of the other
    * scope, an unknown, revoked or malformed one is the same uniform 401. Absent: a `vck_` bearer is refused like any bad token.
@@ -435,7 +441,7 @@ interface VoiceTokenClaims {
   ck: string;
 }
 
-async function mintAnonymousVoiceToken(secret: Uint8Array, partnerId: string, origin: string, ck: string, nowMs: number): Promise<{ token: string; exp: number }> {
+export async function mintAnonymousVoiceToken(secret: Uint8Array, partnerId: string, origin: string, ck: string, nowMs: number): Promise<{ token: string; exp: number }> {
   const iat = Math.floor(nowMs / 1000);
   const exp = iat + VOICE_WS_TOKEN_TTL_SEC;
   const token = await new SignJWT({
@@ -460,7 +466,7 @@ async function mintAnonymousVoiceToken(secret: Uint8Array, partnerId: string, or
   return { token, exp };
 }
 
-async function mintVoiceToken(secret: Uint8Array, who: StudentAuthContext, threadId: string, nowMs: number): Promise<{ token: string; exp: number }> {
+export async function mintVoiceToken(secret: Uint8Array, who: StudentAuthContext, threadId: string, nowMs: number): Promise<{ token: string; exp: number }> {
   const iat = Math.floor(nowMs / 1000);
   const exp = iat + VOICE_WS_TOKEN_TTL_SEC;
   const token = await new SignJWT({
@@ -1208,6 +1214,17 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
           } catch (err) {
             logEvent("voice_usage_failed", err);
           }
+        }
+      }
+      if (wasStarted && deps.usage) {
+        const elapsedMs = Math.max(0, Math.min(Math.round(nowMs() - c.startedAtMs!), c.capMs ?? Infinity));
+        try {
+          await deps.usage.record(
+            { siteId: c.claims.tenantId, ...(c.anon ? {} : { studentId: c.claims.studentId }), mode: "voice", latencyMs: elapsedMs, answered: true },
+            { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+          );
+        } catch {
+          logEvent("voice_usage_record_failed");
         }
       }
       if (!c.anon) retain(c); // an anonymous session keeps no events for a resume: nothing of it outlives the socket

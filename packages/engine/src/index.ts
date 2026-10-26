@@ -60,3 +60,7 @@ export {
   type ReplyLang,
   type Script,
 } from "./student/lang.js";
+
+// vc-admin-control: the ingest side (spec S4, sync path only; chat never imports it) and the navigate_steps tool (S6).
+export * from "./ingest/index.js";
+export * from "./tools/navigate.js";

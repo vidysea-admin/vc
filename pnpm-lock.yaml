@@ -26,6 +26,9 @@ importers:
       '@vc/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@vc/mcp-pathlynks':
+        specifier: workspace:*
+        version: link:../../mcp/pathlynks
       '@vc/mcp-university-kb':
         specifier: workspace:*
         version: link:../../mcp/university-kb

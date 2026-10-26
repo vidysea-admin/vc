@@ -50,6 +50,7 @@ export interface PathlynksPort {
 }
 
 export type PathlynksEvent =
+  | { type: "privileged_role_override" }
   | { type: "privilege_check_failed" }
   | { type: "privilege_check_error" }
   | { type: "unavailable"; cause: UnavailableCause };
@@ -66,6 +67,11 @@ export interface PathlynksPortConfig {
   connect?: ConnectFn;
   queryTimeoutMs?: number;
   onEvent?: (event: PathlynksEvent) => void;
+  /**
+   * G1 (answered 2026-10-26): the Pathlynks pool user (pathlynksadm) may hold write privileges. True skips ONLY the connect-time write-privilege refusal;
+   * SELECT-only SQL, the read-only transaction and the statement timeout stay. Default false. Absent = the env var PATHLYNKS_ALLOW_PRIVILEGED_ROLE === "1".
+   */
+  allowPrivilegedRole?: boolean;
 }
 
 class PortFailure extends Error {
@@ -104,6 +110,7 @@ export function createPathlynksPort(config: PathlynksPortConfig): PathlynksPort 
   // Pre-built, fully static statements. The only interpolated text is an allow-listed, validated identifier.
   const sqlFor = (table: string): string => `SELECT * FROM "${table}" WHERE student_id = $1 LIMIT ${ROW_CAP + 1}`;
   const configured = [...new Set(mapped)];
+  const allowPrivileged = config.allowPrivilegedRole ?? (config.env ?? process.env).PATHLYNKS_ALLOW_PRIVILEGED_ROLE === "1";
   const queryTimeoutMs = config.queryTimeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
   const emit = (e: PathlynksEvent): void => {
     try {
@@ -113,6 +120,8 @@ export function createPathlynksPort(config: PathlynksPortConfig): PathlynksPort 
     }
   };
   const status: ReturnType<PathlynksPort["getStatus"]> = { privilegeCheck: "unchecked" };
+  // The override is a startup fact, announced once with no secret: the operator sees that the guard is off by choice.
+  if (allowPrivileged) emit({ type: "privileged_role_override" });
 
   async function open(): Promise<PgClientLike> {
     if (config.connect) return config.connect();
@@ -123,6 +132,7 @@ export function createPathlynksPort(config: PathlynksPortConfig): PathlynksPort 
   }
 
   async function verifyReadOnly(client: PgClientLike): Promise<void> {
+    if (allowPrivileged) return; // G1 override: the read-only transaction (SET default_transaction_read_only = on) and SELECT-only SQL still hold.
     for (const table of configured) {
       let row: Record<string, unknown> | undefined;
       try {

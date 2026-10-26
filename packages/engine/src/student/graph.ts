@@ -236,11 +236,25 @@ function namesAnotherStudent(text: string, ownStudentId: string): boolean {
 const cleanText = (s: string) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
 const humanKey = (k: string) => cleanText(k.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ")).toLowerCase();
 
-/** A row as one display line: scalar columns only, hidden columns dropped, each value bounded. A single visible column shows just its value. */
-function rowLine(row: unknown): string | undefined {
+/**
+ * G6 (answered 2026-10-26): the Pathlynks reply carries an ALLOW-LIST of columns, not a deny-list. A column that is not named here never leaves
+ * this function, whatever the table holds today or adds tomorrow (phone, email, address, parent or guardian fields, dates of birth, ...).
+ * Keys are compared lower-cased with every non-alphanumeric removed, so `career_name`, `careerName` and `Career Name` are one key.
+ */
+const PATHLYNKS_ALLOWED_COLUMNS: Record<PathlynksToolName, ReadonlySet<string>> = {
+  pathlynks_saved_careers: new Set(["career", "careername", "careertitle", "name", "title", "pathway", "pathwayname", "coursename", "programname"]),
+  pathlynks_compare: new Set(["career", "careername", "careertitle", "name", "title", "pathway", "pathwayname", "coursename", "programname"]),
+  pathlynks_profile: new Set(["name", "firstname", "grade", "class", "classname", "standard", "stream", "board"]),
+  pathlynks_assessment: new Set(["status", "assessmentstatus", "reportstatus", "report", "completed", "iscompleted", "completedon", "completedat", "progress", "assessmentname", "name", "title", "stage"]),
+};
+const columnKey = (k: string): string => k.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** A row as one display line: allow-listed scalar columns only, each value bounded. A single visible column shows just its value. */
+function rowLine(row: unknown, allowed: ReadonlySet<string>): string | undefined {
   if (!row || typeof row !== "object" || Array.isArray(row)) return undefined;
   const parts: [string, string][] = [];
   for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
+    if (!allowed.has(columnKey(k))) continue;
     if (PATHLYNKS_HIDDEN_KEYS.test(k)) continue;
     if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") continue;
     const value = cleanText(String(v)).slice(0, PATHLYNKS_VALUE_MAX_CHARS);
@@ -250,16 +264,16 @@ function rowLine(row: unknown): string | undefined {
   return parts.length === 1 ? parts[0]![1] : parts.map(([k, v]) => `${k}: ${v}`).join(", ");
 }
 
-function listMessage(title: string, empty: string, rows: ReadonlyArray<unknown>): string {
-  const lines = rows.map(rowLine).filter((l): l is string => l !== undefined);
+function listMessage(allowed: ReadonlySet<string>, title: string, empty: string, rows: ReadonlyArray<unknown>): string {
+  const lines = rows.map((r) => rowLine(r, allowed)).filter((l): l is string => l !== undefined);
   if (lines.length === 0) return empty;
   const shown = lines.slice(0, PATHLYNKS_MAX_ROWS_SHOWN).map((l, i) => `${i + 1}. ${l}`);
   const more = lines.length > shown.length ? [`...and ${lines.length - shown.length} more.`] : [];
   return [`${title}`, ...shown, ...more].join("\n");
 }
 
-function recordMessage(title: string, empty: string, row: Record<string, unknown> | null): string {
-  const line = row ? rowLine(row) : undefined;
+function recordMessage(allowed: ReadonlySet<string>, title: string, empty: string, row: Record<string, unknown> | null): string {
+  const line = row ? rowLine(row, allowed) : undefined;
   return line === undefined ? empty : `${title} ${line}`;
 }
 
@@ -873,19 +887,19 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       switch (tool) {
         case "pathlynks_saved_careers":
           if (!Array.isArray(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
-          message = listMessage("Your saved careers on Pathlynks:", "You have no saved careers on Pathlynks yet.", data);
+          message = listMessage(PATHLYNKS_ALLOWED_COLUMNS.pathlynks_saved_careers, "Your saved careers on Pathlynks:", "You have no saved careers on Pathlynks yet.", data);
           break;
         case "pathlynks_compare":
           if (!Array.isArray(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
-          message = listMessage("Your compare list on Pathlynks:", "Your compare list on Pathlynks is empty.", data);
+          message = listMessage(PATHLYNKS_ALLOWED_COLUMNS.pathlynks_compare, "Your compare list on Pathlynks:", "Your compare list on Pathlynks is empty.", data);
           break;
         case "pathlynks_profile":
           if (data !== null && !isRecord(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
-          message = recordMessage("Your Pathlynks profile:", "I don't see a Pathlynks profile for you yet.", data);
+          message = recordMessage(PATHLYNKS_ALLOWED_COLUMNS.pathlynks_profile, "Your Pathlynks profile:", "I don't see a Pathlynks profile for you yet.", data);
           break;
         case "pathlynks_assessment":
           if (data !== null && !isRecord(data)) return done(PATHLYNKS_UNAVAILABLE_TEXT);
-          message = recordMessage("Your Pathlynks assessment:", "I don't see an assessment on your Pathlynks account yet.", data);
+          message = recordMessage(PATHLYNKS_ALLOWED_COLUMNS.pathlynks_assessment, "Your Pathlynks assessment:", "I don't see an assessment on your Pathlynks account yet.", data);
           break;
       }
       return done(message.slice(0, PATHLYNKS_MESSAGE_MAX));

@@ -70,3 +70,5 @@
 .adm-dl > div { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 2px 0; }
 .adm-dl dt { color: var(--muted); font-size: 13px; width: 110px; flex: none; }
 .adm-dl dd { margin: 0; overflow-wrap: anywhere; }
+/* The counsellor-screen language selector (root layout) is not part of the console: hide it whenever the console is on the page. */
+body:has(.adm-root) > label:has([data-testid="ui-locale"]) { display: none; }

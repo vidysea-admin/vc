@@ -10,18 +10,9 @@
  *  - Output is text only: this tool does not click or drive the host site.
  */
 
-export interface NavRoute {
-  /** The URL path with route groups stripped, e.g. "/careers/[id]". */
-  path: string;
-  /** Route-group metadata, e.g. "(admin)". Never part of the URL. */
-  group?: string;
-  /** The source file the route came from. */
-  file?: string;
-}
-
-export interface NavCatalogue {
-  routes: NavRoute[];
-}
+import type { NavCatalogue } from "../ingest/types.js";
+// NavRoute / NavCatalogue live in ../ingest/types.ts (one definition; the package root exports them from there).
+export type { NavRoute, NavCatalogue } from "../ingest/types.js";
 
 export interface NavigateResult {
   steps: string[];
