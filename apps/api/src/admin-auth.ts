@@ -149,6 +149,8 @@ export async function verifyAdminToken(token: string, secret: Uint8Array, nowMs:
 export const LOGIN_LIMIT = 5;
 export const LOGIN_WINDOW_MS = 60_000;
 const LOGIN_MAX_KEYS = 10_000;
+/** Cap on the (client, e-mail) pairs whose failed login is audited once per window. */
+export const LOGIN_MAX_AUDIT_KEYS = LOGIN_MAX_KEYS;
 
 /** The 5-per-minute-per-client limiter (in memory). A rejected attempt is not recorded; `check` runs BEFORE the password is read. */
 export function createLoginLimiter(nowMs: () => number): { check(clientKey: string | undefined): LimiterVerdict } {

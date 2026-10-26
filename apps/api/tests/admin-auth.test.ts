@@ -231,3 +231,31 @@ test("VA4 CLI: with stdin not a terminal, a short password, mismatched repeats, 
   assert.equal(await runAdminCli(["create", "A@vc.test", "--role", "super-admin"], dup.deps), 1);
   assert.equal((await dup.store.users.findByEmail("a@vc.test"))?.role, "viewer", "the existing admin was not changed");
 });
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R5): the anonymous audit flood
+
+test("fix1 R5: 50 failed logins for one e-mail from one client write one audit row; the 429-limited ones and malformed bodies write none", async () => {
+  const w = await adminWorld();
+  for (let i = 0; i < 50; i++) await login(w, "nobody@vc.test", "wrong-password-xyz");
+  const failed = w.auditRows().filter((r) => r.action === "login");
+  assert.equal(failed.length, 1, `rows: ${failed.length}`);
+  assert.equal(failed[0]!.ok, false);
+  // a malformed anonymous body from a fresh client is not a login attempt anyone can be blamed for
+  const before = w.auditRows().length;
+  const bad = await w.call("POST", `${ADMIN_PATH}login`, { headers: { "x-real-ip": "198.51.100.50" }, raw: "{not json" });
+  assert.equal(bad.status, 400);
+  assert.equal(w.auditRows().filter((r) => r.action === "login").length, before, "no row for a malformed anonymous body");
+});
+
+test("fix1 R5: 50 attempts rotating 50 e-mails from one client are cut off by the 5-per-minute limiter and leave at most 5 rows; a new window records a new failure; success is always audited", async () => {
+  const w = await adminWorld();
+  for (let i = 0; i < 50; i++) await login(w, `rot${i}@vc.test`, "wrong-password-xyz");
+  assert.equal(w.auditRows().filter((r) => r.action === "login").length, 5);
+  w.clock.ms = T0 + 61_000;
+  await login(w, "rot0@vc.test", "wrong-password-xyz");
+  await login(w, "rot0@vc.test", "wrong-password-xyz");
+  assert.equal(w.auditRows().filter((r) => r.action === "login").length, 6, "one more row for the repeated pair in the new window");
+  assert.equal((await login(w, ADMIN_EMAILS.admin, PASSWORD)).status, 200);
+  const last = w.auditRows().filter((r) => r.action === "login").at(-1)!;
+  assert.deepEqual([last.actorId, last.ok], [ADMIN_EMAILS.admin, true]);
+});

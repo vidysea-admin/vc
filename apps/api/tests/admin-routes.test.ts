@@ -26,7 +26,7 @@ const RANK: Record<Role, number> = { viewer: 1, admin: 2, "super-admin": 3 };
 const DUMMY_SECRET = "test-secret-not-real-0001";
 
 async function seeded(): Promise<World> {
-  const w = await adminWorld({ github: () => fakeGithub({ "migrations/20260101-init.js": "" }) });
+  const w = await adminWorld({ github: () => fakeGithub({ "migrations/20260101-init.js": "module.exports = { up: async (queryInterface, Sequelize) => { await queryInterface.createTable('users', { id: { type: Sequelize.INTEGER, primaryKey: true } }); }, down: async () => {} };" }) });
   await addPartner(w.partnerStore, { name: "Pathlynks", origins: ["https://pathlynks.example"] }, w.deps.partnerCtx!);
   await w.store.sources.upsert({ id: "gh-1", siteId: "pathlynks", kind: "github", config: { owner: "acme", repo: "backend", branch: "main", service: "school" } });
   return w;
@@ -213,7 +213,7 @@ test("VA6: if the audit row cannot be written, a write answers 500 audit_unavail
   w.store.audit.append = async () => {
     throw new Error("disk full");
   };
-  const res = await w.call("POST", `${ADMIN_PATH}sites`, { token: await w.token("admin"), body: { name: "Unaudited Site" } });
+  const res = await w.call("PATCH", `${ADMIN_PATH}sites/pathlynks`, { token: await w.token("admin"), body: { name: "Unaudited Site" } });
   assert.equal(res.status, 500);
   assert.equal(res.json.error, "audit_unavailable");
   assert.ok(!res.body.includes("disk full"));
@@ -477,4 +477,62 @@ test("VA17: an inverted, equal, missing or unparseable range is a 400 and a bad 
     assert.equal(res.status, 400, q);
   }
   assert.equal(T0 > 0, true);
+});
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R1): env-name allow-list
+
+test("fix1 R1: an admin creates a source naming VC_ADMIN_MASTER_KEY / VC_ADMIN_JWT_SECRET / MONGODB_URL as its credential ref: 400 and nothing is stored", async () => {
+  const w = await seeded();
+  const admin = await w.token("admin");
+  const pg = { kind: "postgres", id: "pg-evil", host: "db.example", port: 5432, database: "app", user: "reader", sslmode: "require", tables: ["students"] };
+  const evil = [
+    { ...pg, passwordRef: "VC_ADMIN_MASTER_KEY" },
+    { ...pg, passwordRef: "VC_ADMIN_JWT_SECRET" },
+    { ...pg, passwordRef: "MONGODB_URL" },
+    { ...GITHUB_BODY, id: "gh-evil", tokenRef: "VC_ADMIN_MASTER_KEY" },
+    { ...GITHUB_BODY, id: "gh-evil", tokenRef: "VC_ADMIN_JWT_SECRET" },
+    { ...GITHUB_BODY, id: "gh-evil", tokenRef: "MONGODB_URL" },
+  ];
+  for (const body of evil) {
+    const res = await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body });
+    assert.equal(res.status, 400, JSON.stringify(body));
+  }
+  assert.deepEqual((await w.store.sources.list()).map((s) => s.id), ["gh-1"], "none of the evil sources was stored");
+  const fine = await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body: { ...pg, id: "pg-ok", passwordRef: "PATHLYNKS_DB_PASSWORD" } });
+  assert.equal(fine.status, 201);
+  assert.equal((await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body: { ...GITHUB_BODY, id: "gh-ok", tokenRef: "GITHUB_TOKEN_2" } })).status, 201);
+});
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R4): the one-time key survives an audit failure
+
+test("fix1 R4: rotating a site key while the audit write is failing still returns the new key once, flagged auditRecorded:false and logged, instead of a 500 that loses it", async () => {
+  const w = await seeded();
+  const admin = await w.token("admin");
+  w.store.audit.append = async () => {
+    throw new Error("disk full");
+  };
+  const res = await w.call("POST", `${ADMIN_PATH}sites/pathlynks/keys/rotate`, { token: admin, body: { scope: "pub" } });
+  assert.equal(res.status, 200, res.body);
+  assert.match(res.json.key, /^vck_pub_pathlynks_[A-Za-z0-9_-]{43}$/);
+  assert.equal(res.json.auditRecorded, false);
+  assert.ok(w.logs.some((l) => l.event === "admin_audit_failed"));
+  assert.ok(!res.body.includes("disk full"));
+  const registry = createPartnerRegistry({ store: w.partnerStore, pepper: PEPPER, nowMs: () => w.clock.ms });
+  assert.equal((await registry.authenticate(res.json.key, "pub"))?.partnerId, "pathlynks", "the returned key is the live one");
+});
+
+test("fix1 R4: creating a site while the audit write is failing returns both new keys with the audit flag; an ordinary write still answers 500 audit_unavailable", async () => {
+  const w = await seeded();
+  const admin = await w.token("admin");
+  w.store.audit.append = async () => {
+    throw new Error("disk full");
+  };
+  const res = await w.call("POST", `${ADMIN_PATH}sites`, { token: admin, body: { name: "Late Audit", origins: ["https://late.example"] } });
+  assert.equal(res.status, 201, res.body);
+  assert.match(res.json.keys.pub, /^vck_pub_late-audit_/);
+  assert.match(res.json.keys.srv, /^vck_srv_late-audit_/);
+  assert.equal(res.json.auditRecorded, false);
+  const plain = await w.call("POST", `${ADMIN_PATH}sites/pathlynks/revoke`, { token: admin, body: {} });
+  assert.equal(plain.status, 500);
+  assert.equal(plain.json.error, "audit_unavailable");
 });

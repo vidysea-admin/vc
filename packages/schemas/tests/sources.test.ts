@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  CREDENTIAL_REF_PATTERN,
   SourceConfig,
   SourcesFile,
   SourcesConfigError,
@@ -150,4 +151,16 @@ test("VA1 (config side): .env.example holds empty values for the admin secrets i
   for (const name of ["VC_ADMIN_MASTER_KEY", "VC_ADMIN_JWT_SECRET", "PATHLYNKS_DB_PASSWORD", "GITHUB_TOKEN"]) {
     assert.ok(lines.includes(`${name}=`), `${name}= (empty) must be in .env.example`);
   }
+});
+
+test("fix1 R1: a source naming VC_ADMIN_MASTER_KEY, VC_ADMIN_JWT_SECRET or MONGODB_URL as its credential ref is refused; PATHLYNKS_* and GITHUB_* names pass", () => {
+  for (const bad of ["VC_ADMIN_MASTER_KEY", "VC_ADMIN_JWT_SECRET", "MONGODB_URL", "PATHLYNKS", "GITHUBTOKEN", "pathlynks_db_password"]) {
+    assert.equal(SourceConfig.safeParse({ ...gh, tokenRef: bad }).success, false, `tokenRef ${bad}`);
+    assert.equal(SourceConfig.safeParse({ ...pg, passwordRef: bad }).success, false, `passwordRef ${bad}`);
+  }
+  for (const good of ["GITHUB_TOKEN", "GITHUB_TOKEN_2", "PATHLYNKS_DB_PASSWORD"]) {
+    assert.equal(SourceConfig.safeParse({ ...gh, tokenRef: good }).success, true, good);
+    assert.equal(SourceConfig.safeParse({ ...pg, passwordRef: good }).success, true, good);
+  }
+  assert.equal(CREDENTIAL_REF_PATTERN.test("VC_ADMIN_MASTER_KEY"), false);
 });

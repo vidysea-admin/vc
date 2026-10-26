@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { AdminApiError, createAdminClient, PROXY_BASE } from "../src/app/admin/_lib/client";
 import { can, canSeeNav, ROLES } from "../src/app/admin/_lib/permissions";
 import { adminGateTarget } from "../src/app/admin/_lib/gate";
+import { defaultRange, metricsWindow } from "../src/app/admin/_lib/format";
 
 type Call = { url: string; init: RequestInit };
 
@@ -164,4 +165,24 @@ test("VA19 no storage: no admin source file touches localStorage, sessionStorage
       assert.doesNotMatch(text, banned, `${f} matches ${banned}`);
     }
   }
+});
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R3)
+
+test("fix1 R3: a usage row stamped today at noon appears in the default dashboard window (the API's `to` is exclusive, the UI's To is inclusive)", () => {
+  const now = new Date("2026-10-26T12:00:00.000Z");
+  const range = defaultRange(now);
+  assert.equal(range.to, "2026-10-26", "the picker still shows today as the To date");
+  const win = metricsWindow(range);
+  const rowAt = now.toISOString();
+  assert.ok(win.from <= rowAt && rowAt < win.to, `${win.from} <= ${rowAt} < ${win.to}`);
+  assert.ok("2026-10-26T23:59:59.999Z" < win.to, "the last millisecond of today is inside too");
+  assert.ok(!("2026-10-27T00:00:00.000Z" < win.to), "tomorrow is outside");
+  assert.equal(metricsWindow({ from: "2026-12-30", to: "2026-12-31" }).to, "2027-01-01", "the day after rolls over the year");
+});
+
+test("fix1 R3: the dashboard page sends the exclusive end, not the raw To date", () => {
+  const src = readFileSync(join(import.meta.dirname, "..", "src", "app", "admin", "(console)", "dashboard", "page.tsx"), "utf8");
+  assert.ok(/metricsWindow\(range\)/.test(src), "metrics are requested through metricsWindow");
+  assert.ok(!/to: range\.to/.test(src), "no raw range.to goes to the API");
 });

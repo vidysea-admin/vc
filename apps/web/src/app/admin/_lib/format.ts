@@ -27,3 +27,12 @@ export function defaultRange(now: Date = new Date()): { from: string; to: string
   const from = isoDay(new Date(now.getTime() - 6 * 86_400_000));
   return { from, to };
 }
+
+/**
+ * The window the API is asked for. The picker's To date is INCLUSIVE (the default is today), but the API's `to` is an exclusive instant, so the
+ * request carries the day after: otherwise a default window would never contain a single row stamped today.
+ */
+export function metricsWindow(r: { from: string; to: string }): { from: string; to: string } {
+  const t = Date.parse(`${r.to}T00:00:00.000Z`);
+  return { from: r.from, to: Number.isFinite(t) ? isoDay(new Date(t + 86_400_000)) : r.to };
+}

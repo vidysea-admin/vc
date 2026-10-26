@@ -24,11 +24,13 @@ export interface SessionDeps {
   /** Origin of the admin API (env VC_ADMIN_API_URL). Absent = not configured. */
   upstreamBase: string | undefined;
   fetch: typeof fetch;
+  /** Per-e-mail login budget. Absent = no per-e-mail limit at this layer (the admin API still limits per client). */
+  loginGuard?: LoginGuard;
 }
 
 export function defaultDeps(env: Record<string, string | undefined> = process.env): SessionDeps {
   const raw = env[UPSTREAM_ENV]?.trim();
-  return { upstreamBase: raw ? raw.replace(/\/+$/, "") : undefined, fetch: (...args) => fetch(...args) };
+  return { upstreamBase: raw ? raw.replace(/\/+$/, "") : undefined, fetch: (...args) => fetch(...args), loginGuard: sharedLoginGuard };
 }
 
 const JSON_HEADERS = { "content-type": "application/json", "cache-control": "no-store" };
@@ -43,10 +45,12 @@ function isRole(v: unknown): v is AdminRole {
   return typeof v === "string" && (ROLES as readonly string[]).includes(v);
 }
 
+/**
+ * Only the address the reverse proxy sets (x-real-ip) is forwarded. The first X-Forwarded-For value is whatever the caller wrote, so trusting it would
+ * let an attacker pick a fresh limiter key on every request; a Route Handler has no socket address, so with no x-real-ip no address is forwarded.
+ */
 function clientAddress(req: Request): string | undefined {
-  const real = req.headers.get("x-real-ip")?.trim();
-  const first = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const v = real || first;
+  const v = req.headers.get("x-real-ip")?.trim();
   return v && /^[0-9a-fA-F:.]{2,45}$/.test(v) ? v : undefined;
 }
 
@@ -90,6 +94,7 @@ export async function handleSessionLogin(req: Request, deps: SessionDeps): Promi
   if (typeof email !== "string" || email.length < 3 || email.length > 254 || typeof password !== "string" || password.length < 1 || password.length > 1024) {
     return reply(400, { error: "bad_request" });
   }
+  if (deps.loginGuard && !deps.loginGuard.check(`email:${email.trim().toLowerCase()}`)) return reply(429, { error: "too_many_attempts" });
   const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
   const ip = clientAddress(req);
   if (ip) headers["x-real-ip"] = ip;
@@ -148,3 +153,39 @@ export async function handleProxy(req: Request, segments: readonly string[], dep
   const text = await res.text();
   return new Response(text.length > 2_000_000 ? "{}" : text, { status: res.status, headers: JSON_HEADERS });
 }
+
+export interface LoginGuard {
+  /** True when this key may make another attempt now; false once it has used its budget for the window. */
+  check(key: string): boolean;
+}
+
+/**
+ * A per-key attempt budget (in memory, per server process). Keyed by e-mail it stops one account being guessed at from many addresses, which the
+ * admin API's per-client limit alone cannot: this layer never forwards an attacker-supplied address, so it cannot know the client.
+ */
+export function createLoginGuard(opts: { limit?: number; windowMs?: number; maxKeys?: number; now?: () => number } = {}): LoginGuard {
+  const limit = opts.limit ?? 5;
+  const windowMs = opts.windowMs ?? 60_000;
+  const maxKeys = opts.maxKeys ?? 10_000;
+  const now = opts.now ?? Date.now;
+  const hits = new Map<string, number[]>();
+  return {
+    check(key) {
+      const t = now();
+      const recent = (hits.get(key) ?? []).filter((at) => t - at < windowMs);
+      if (recent.length >= limit) {
+        hits.set(key, recent);
+        return false;
+      }
+      if (hits.size >= maxKeys && !hits.has(key)) {
+        for (const [k, list] of hits) if (list.every((at) => t - at >= windowMs)) hits.delete(k);
+        if (hits.size >= maxKeys) return false; // table full of live keys: fail closed
+      }
+      recent.push(t);
+      hits.set(key, recent);
+      return true;
+    },
+  };
+}
+
+const sharedLoginGuard = createLoginGuard();

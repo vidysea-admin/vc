@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GithubFetchError } from "@vc/engine";
 import { parseSourcesFile } from "@vc/schemas";
-import { createGithubPort, seedSourcesFromConfig, type GithubFetchFn } from "../src/admin-routes.js";
+import { PATHLYNKS_POSTGRES_SOURCE_ID, createGithubPort, createLivePathlynksPort, seedSourcesFromConfig, type GithubFetchFn } from "../src/admin-routes.js";
 import { ADMIN_PATH, adminWorld, fakeGithub, fakePostgres, type World } from "./admin-fixtures.js";
 
 const TOKEN = "ghp_dummyDummyDummyDummyDummyDummy0001";
@@ -251,4 +251,157 @@ test("VA8: createGithubPort sends the token only in the Authorization header, re
   );
   const malformed: GithubFetchFn = async () => ({ ok: true, status: 200, json: async () => ({ unexpected: true }) });
   await assert.rejects(() => createGithubPort(undefined, malformed).listTree("acme", "x", "main"));
+});
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R1, R2)
+
+test("fix1 R1: a stored source whose tokenRef names VC_ADMIN_MASTER_KEY never has that env value read: test and sync answer an error and the fake GitHub port gets no token", async () => {
+  const MASTER = "master-key-not-real-0001";
+  const w = await worldWith(migrations(), { env: { VC_ADMIN_MASTER_KEY: MASTER, MONGODB_URL: "mongodb://u:p@h/db" } });
+  await w.store.sources.upsert({ id: "evil-gh", siteId: "pathlynks", kind: "github", config: { owner: "acme", repo: "backend", branch: "main", service: "school", tokenRef: "VC_ADMIN_MASTER_KEY" } });
+  const admin = await w.token("admin");
+  const before = w.tokens.length;
+  const test = await w.call("POST", `${ADMIN_PATH}sources/evil-gh/test`, { token: admin, body: {} });
+  assert.equal(test.json.ok, false);
+  const sync = await w.call("POST", `${ADMIN_PATH}sources/evil-gh/sync`, { token: admin, body: {} });
+  assert.equal(sync.json.status, "error");
+  assert.equal(w.tokens.length, before, "the GitHub port was never even built for the evil ref");
+  assert.ok(!w.tokens.includes(MASTER));
+  for (const text of [test.body, sync.body, JSON.stringify(w.logs), JSON.stringify(w.auditRows())]) assert.ok(!text.includes(MASTER));
+  // The same holds for a postgres source: the fake postgres port never receives the env value.
+  const pgPort = fakePostgres({ ok: true });
+  w.deps.postgres = pgPort;
+  await w.store.sources.upsert({ id: "evil-pg", siteId: "pathlynks", kind: "postgres", config: { host: "db.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "MONGODB_URL", tables: ["students"] } });
+  const pg = await w.call("POST", `${ADMIN_PATH}sources/evil-pg/test`, { token: admin, body: {} });
+  assert.equal(pg.json.ok, false);
+  assert.equal(pgPort.calls.length, 0, "the postgres port was never called with the env value");
+});
+
+test("fix1 R2: an admin-created postgres source with id aaa-evil does not become the live Pathlynks port; the seeded pathlynks-db keeps its tables", async () => {
+  const w = await adminWorld();
+  const statements: string[] = [];
+  let connects = 0;
+  const connect = async () => {
+    connects++;
+    return {
+      async query(text: string) {
+        statements.push(text);
+        if (/has_table_privilege/i.test(text)) return { rows: [{ ins: false, upd: false, del: false }] };
+        if (/^SET/i.test(text)) return { rows: [] };
+        return { rows: [{ career_name: "Chef" }] };
+      },
+      async end() {},
+    };
+  };
+  const base = { host: "evil.example", port: 5432, database: "app", user: "reader", sslmode: "require", passwordRef: "PATHLYNKS_DB_PASSWORD" };
+  await w.store.sources.upsert({ id: "aaa-evil", siteId: "pathlynks", kind: "postgres", config: { ...base, tables: ["students", "saved_careers_evil", "compare_lists", "assessments"] } });
+  const clock = { ms: 0 };
+  const port = createLivePathlynksPort(w.store, { env: { PATHLYNKS_DB_PASSWORD: "dummy-pg-password-0001" }, nowMs: () => clock.ms, connect: connect as never });
+  assert.deepEqual(await port.getSavedCareers("stu-A"), { status: "unavailable" }, "only the evil source exists: the live port stays unavailable");
+  assert.equal(connects, 0, "no connection was attempted for the evil source");
+  await w.store.sources.upsert({ id: PATHLYNKS_POSTGRES_SOURCE_ID, siteId: "pathlynks", kind: "postgres", config: { ...base, host: "real.example", tables: ["students", "saved_careers", "compare_lists", "assessments"] } });
+  clock.ms += 61_000;
+  assert.deepEqual(await port.getSavedCareers("stu-A"), { status: "ok", data: [{ career_name: "Chef" }] });
+  const selects = statements.filter((q) => /^SELECT \*/i.test(q));
+  assert.ok(selects.length > 0 && selects.every((q) => q.includes('"saved_careers"') && !q.includes("saved_careers_evil")), JSON.stringify(selects));
+});
+
+test("fix1 R2: the fixed live-port source id is the postgres entry of config/sources.json", async () => {
+  const { loadSourcesFile } = await import("@vc/schemas");
+  const file = loadSourcesFile(join(here, "..", "..", "..", "config", "sources.json"));
+  assert.deepEqual(file.sources.filter((s) => s.kind === "postgres").map((s) => s.id), [PATHLYNKS_POSTGRES_SOURCE_ID]);
+});
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R6): an empty or all-failed sync never replaces a good artifact
+
+const MIG_OK_ONE = "module.exports = { up: async (queryInterface, Sequelize) => { await queryInterface.createTable('users', { id: { type: Sequelize.INTEGER, primaryKey: true } }); }, down: async () => {} };";
+
+async function syncOf(w: Awaited<ReturnType<typeof worldWith>>, id: string) {
+  return w.call("POST", `${ADMIN_PATH}sources/${id}/sync`, { token: await w.token("admin"), body: {} });
+}
+
+test("fix1 R6: a school sync that finds no migration file at all (a renamed folder) records error and keeps the previous schema_map as the latest", async () => {
+  const w = await worldWith(migrations());
+  assert.equal((await syncOf(w, "school-be")).json.status, "ok");
+  const good = await w.store.artifacts.getLatest("school-be", "schema_map");
+  w.deps.github = () => fakeGithub({ "src/index.js": "console.log(1)", "README.md": "" });
+  w.clock.ms += 60_000;
+  const res = await syncOf(w, "school-be");
+  assert.equal(res.json.status, "error");
+  assert.match(res.json.message, /no migration files/i);
+  assert.equal(res.json.counts.files, 0);
+  assert.deepEqual(await w.store.artifacts.getLatest("school-be", "schema_map"), good, "the good artifact is still the latest");
+  const row = (await w.store.sources.get("school-be"))!;
+  assert.equal(row.lastSync!.status, "error");
+  assert.equal(row.lastSync!.counts.files, 0);
+  assert.equal(w.auditRows().at(-1)!.ok, false);
+});
+
+test("fix1 R6: migration files that define no table (all no-ops) record error and keep the previous schema_map", async () => {
+  const w = await worldWith(migrations());
+  await syncOf(w, "school-be");
+  const good = await w.store.artifacts.getLatest("school-be", "schema_map");
+  w.deps.github = () => fakeGithub({ "migrations/20260101-noop.js": "module.exports = { up: async () => {}, down: async () => {} };" });
+  w.clock.ms += 60_000;
+  const res = await syncOf(w, "school-be");
+  assert.equal(res.json.status, "error");
+  assert.match(res.json.message, /no tables/i);
+  assert.deepEqual(await w.store.artifacts.getLatest("school-be", "schema_map"), good);
+  assert.equal((await w.store.sources.get("school-be"))!.lastSync!.status, "error");
+});
+
+test("fix1 R6: every migration file failing to parse (diagnostics >= files) records error with the diagnostics in the response and does not replace the artifact", async () => {
+  const w = await worldWith(migrations());
+  await syncOf(w, "school-be");
+  const good = await w.store.artifacts.getLatest("school-be", "schema_map");
+  // one file that yields a table AND an unparsed statement: diagnostics (1) >= files (1)
+  w.deps.github = () => fakeGithub({ "migrations/20260101-m.js": MIG_OK_ONE.replace("}); }, down", "}); await queryInterface.addColumn(tbl, col, def); }, down") });
+  w.clock.ms += 60_000;
+  const res = await syncOf(w, "school-be");
+  assert.equal(res.json.status, "error", res.body);
+  assert.match(res.json.message, /could not be parsed/i);
+  assert.equal(res.json.counts.diagnostics, 1);
+  assert.equal(res.json.diagnostics.length, 1);
+  assert.equal(res.json.diagnostics[0].code, "unresolved_args");
+  assert.deepEqual(await w.store.artifacts.getLatest("school-be", "schema_map"), good);
+});
+
+test("fix1 R6: a migration over the size cap is counted as skipped, and the sync still succeeds for the others", async () => {
+  const big = "// " + "x".repeat(1_100_000);
+  const w = await worldWith({ ...migrations(), "migrations/20260102-big.js": big });
+  const res = await syncOf(w, "school-be");
+  assert.equal(res.json.status, "ok", res.body);
+  assert.equal(res.json.counts.skipped, 1);
+  assert.equal(res.json.counts.files, 5, "files counts the ones actually read");
+  assert.equal((await w.store.sources.get("school-be"))!.lastSync!.counts.skipped, 1);
+});
+
+test("fix1 R6: a partial parse keeps at most 20 diagnostics in the artifact, with a token-looking file name redacted", async () => {
+  const bad: Record<string, string> = {};
+  for (let i = 0; i < 24; i++) bad[`migrations/2026020${String(i).padStart(2, "0")}-bad.js`] = "this is ((( not js";
+  bad[`migrations/20260300-${TOKEN}.js`] = "this is ((( not js";
+  const w = await worldWith({ ...migrations(), ...bad });
+  await w.store.sources.setSecret("school-be", TOKEN);
+  const res = await syncOf(w, "school-be");
+  assert.equal(res.json.status, "ok", res.body);
+  assert.equal(res.json.counts.diagnostics, 25);
+  const art = await w.store.artifacts.getLatest("school-be", "schema_map");
+  const diags = art!.data.diagnostics as { code: string; file: string; message: string }[];
+  assert.equal(diags.length, 20);
+  const everything = JSON.stringify(art) + res.body + JSON.stringify(w.logs);
+  assert.ok(!everything.includes(TOKEN), "the token never lands in a stored or returned diagnostic");
+});
+
+test("fix1 R6: a frontend sync whose tree has no page routes records error and keeps the previous nav_catalogue", async () => {
+  const w = await worldWith(FRONTEND_TREE);
+  assert.equal((await syncOf(w, "web-fe")).json.status, "ok");
+  const good = await w.store.artifacts.getLatest("web-fe", "nav_catalogue");
+  w.deps.github = () => fakeGithub({ "README.md": "", "package.json": "{}" });
+  w.clock.ms += 60_000;
+  const res = await syncOf(w, "web-fe");
+  assert.equal(res.json.status, "error");
+  assert.match(res.json.message, /no page routes/i);
+  assert.equal(res.json.counts.routes, 0);
+  assert.deepEqual(await w.store.artifacts.getLatest("web-fe", "nav_catalogue"), good);
+  assert.equal((await w.store.sources.get("web-fe"))!.lastSync!.status, "error");
 });

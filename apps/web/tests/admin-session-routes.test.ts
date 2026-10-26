@@ -11,6 +11,7 @@ import {
   handleSessionGet,
   handleSessionLogin,
   handleProxy,
+  createLoginGuard,
   type SessionDeps,
 } from "../src/app/admin/_lib/session-handlers";
 import { buildSessionCookie, clearSessionCookie, isLocalHost } from "../src/app/admin/_lib/session-cookie";
@@ -219,4 +220,53 @@ test("VA19 proxy: an upstream that is down is a fixed 502; an oversized request 
     deps(() => json(200, {})),
   );
   assert.equal(big.status, 413);
+});
+
+// ---------------------------------------------------------------------------------------------------------------- fix cycle 1 (R9): limiter bypass
+
+test("fix1 R9: an attacker rotating X-Forwarded-For on every login attempt never gets a client address upstream, so the API limiter key cannot be reset", async () => {
+  const calls: Call[] = [];
+  const d = deps(() => json(401, { error: "nope" }), calls);
+  for (let i = 1; i <= 6; i++) {
+    const req = new Request("http://localhost:3108/api/admin-session", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": `203.0.113.${i}, 10.0.0.1` },
+      body: JSON.stringify({ email: `rot${i}@x.org`, password: "pw-long-enough" }),
+    });
+    await handleSessionLogin(req, d);
+  }
+  assert.equal(calls.length, 6);
+  for (const c of calls) assert.equal((c.init.headers as Record<string, string>)["x-real-ip"], undefined, "X-Forwarded-For is attacker-controlled and is never forwarded as the client address");
+  // The proxy-set x-real-ip is still honoured, and the proxy path follows the same rule.
+  const real = new Request("http://localhost:3108/api/admin-session", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-real-ip": "198.51.100.7", "x-forwarded-for": "203.0.113.99" },
+    body: JSON.stringify({ email: "real@x.org", password: "pw-long-enough" }),
+  });
+  await handleSessionLogin(real, d);
+  assert.equal((calls[6]!.init.headers as Record<string, string>)["x-real-ip"], "198.51.100.7");
+  await handleProxy(new Request("http://localhost:3108/api/admin-session/proxy/me", { headers: { authorization: "Bearer abc.def.ghi", "x-forwarded-for": "203.0.113.5" } }), ["me"], d);
+  assert.equal((calls[7]!.init.headers as Record<string, string>)["x-real-ip"], undefined);
+});
+
+test("fix1 R9: ten login attempts for one e-mail from ten rotating addresses stop at the per-e-mail limit, before the upstream is called", async () => {
+  const calls: Call[] = [];
+  let now = 1_000_000;
+  const d: SessionDeps = { ...deps(() => json(401, { error: "nope" }), calls), loginGuard: createLoginGuard({ limit: 5, windowMs: 60_000, now: () => now }) };
+  const statuses: number[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const req = new Request("http://localhost:3108/api/admin-session", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": `203.0.113.${i}`, "x-real-ip": `198.51.100.${i}` },
+      body: JSON.stringify({ email: i % 2 ? "Victim@x.org" : "victim@x.org", password: `guess-${i}` }),
+    });
+    statuses.push((await handleSessionLogin(req, d)).status);
+  }
+  assert.deepEqual(statuses, [401, 401, 401, 401, 401, 429, 429, 429, 429, 429]);
+  assert.equal(calls.length, 5, "the limited attempts never reached the admin API");
+  now += 61_000;
+  const again = await handleSessionLogin(new Request("http://localhost:3108/api/admin-session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "victim@x.org", password: "pw-long-enough" }) }), d);
+  assert.equal(again.status, 401, "the window moved on, so the e-mail may try again");
+  const other = await handleSessionLogin(new Request("http://localhost:3108/api/admin-session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "someone-else@x.org", password: "pw-long-enough" }) }), d);
+  assert.equal(other.status, 401, "another e-mail is unaffected");
 });

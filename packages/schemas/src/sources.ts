@@ -15,7 +15,16 @@ import { z } from "zod";
 /** An environment variable NAME: UPPER_SNAKE_CASE, never a value. */
 export const ENV_NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 
-const EnvName = z.string().regex(ENV_NAME_PATTERN, "must be an environment variable NAME (UPPER_SNAKE_CASE)");
+/**
+ * The only env-var names a source may reference as its credential: a Pathlynks or GitHub one. A name such as VC_ADMIN_MASTER_KEY, VC_ADMIN_JWT_SECRET or
+ * MONGODB_URL would turn "Test connection" into a way to send a server secret to a host the admin chose (vc-admin-control fix cycle 1, R1).
+ */
+export const CREDENTIAL_REF_PATTERN = /^(PATHLYNKS|GITHUB)_[A-Z0-9_]+$/;
+
+const EnvName = z
+  .string()
+  .regex(ENV_NAME_PATTERN, "must be an environment variable NAME (UPPER_SNAKE_CASE)")
+  .regex(CREDENTIAL_REF_PATTERN, "must name a PATHLYNKS_* or GITHUB_* environment variable");
 const SourceId = z.string().regex(/^[a-z0-9][a-z0-9_-]{1,63}$/, "source id: lowercase letters, digits, - and _");
 const Identifier = z.string().regex(/^[A-Za-z0-9_.-]{1,63}$/);
 const HostName = z.string().regex(/^[A-Za-z0-9]([A-Za-z0-9.-]{0,253}[A-Za-z0-9])?$/, "host name only (no scheme, userinfo or path)");

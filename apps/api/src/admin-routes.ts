@@ -11,7 +11,8 @@
  * Order for every request other than login: bearer token (HS256, typ "vc-admin", the user still exists and is not disabled; the STORED role is
  * used, so a demotion applies at once) -> role check (403) -> body validation (400) -> the handler. Each of those failures after authentication
  * writes one `audit_log` row with ok:false; a success writes one with ok:true; GETs write none. An unauthenticated request (no valid token) is
- * a 401 with no row: there is no actor to record, and an anonymous flood must not be able to fill the log.
+ * a 401 with no row: there is no actor to record, and an anonymous flood must not be able to fill the log. The one exception is login: a failed
+ * well-formed attempt IS audited, but at most one row per client+e-mail per limiter window; a 429-limited or malformed anonymous attempt writes none.
  *
  * Secrets: no response carries a stored secret, a password hash or the master key. `hasSecret` is the only signal. A created or rotated API key is
  * in that one response and nowhere else. Error bodies are fixed codes; no exception text is ever copied into a response, a log line or an audit row.
@@ -41,7 +42,7 @@ import {
   parseSequelizeMigrations,
   type GithubPort,
 } from "@vc/engine";
-import { SourceConfig, findSecretLikeFields, type SourcesFile } from "@vc/schemas";
+import { CREDENTIAL_REF_PATTERN, SourceConfig, findSecretLikeFields, type SourcesFile } from "@vc/schemas";
 import { createPathlynksPort, type PathlynksEvent, type PathlynksResult as McpPathlynksResult } from "@vc/mcp-pathlynks";
 import { studentKeyOf } from "@vc/db";
 import type { StudentGraphDeps } from "@vc/engine";
@@ -49,6 +50,8 @@ import type { TurnUsageSink, UsageMeter } from "./chat.js";
 
 import {
   ADMIN_TOKEN_TTL_SEC,
+  LOGIN_MAX_AUDIT_KEYS,
+  LOGIN_WINDOW_MS,
   burnPasswordCheck,
   createLoginLimiter,
   hashPassword,
@@ -83,6 +86,15 @@ const ADMIN_ID = /^[0-9a-f]{24}$/;
 const ROLE_RANK: Record<AdminRole, number> = { viewer: 1, admin: 2, "super-admin": 3 };
 const UNKNOWN_ACTOR = "unknown";
 const NETWORK_TIMEOUT_MS = 60_000;
+
+/** A source names a credential env var outside the PATHLYNKS_* / GITHUB_* allow-list; nothing was read from the environment. */
+class CredentialRefError extends Error {
+  constructor() {
+    super("credential reference not allowed");
+    this.name = "CredentialRefError";
+  }
+}
+const CREDENTIAL_REF_REFUSED = "This source names a credential reference that is not allowed (only PATHLYNKS_* and GITHUB_* names are).";
 
 /** What the Postgres test port answers. `cause` is one of a fixed set; the route maps it to a fixed sentence. */
 export interface PostgresTestResult {
@@ -164,6 +176,8 @@ interface Result {
   ok: boolean;
   /** The audit row's target: an id or a login name, never a secret or a body. */
   target?: string;
+  /** The body carries a key shown exactly once: if the audit write then fails, the key is still returned (flagged), never lost. */
+  oneTimeKey?: boolean;
 }
 
 interface Actor {
@@ -231,18 +245,28 @@ export function withAdminRoutes(inner: ApiHandler, deps: AdminRoutesDeps | undef
     }
   }
 
+  /** client+e-mail -> start of the window in which a failed login was last audited. A flood of the same failure is one row per window. */
+  const failedLoginSeen = new Map<string, number>();
+  async function auditFailedLogin(req: ApiRequest, email: string, actor: string): Promise<void> {
+    const t = nowMs();
+    const key = `${clientKey(req) ?? "-"}|${email.trim().toLowerCase().slice(0, 254)}`;
+    const seen = failedLoginSeen.get(key);
+    if (seen !== undefined && t - seen < LOGIN_WINDOW_MS) return;
+    if (failedLoginSeen.size >= LOGIN_MAX_AUDIT_KEYS) {
+      for (const [k, at] of failedLoginSeen) if (t - at >= LOGIN_WINDOW_MS) failedLoginSeen.delete(k);
+      if (failedLoginSeen.size >= LOGIN_MAX_AUDIT_KEYS) return; // table full of live keys: bounded, so write nothing more
+    }
+    failedLoginSeen.set(key, t);
+    await audit(actor, "login", "login", false);
+  }
+
   async function login(req: ApiRequest): Promise<ApiResponse> {
     const d = deps!;
     const verdict = limiter.check(clientKey(req));
-    if (!verdict.allowed) {
-      await audit(UNKNOWN_ACTOR, "login", "login", false);
-      return respond(429, { error: "rate_limited" }, { "retry-after": String(verdict.retryAfterSec) });
-    }
+    // A limited or malformed anonymous attempt writes no audit row: nobody can be blamed for it and a flood of them must not fill the log.
+    if (!verdict.allowed) return respond(429, { error: "rate_limited" }, { "retry-after": String(verdict.retryAfterSec) });
     const body = await readJson(req);
-    if (typeof body === "string") {
-      await audit(UNKNOWN_ACTOR, "login", "login", false);
-      return respond(body === "too_large" ? 413 : 400, { error: body === "too_large" ? "too_large" : "invalid_request" });
-    }
+    if (typeof body === "string") return respond(body === "too_large" ? 413 : 400, { error: body === "too_large" ? "too_large" : "invalid_request" });
     const email = typeof body.email === "string" ? body.email : "";
     const password = typeof body.password === "string" ? body.password : "";
     let user = null;
@@ -253,7 +277,7 @@ export function withAdminRoutes(inner: ApiHandler, deps: AdminRoutesDeps | undef
     }
     const good = user !== null && !user.disabled ? await verifyPassword(password, user.passwordHash) : await burnPasswordCheck(password);
     if (!good || user === null) {
-      await audit(user?.email ?? UNKNOWN_ACTOR, "login", "login", false);
+      await auditFailedLogin(req, email, user?.email ?? UNKNOWN_ACTOR);
       return respond(401, { error: "invalid_credentials" });
     }
     const { token, exp } = await signAdminToken({ sub: user.email, role: user.role }, d.jwtSecret, nowMs());
@@ -322,13 +346,28 @@ export function withAdminRoutes(inner: ApiHandler, deps: AdminRoutesDeps | undef
       } catch (e) {
         result = mapError(e, log, route.action);
       }
-      if (write && !(await audit(actor.email, route.action, result.target ?? target, result.ok))) return respond(500, { error: "audit_unavailable" });
+      if (write && !(await audit(actor.email, route.action, result.target ?? target, result.ok))) {
+        // The mutation already happened. A response that carries a one-time key must not turn into a 500 that loses it: return it, flagged and logged.
+        if (result.ok && result.oneTimeKey) return unaudited(result.res);
+        return respond(500, { error: "audit_unavailable" });
+      }
       return result.res;
     } catch (e) {
       log({ level: "error", event: "admin_request_failed", route: segs[0] ?? "", error: errorLabel(e) });
       return respond(500, { error: "internal" });
     }
   };
+}
+
+/** The same response with `auditRecorded:false` added (the audit write failed after a mutation whose one-time key must still reach the admin). */
+function unaudited(res: ApiResponse): ApiResponse {
+  try {
+    const body: unknown = JSON.parse(res.body);
+    if (body !== null && typeof body === "object" && !Array.isArray(body)) return { ...res, body: JSON.stringify({ ...(body as Record<string, unknown>), auditRecorded: false }) };
+  } catch {
+    /* fall through */
+  }
+  return respond(500, { error: "audit_unavailable" });
 }
 
 /** "<METHOD> <path> <minRole>" for every route this module serves: the role-matrix test diffs its table against this list (VA5). */
@@ -373,7 +412,7 @@ const str = (v: unknown): string | undefined => (typeof v === "string" ? v : und
 const strArray = (v: unknown): string[] | undefined => (Array.isArray(v) && v.every((x) => typeof x === "string") ? (v as string[]) : undefined);
 const isScope = (v: unknown): v is KeyScope => v === "pub" || v === "srv";
 const isRole = (v: unknown): v is AdminRole => typeof v === "string" && (ADMIN_ROLES as readonly string[]).includes(v);
-const ok = (status: number, body: unknown, target?: string): Result => ({ res: respond(status, body), ok: true, ...(target === undefined ? {} : { target }) });
+const ok = (status: number, body: unknown, target?: string, extra: Partial<Result> = {}): Result => ({ res: respond(status, body), ok: true, ...(target === undefined ? {} : { target }), ...extra });
 
 // ---------------------------------------------------------------------------------------------------------------- routes
 
@@ -389,7 +428,10 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
   async function credentialFor(src: SourceSummary): Promise<string | undefined> {
     if (src.hasSecret) return d.store.sources.readSecret(src.id);
     const ref = src.kind === "github" ? src.config.tokenRef : src.config.passwordRef;
-    const value = typeof ref === "string" ? (d.env ?? process.env)[ref] : undefined;
+    if (ref === undefined) return undefined;
+    // A stored doc may predate the schema allow-list: re-check it here so no env var outside PATHLYNKS_* / GITHUB_* is ever read for a source.
+    if (typeof ref !== "string" || !CREDENTIAL_REF_PATTERN.test(ref)) throw new CredentialRefError();
+    const value = (d.env ?? process.env)[ref];
     return value !== undefined && value !== "" ? value : undefined;
   }
 
@@ -462,7 +504,7 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         const id = c.body.id === undefined ? undefined : str(c.body.id);
         if (name === undefined || origins === undefined || (c.body.id !== undefined && id === undefined)) return err(400, "invalid_site");
         const { partner, keys } = await addPartner(d.partnerStore, { name, origins, ...(id === undefined ? {} : { id }) }, ctx);
-        return ok(201, { partner, keys }, partner.partnerId);
+        return ok(201, { partner, keys }, partner.partnerId, { oneTimeKey: true });
       },
     },
     {
@@ -488,7 +530,7 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         if (!ctx) return noPartners();
         if (!isScope(c.body.scope)) return err(400, "invalid_scope");
         const out = await rotatePartner(d.partnerStore, siteIdOf(c), c.body.scope, ctx);
-        return ok(200, { partner: out.partner, key: out.key, scope: out.scope }, `${siteIdOf(c)}:${out.scope}`);
+        return ok(200, { partner: out.partner, key: out.key, scope: out.scope }, `${siteIdOf(c)}:${out.scope}`, { oneTimeKey: true });
       },
     },
     {
@@ -620,15 +662,25 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
       return out.ok ? { ok: true, message: "Connection works." } : { ok: false, message: PG_CAUSE_TEXT[out.cause ?? ""] ?? "The database could not be reached." };
     } catch (e) {
       if (e instanceof SecretsError) return { ok: false, message: "The secrets store is not configured on this server." };
+      if (e instanceof CredentialRefError) return { ok: false, message: CREDENTIAL_REF_REFUSED };
       return { ok: false, message: src.kind === "github" ? "The repository could not be read." : "The database could not be reached." };
     }
   }
 
-  /** fetch -> parse -> artifacts.put -> sources.recordSync. A failed fetch records status "error" and leaves the previous artifact in place. */
-  async function syncGithubSource(src: SourceSummary): Promise<{ status: "ok" | "error"; counts: Record<string, number>; message?: string }> {
-    const fail = async (message: string): Promise<{ status: "error"; counts: Record<string, number>; message: string }> => {
-      await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "error", counts: {} });
-      return { status: "error", counts: {}, message };
+  /** Up to 20 parser diagnostics, with the token and anything secret-looking scrubbed, each field length-capped (they are stored and returned). */
+  function safeDiagnostics(list: readonly { code: string; file: string; message: string }[], token: string | undefined): SyncDiagnostic[] {
+    const scrub = (text: string, max: number): string => {
+      const cleaned = token !== undefined && token !== "" ? text.split(token).join("[redacted]") : text;
+      return findSecretLikeFields(cleaned).length > 0 || SECRET_IN_TEXT.test(cleaned) ? "[redacted]" : cleaned.slice(0, max);
+    };
+    return list.slice(0, MAX_STORED_DIAGNOSTICS).map((x) => ({ code: scrub(String(x.code), 64), file: scrub(String(x.file), 200), message: scrub(String(x.message), 300) }));
+  }
+
+  /** fetch -> parse -> artifacts.put -> sources.recordSync. A failed fetch, or a sync that found nothing usable, records status "error" and leaves the previous artifact in place. */
+  async function syncGithubSource(src: SourceSummary): Promise<SyncOutcome> {
+    const fail = async (message: string, counts: Record<string, number> = {}, diagnostics?: SyncDiagnostic[]): Promise<SyncOutcome> => {
+      await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "error", counts });
+      return { status: "error", counts, message, ...(diagnostics === undefined ? {} : { diagnostics }) };
     };
     if (!d.github) return fail("GitHub access is not configured on this server.");
     const cfg = src.config as { owner?: unknown; repo?: unknown; branch?: unknown; service?: unknown };
@@ -636,8 +688,8 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
     let token: string | undefined;
     try {
       token = await credentialFor(src);
-    } catch {
-      return fail("The stored credential could not be read.");
+    } catch (e) {
+      return fail(e instanceof CredentialRefError ? CREDENTIAL_REF_REFUSED : "The stored credential could not be read.");
     }
     const port = d.github(token);
     const coords = { owner: cfg.owner, repo: cfg.repo, branch: cfg.branch };
@@ -649,20 +701,40 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         if (!Array.isArray(listed) && listed.truncated === true) throw new GithubFetchError("limit", "the repository tree is truncated");
         const paths = tree.filter((e) => e.type === undefined || e.type === "blob").map((e) => e.path);
         const catalogue = parseNextAppRoutes(paths);
-        await d.store.artifacts.put({ sourceId: src.id, kind: "nav_catalogue", data: { routes: catalogue.routes } });
         const counts = { files: paths.length, routes: catalogue.routes.length };
+        // An empty catalogue (renamed app folder, wrong branch) must not replace the last good one.
+        if (counts.routes === 0) return fail("No page routes were found in the repository, so the stored catalogue was kept.", counts);
+        await d.store.artifacts.put({ sourceId: src.id, kind: "nav_catalogue", data: { routes: catalogue.routes } });
         await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "ok", counts });
         return { status: "ok", counts };
       }
+      let skipped = 0;
       const files = await withTimeout(
-        fetchRepoFiles(port, coords, ["**/migrations/*.js", "**/migrations/*.cjs", "**/migrations/*.ts"], { redact: token === undefined ? [] : [token] }),
+        fetchRepoFiles(port, coords, ["**/migrations/*.js", "**/migrations/*.cjs", "**/migrations/*.ts"], {
+          redact: token === undefined ? [] : [token],
+          onSkip: () => {
+            skipped++;
+          },
+        }),
         NETWORK_TIMEOUT_MS * 5,
       );
       const schema = parseSequelizeMigrations(files);
-      await d.store.artifacts.put({ sourceId: src.id, kind: "schema_map", data: { tables: schema.tables } });
-      const counts = { files: files.length, tables: Object.keys(schema.tables).length, diagnostics: schema.diagnostics.length };
+      const tables = Object.keys(schema.tables).length;
+      const counts = { files: files.length, tables, diagnostics: schema.diagnostics.length, skipped };
+      const diagnostics = safeDiagnostics(schema.diagnostics, token);
+      // Nothing usable must never become the latest artifact (it would blank the schema the chat reads) nor be reported as ok.
+      const problem =
+        files.length === 0
+          ? "No migration files were found in the repository, so the stored schema was kept."
+          : tables === 0
+            ? "The migration files define no tables, so the stored schema was kept."
+            : schema.diagnostics.length >= files.length
+              ? "Too many migration files could not be parsed, so the stored schema was kept."
+              : undefined;
+      if (problem !== undefined) return fail(problem, counts, diagnostics);
+      await d.store.artifacts.put({ sourceId: src.id, kind: "schema_map", data: { tables: schema.tables, diagnostics } });
       await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "ok", counts });
-      return { status: "ok", counts };
+      return { status: "ok", counts, diagnostics };
     } catch (e) {
       log({ level: "error", event: "admin_sync_failed", source: src.id, error: e instanceof GithubFetchError ? `GithubFetchError:${e.stage}` : errorLabel(e) });
       return fail(e instanceof GithubFetchError && e.stage === "limit" ? "The repository is too large to sync in one go." : "The repository could not be read.");
@@ -671,6 +743,21 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
 
   return routes;
 }
+
+interface SyncDiagnostic {
+  code: string;
+  file: string;
+  message: string;
+}
+interface SyncOutcome {
+  status: "ok" | "error";
+  counts: Record<string, number>;
+  message?: string;
+  diagnostics?: SyncDiagnostic[];
+}
+const MAX_STORED_DIAGNOSTICS = 20;
+/** A token-shaped word inside a diagnostic text (a file name can carry one). */
+const SECRET_IN_TEXT = /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{10,}|\bgithub_pat_[A-Za-z0-9_]{10,}|\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}/;
 
 const PG_CAUSE_TEXT: Record<string, string> = {
   not_configured: "No password is set for this database source.",
@@ -806,6 +893,9 @@ export function adaptPathlynksPort(p: Pick<ReturnType<typeof createPathlynksPort
 
 const PORT_CACHE_MS = 60_000;
 
+/** The seeded id (config/sources.json) of the Pathlynks Postgres source: the only one the live chat port is ever built from. */
+export const PATHLYNKS_POSTGRES_SOURCE_ID = "pathlynks-db";
+
 /** Which configured table backs each Pathlynks read (by name: students, saved_careers, compare_*, assessment*). Undefined when one is missing. */
 export function pathlynksTablesFrom(tables: readonly string[]): { profile: string; savedCareers: string; compareList: string; assessment: string } | undefined {
   const pick = (re: RegExp) => tables.find((t) => re.test(t));
@@ -839,7 +929,7 @@ function mcpPortFor(cfg: Record<string, unknown>, password: string, extra: { onE
  */
 export function createLivePathlynksPort(
   store: Pick<AdminStore, "sources">,
-  opts: { env: Record<string, string | undefined>; nowMs?: () => number; onEvent?: (e: PathlynksEvent) => void; connect?: PortConnect },
+  opts: { env: Record<string, string | undefined>; nowMs?: () => number; onEvent?: (e: PathlynksEvent) => void; connect?: PortConnect; sourceId?: string },
 ): EnginePathlynksPort {
   const nowMs = opts.nowMs ?? Date.now;
   let cached: { at: number; port: EnginePathlynksPort } | undefined;
@@ -852,10 +942,12 @@ export function createLivePathlynksPort(
   };
   async function build(): Promise<EnginePathlynksPort> {
     try {
-      const src = (await store.sources.list()).find((s) => s.kind === "postgres");
-      if (!src) return none;
+      // The seeded id only: an admin-created postgres source (any other id) can never become the live student-data port.
+      const src = await store.sources.get(opts.sourceId ?? PATHLYNKS_POSTGRES_SOURCE_ID);
+      if (!src || src.kind !== "postgres") return none;
       const ref = (src.config as { passwordRef?: unknown }).passwordRef;
-      const password = src.hasSecret ? await store.sources.readSecret(src.id) : typeof ref === "string" ? opts.env[ref] : undefined;
+      const refOk = typeof ref === "string" && CREDENTIAL_REF_PATTERN.test(ref);
+      const password = src.hasSecret ? await store.sources.readSecret(src.id) : refOk ? opts.env[ref] : undefined;
       if (!password) return none;
       const port = mcpPortFor(src.config, password, { ...(opts.onEvent ? { onEvent: opts.onEvent } : {}), ...(opts.connect ? { connect: opts.connect } : {}), allowPrivileged: opts.env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE });
       return port ? adaptPathlynksPort(port) : none;
