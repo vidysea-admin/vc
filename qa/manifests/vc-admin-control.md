@@ -2,16 +2,21 @@
 Policy-Version: proportional-verification/2026-10-19.17
 **Contract:** qa/contracts/vc-admin-control.md @1283b23 (VA1-VA19 buildable; VA20/VA21 HELD live proofs). Gate answers: qa/gates/vc-admin-control.md (G1 pathlynksadm with explicit override, G2 RDS IP allowlist, G5 email+password/scrypt/JWT 8h/CLI super-admin, G6 minimal-field allow-list, G7 simplest).
 **Date:** 2026-10-26T23:30:00+05:30
-**Fix cycle:** 1 of max 2
+**Fix cycle:** 2 of max 2
 **Round:** 1 (est 45-90 min)
 Round: 9 files, 9 repair items, est 40 min — fix cycle 1: 2 parallel Sonnet builders (API group R1-R6,R9; ENGINE group E1-E3), selected tests, then 2 repair checkers
 slow-plan: L security repair with two blind repair checkers; builders run in parallel
 Owners: api (apps/api admin-routes/admin-auth, packages/schemas sources, packages/db admin-store, apps/web admin _lib), engine (packages/engine ingest/migrations, student/graph)
 Fan-out: vca-fix1-api + vca-fix1-eng dispatched in one message 2026-10-27
 Repair base: 914a61d
+Cycle 2 (2026-10-27): both cycle-1 verdicts FAIL on VA1 (an allow-listed env ref sent to an admin-chosen host). Progress vs cycle 0: VA12, VA19, VA8 now PASS (A); the ref-name exfil is closed. New evidenced failures: VA6 contract (B), login guard fail-closed and sync false error (A). Not no-progress, so cycle 2 is dispatched (Opus, .9-18).
+Round (cycle 2): 3 files, 4 repair items, est 40 min — one Opus builder (API group only), selected tests, 2 repair checkers
+Failed criteria (A, cycle 2): VA1 (+ PROPOSED 2 guard fail-closed, 3 sync false error)
+Failed criteria (B, cycle 2): VA1, VA8, VA6
+Repair base (cycle 2): 78ddaef
 Failed criteria (A): VA1, VA8, VA12, VA19 (P1 env-ref exfiltration, P2 live-port takeover, P3 dashboard window excludes today)
 Failed criteria (B): VA1, VA5, VA8 (F1 env-ref exfiltration)
-**Status:** ready-for-check
+**Status:** building (fix cycle 2)
 **Executor:** claude-sonnet-subagent (maker role, unit vca-api)
 **Base:** branch wave/vc-admin-control (worktree D:/vc/.worktrees/vca-int) from e99842c. Code commits d0e48c1 and 2798e5e; this manifest is the next commit.
 **Tier:** L (auth/security)
