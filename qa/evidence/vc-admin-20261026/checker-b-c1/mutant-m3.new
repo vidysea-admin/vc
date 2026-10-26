@@ -1,0 +1,2 @@
+      pattern: ["sources", "*", "secret"],
+      minRole: "admin",

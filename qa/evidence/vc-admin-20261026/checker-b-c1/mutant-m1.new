@@ -1,0 +1,1 @@
+  .regex(ENV_NAME_PATTERN, "must be an environment variable NAME (UPPER_SNAKE_CASE)");

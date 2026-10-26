@@ -1,0 +1,1 @@
+    if (typeof ref !== "string") throw new CredentialRefError();
