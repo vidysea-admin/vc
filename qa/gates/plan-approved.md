@@ -39,3 +39,8 @@ Answered: 2026-10-17T13:57:53+05:30 — plan — approved (plan.md v8 3ab92f77) 
 Answered: 2026-10-22T07:29:11+05:30 — intent — approved via mini-grill answers (Widget + API; simple api key; Voice without A10; Vidysea website + Pathlynks) — Umesh in chat, D-111
 Answered: 2026-10-22T07:29:11+05:30 — spec — docs/features/partner-chatbot/spec.md drafted verbatim from those answers; Umesh "continue now" — D-111
 Answered: 2026-10-22T07:29:11+05:30 — plan — docs/features/partner-chatbot/plan.md; Umesh "continue now" — D-111
+
+## vc-admin-control (opened 2026-10-26T21:31:57+05:30)
+Answered: 2026-10-26 — intent — docs/features/vc-admin-control/intent.md from Umesh's 26 Oct asks; plan approved "hnn tho ye plan frinal hai" — qa/gates/vc-admin-control.md G0, D-113
+Answered: 2026-10-26 — spec — docs/features/vc-admin-control/spec.md derived 1:1 from the approved plan A1-A10 + fact pass; Umesh "build it in the best way possible" — G0, D-113
+Answered: 2026-10-26 — plan — docs/features/vc-admin-control/plan.md (waves B1-B7, B2) from the approved plan order — G0, D-113
