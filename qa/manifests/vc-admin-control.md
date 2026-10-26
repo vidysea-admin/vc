@@ -9,6 +9,7 @@ Policy-Version: proportional-verification/2026-10-19.17
 **Base:** branch wave/vc-admin-control (worktree D:/vc/.worktrees/vca-int) from e99842c. Code commits d0e48c1 and 2798e5e; this manifest is the next commit.
 **Tier:** L (auth/security)
 **Dual check:** required; dual-trigger: auth apps/api/src/admin-auth.ts:139 (the `typ === "vc-admin"` pin; also scrypt verify :96, login limiter :149-155)
+**Round cap:** (a) SECURITY CLASS -- auth (admin login, JWT typ pin, role matrix: apps/api/src/admin-auth.ts:139), credential handling (AES-256-GCM source secrets, env-ref resolution) and tenancy (Pathlynks student scope, G6), which D-014 never caps; first check of this feature, no prior PASS on these new files.
 **Persona walk:** admin console walked in a real browser by the maker as super-admin only (login -> sources Sync/Set secret -> sites create -> dashboard); admin and viewer paths are the checker's (the per-role matrix is unit-tested over every route, 70 cases).
 
 ## What changed (file:lines)
