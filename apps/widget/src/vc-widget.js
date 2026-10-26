@@ -1,15 +1,16 @@
-/*! vc-widget v1.0.0 - embeddable Virtual Counsellor chat (partner-chatbot, D-111).
+/*! vc-widget v1.1.0 - embeddable Virtual Counsellor chat (partner-chatbot, D-111; floater, vc-admin-control S7).
  * One script tag, no dependencies, no build step. Renders a floating bubble inside a shadow DOM.
  *   <script src=".../widget/vc-widget.v1.js" data-vc-key="vck_..." defer></script>   key mode
  *   <script src=".../widget/vc-widget.v1.js" data-vc-proxy="/api/vc" defer></script> proxy mode
- * Options: data-vc-key, data-vc-api, data-vc-proxy, data-vc-title, data-vc-color, data-vc-voice ("on" adds a mic button; key mode only).
+ * Options: data-vc-key, data-vc-api, data-vc-proxy, data-vc-title, data-vc-color, data-vc-voice ("on" adds a mic button and a Chat|Voice toggle; key mode only), data-vc-site (site id for the pop-out window).
+ * The panel floats: drag it by the header, resize it from the bottom-right corner, or pop it out into its own window.
  * Safety: model text is only ever written with textContent; links are limited to http/https; nothing is stored
  * (no localStorage, sessionStorage, cookies or IndexedDB); the conversation lives in memory only.
  */
 (function (root) {
   "use strict";
 
-  var VERSION = "1.0.0";
+  var VERSION = "1.1.0";
   var TURN_PATH = "/v1/public/chat/turns";
   var HELP = "Tele-MANAS 14416 (24x7) · Emergency 112";
   var FOOTER = "Not a substitute for a counsellor. In distress? " + HELP;
@@ -18,6 +19,10 @@
   var DEFAULT_COLOR = "#1f5fbf";
   var DEFAULT_TITLE = "Career Counsellor";
   var MAX_TEXT = 4000;
+  var MIN_W = 300, MIN_H = 380; // the smallest the visitor can resize the panel to (a viewport smaller than this wins, so nothing overflows)
+  var SITE_RE = /^[a-z0-9-]{2,32}$/; // the partner-id shape; the pop-out URL carries this id and never a key
+  var POPOUT_PATH = "/vc-popout";
+  var POPOUT_FEATURES = "popup=yes,width=420,height=680,noopener,noreferrer";
   var VOICE_RENDERED = true; // pc-voice (V3): data-vc-voice="on" (key mode) loads the mic add-on, voice.js, from the folder this script came from.
   var VOICE_MAJOR = "1"; // the add-on's file name carries its major version: vc-widget-voice.v1.js
 
@@ -52,6 +57,8 @@
     var color = str("vcColor");
     if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) color = DEFAULT_COLOR;
     var voice = str("vcVoice").toLowerCase() === "on";
+    var site = str("vcSite");
+    if (!SITE_RE.test(site)) site = "";
     var mode, turnUrl = "";
 
     if (proxy) {
@@ -76,7 +83,40 @@
       }
       if (!errors.length) turnUrl = base + TURN_PATH;
     }
-    return { ok: errors.length === 0, errors: errors, mode: mode, key: key, turnUrl: turnUrl, title: title, color: color, voice: voice };
+    if (!site && key) { // the partner id inside a page key (vck_pub_<partnerId>_<secret>) names the site; the key itself never leaves the config
+      var km = /^vck_pub_([a-z0-9-]{2,32})_/.exec(key);
+      if (km) site = km[1];
+    }
+    return { ok: errors.length === 0, errors: errors, mode: mode, key: key, turnUrl: turnUrl, title: title, color: color, voice: voice, site: site };
+  }
+
+  // ---- floater geometry (vc-admin-control S7) ---------------------------------------------------------------
+
+  // Pulls a {left, top, width, height} rectangle inside a vw x vh viewport: size floor MIN_W x MIN_H (a smaller viewport wins), then the position.
+  function clampRect(r, vw, vh) {
+    var w = Math.min(Math.max(r.width, MIN_W), Math.max(vw, 0));
+    var h = Math.min(Math.max(r.height, MIN_H), Math.max(vh, 0));
+    return {
+      left: Math.min(Math.max(r.left, 0), Math.max(vw - w, 0)),
+      top: Math.min(Math.max(r.top, 0), Math.max(vh - h, 0)),
+      width: w,
+      height: h
+    };
+  }
+
+  // The pop-out window address: <host or API origin>/vc-popout?site=<id>. Nothing else rides in it (no key, no student token, no chat text).
+  // Key/open mode: the origin of the configured API. Proxy mode: the proxy's origin, or the host page's origin for a relative proxy. null when there is no usable site id or origin.
+  function popoutUrl(cfg, pageOrigin) {
+    if (!cfg || typeof cfg.site !== "string" || !SITE_RE.test(cfg.site)) return null;
+    var t = String(cfg.turnUrl || "");
+    var abs = httpUrl(t);
+    var origin = "";
+    if (abs && abs.hostname) origin = abs.origin;
+    else if (t.charAt(0) === "/") {
+      var po = httpUrl(pageOrigin);
+      origin = po && po.hostname ? po.origin : "";
+    }
+    return origin ? origin + POPOUT_PATH + "?site=" + encodeURIComponent(cfg.site) : null;
   }
 
   function contrastText(hex) {
@@ -251,10 +291,15 @@
       ".root{position:fixed;right:16px;bottom:16px;z-index:2147483000;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1b1f23}",
       ".bubble{width:56px;height:56px;border-radius:50%;border:0;cursor:pointer;background:var(--c);color:var(--ct);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.3);padding:0}",
       ".bubble svg{width:28px;height:28px;fill:currentColor}",
-      ".panel{position:fixed;right:12px;bottom:84px;width:min(380px,calc(100vw - 24px));height:min(560px,calc(100vh - 100px));height:min(560px,calc(100dvh - 100px));background:#f5f6f8;border:1px solid #c5cbd3;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}",
+      ".panel{position:fixed;right:12px;bottom:84px;max-width:calc(100vw - 16px);width:min(380px,calc(100vw - 24px));height:min(560px,calc(100vh - 100px));height:min(560px,calc(100dvh - 100px));background:#f5f6f8;border:1px solid #c5cbd3;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}",
       ".panel[hidden]{display:none}",
-      ".head{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;background:var(--c);color:var(--ct)}",
+      ".head{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 14px;background:var(--c);color:var(--ct);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}",
       ".head h2{flex:1;margin:0;font-size:1rem;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      ".modes{display:flex;flex:none;border:1px solid currentColor;border-radius:8px;overflow:hidden}",
+      ".modes[hidden],.pop[hidden]{display:none}",
+      ".mode{min-height:36px;padding:0 10px;border:0;background:transparent;color:inherit;font:inherit;font-size:.85rem;font-weight:600;cursor:pointer}",
+      ".mode[aria-pressed=true]{background:var(--ct);color:var(--c)}",
+      ".pop,.close{flex:none;width:44px;height:44px;border:0;background:transparent;color:inherit;font:inherit;font-size:1.2rem;line-height:1;cursor:pointer;border-radius:8px}",
       ".close{width:44px;height:44px;border:0;background:transparent;color:inherit;font:inherit;font-size:1.4rem;line-height:1;cursor:pointer;border-radius:8px}",
       ".log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px 12px}",
       ".m{max-width:90%;padding:8px 12px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.95rem}",
@@ -282,7 +327,10 @@
       ".mic[hidden]{display:none}",
       ".mic[aria-pressed=true]{background:#b3261e;border-color:#b3261e;color:#fff}",
       ".mic svg{width:20px;height:20px;fill:currentColor;vertical-align:middle}",
-      ".foot{padding:6px 10px;font-size:.8rem;font-weight:600;text-align:center;background:#fff;border-top:1px solid #d9dde3}",
+      ".panel[data-mode=voice] textarea,.panel[data-mode=voice] .send{display:none}",
+      ".panel[data-mode=voice] .mic{flex:1}",
+      ".grip{position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;touch-action:none;z-index:1;background:linear-gradient(135deg,transparent 52%,#8c96a3 52%,#8c96a3 60%,transparent 60%,transparent 72%,#8c96a3 72%,#8c96a3 80%,transparent 80%)}",
+      ".foot{padding:6px 24px;font-size:.8rem;font-weight:600;text-align:center;background:#fff;border-top:1px solid #d9dde3}",
       "button:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #f0a100;outline-offset:2px}",
       "@media (max-width:480px){.panel{left:8px;right:8px;width:auto;bottom:80px}.root{right:12px;bottom:12px}}"
     ].join("\n");
@@ -306,8 +354,13 @@
     return svg;
   }
 
-  function mount(cfg, doc, fetchImpl) {
+  // env (optional): { win } is the window whose size, resize event and open() the floater uses (tests pass a fake; default is the page window).
+  function mount(cfg, doc, fetchImpl, env) {
     doc = doc || root.document;
+    var win = (env && env.win) || root;
+    var pageOrigin = "";
+    try { pageOrigin = (win.location && win.location.origin) || ""; } catch (e) { /* no location */ }
+    var popUrl = popoutUrl(cfg, pageOrigin);
     var host = doc.createElement("div");
     host.setAttribute("data-vc-widget", VERSION);
     var shadow = host.attachShadow({ mode: "open" });
@@ -334,6 +387,27 @@
 
     var head = el(doc, "div", "head");
     head.appendChild(el(doc, "h2", "", cfg.title));
+    // Chat | Voice toggle: shown only when voice can be used here (voiceAvailable); both modes share the one log below.
+    var modes = el(doc, "div", "modes");
+    modes.setAttribute("role", "group");
+    modes.setAttribute("aria-label", "Conversation mode");
+    var modeChat = el(doc, "button", "mode", "Chat");
+    var modeVoice = el(doc, "button", "mode", "Voice");
+    modeChat.type = "button";
+    modeVoice.type = "button";
+    modeChat.setAttribute("aria-label", "Chat mode");
+    modeVoice.setAttribute("aria-label", "Voice mode");
+    modeChat.setAttribute("aria-pressed", "true");
+    modeVoice.setAttribute("aria-pressed", "false");
+    modes.appendChild(modeChat);
+    modes.appendChild(modeVoice);
+    modes.hidden = !voiceAvailable(cfg);
+    head.appendChild(modes);
+    var pop = el(doc, "button", "pop", "\u2197");
+    pop.type = "button";
+    pop.setAttribute("aria-label", "Open in a new window");
+    pop.hidden = !popUrl;
+    head.appendChild(pop);
     var close = el(doc, "button", "close", "×");
     close.type = "button";
     close.setAttribute("aria-label", "Close chat");
@@ -375,18 +449,28 @@
     panel.appendChild(status);
     panel.appendChild(form);
     panel.appendChild(foot);
+    var grip = el(doc, "div", "grip");
+    grip.setAttribute("aria-hidden", "true"); // pointer-only resize handle; the panel is fully usable at its default size from the keyboard
+    panel.appendChild(grip);
+    panel.setAttribute("data-mode", "chat");
     wrap.appendChild(panel);
     wrap.appendChild(bubble);
     shadow.appendChild(wrap);
 
     var busy = false, dead = false, waitTimer = null, greeted = false;
+    var hist = []; // the one in-memory history both modes share: {node, cls, text}; never stored, never sent to the pop-out window
 
     function add(cls, text) {
       var d = el(doc, "div", "m " + cls);
       d.textContent = text; // never innerHTML
       log.insertBefore(d, typing);
+      hist.push({ node: d, cls: cls, text: text });
       log.scrollTop = log.scrollHeight;
       return d;
+    }
+    function setLine(node, text) {
+      node.textContent = text; // textContent only, as everywhere else
+      for (var i = 0; i < hist.length; i++) if (hist[i].node === node) hist[i].text = text;
     }
     function setBusy(b) {
       busy = b;
@@ -483,7 +567,97 @@
       if (!dead && !waitTimer) input.focus();
     }
 
+    // ---- floater: drag, resize, mode, pop-out ----------------------------------------------------------------
+    var geom = null; // {left, top, width, height} in px once the visitor has moved or resized; until then the CSS placement applies
+    function vp() {
+      var de = doc.documentElement || {};
+      // the layout viewport: innerWidth/Height include a page scrollbar that a fixed panel must not slide under, so the smaller of the two wins
+      function least(a, b) { return a && b ? Math.min(a, b) : a || b || 0; }
+      return { w: least(win.innerWidth, de.clientWidth), h: least(win.innerHeight, de.clientHeight) };
+    }
+    function applyGeom(g) {
+      geom = g;
+      panel.style.left = g.left + "px";
+      panel.style.top = g.top + "px";
+      panel.style.width = g.width + "px";
+      panel.style.height = g.height + "px";
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+    }
+    function pin() { // freeze the current on-screen rectangle as explicit numbers (first drag or resize)
+      if (geom) return geom;
+      var r = panel.getBoundingClientRect(), v = vp();
+      applyGeom(clampRect({ left: r.left, top: r.top, width: r.width, height: r.height }, v.w, v.h));
+      return geom;
+    }
+    function isControl(n) {
+      while (n && n !== head) { if (n.tagName === "BUTTON") return true; n = n.parentNode; }
+      return false;
+    }
+    // One pointer gesture: onMove(dx, dy, startGeom, viewport) returns the new rectangle. Pointer capture keeps a fast drag attached to the handle.
+    function gesture(handle, accept, onMove) {
+      var cur = null;
+      function end(ev) {
+        if (!cur || (ev && ev.pointerId !== undefined && ev.pointerId !== cur.id)) return;
+        cur = null;
+        try { handle.releasePointerCapture(ev && ev.pointerId); } catch (e) { /* already released */ }
+      }
+      handle.addEventListener("pointerdown", function (ev) {
+        if (ev.button > 0 || ev.isPrimary === false || !accept(ev)) return;
+        var g = pin();
+        cur = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, g: { left: g.left, top: g.top, width: g.width, height: g.height } };
+        try { handle.setPointerCapture(ev.pointerId); } catch (e) { /* capture unsupported: moves still arrive while over the handle */ }
+      });
+      handle.addEventListener("pointermove", function (ev) {
+        if (!cur || ev.pointerId !== cur.id) return;
+        if (ev.buttons === 0) { end(ev); return; } // the button was released where no pointerup reached us (outside the window)
+        var v = vp();
+        applyGeom(clampRect(onMove(ev.clientX - cur.x, ev.clientY - cur.y, cur.g, v), v.w, v.h));
+      });
+      handle.addEventListener("pointerup", end);
+      handle.addEventListener("pointercancel", end);
+      handle.addEventListener("lostpointercapture", end);
+    }
+    gesture(head, function (ev) { return !isControl(ev.target); }, function (dx, dy, g) {
+      return { left: g.left + dx, top: g.top + dy, width: g.width, height: g.height };
+    });
+    gesture(grip, function () { return true; }, function (dx, dy, g, v) {
+      // keep the top-left corner fixed: cap the size at the viewport edge first, so clampRect does not slide the panel
+      return { left: g.left, top: g.top, width: Math.max(Math.min(g.width + dx, v.w - g.left), MIN_W), height: Math.max(Math.min(g.height + dy, v.h - g.top), MIN_H) };
+    });
+    if (win.addEventListener) {
+      win.addEventListener("resize", function () {
+        if (!geom) return; // never dragged: the CSS placement already fits
+        var v = vp();
+        applyGeom(clampRect(geom, v.w, v.h));
+      });
+    }
+
+    var mode = "chat", voiceOk = voiceAvailable(cfg);
+    function setMode(m) {
+      if (m !== "chat" && m !== "voice") return;
+      if (m === "voice" && !voiceOk) return;
+      mode = m;
+      panel.setAttribute("data-mode", m);
+      modeChat.setAttribute("aria-pressed", m === "chat" ? "true" : "false");
+      modeVoice.setAttribute("aria-pressed", m === "voice" ? "true" : "false");
+      if (m === "chat" && voiceCtl && voiceCtl.state() !== "idle") voiceCtl.stop(); // leaving Voice ends the call and releases the mic
+      if (m === "voice" && !micBtn && !busy && !waitTimer && !dead) status.textContent = "Voice is loading...";
+    }
+    function voiceFailed() { // the voice add-on did not load: Voice is not offered, Chat carries on
+      voiceOk = false;
+      modes.hidden = true;
+      setMode("chat");
+    }
+    modeChat.addEventListener("click", function () { setMode("chat"); });
+    modeVoice.addEventListener("click", function () { setMode("voice"); });
+    pop.addEventListener("click", function () {
+      // a new window with no opener: the chat so far is NOT handed over (no storage, no URL, no postMessage); the pop-out starts a fresh conversation.
+      if (popUrl && typeof win.open === "function") win.open(popUrl, "_blank", POPOUT_FEATURES);
+    });
+
     function open() {
+      if (geom) { var v0 = vp(); applyGeom(clampRect(geom, v0.w, v0.h)); }
       panel.hidden = false;
       bubble.setAttribute("aria-expanded", "true");
       bubble.setAttribute("aria-label", "Close chat: " + cfg.title);
@@ -523,7 +697,7 @@
             liveLine[t.role] = line;
             if (t.role === "assistant") lastBot = line;
           } else {
-            line.textContent = t.text; // textContent only, as everywhere else
+            setLine(line, t.text);
           }
           if (t.final) liveLine[t.role] = null;
           log.scrollTop = log.scrollHeight;
@@ -568,7 +742,11 @@
     });
 
     (doc.body || doc.documentElement).appendChild(host);
-    return { host: host, open: open, close: shut, attachVoice: attachVoice };
+    return {
+      host: host, open: open, close: shut, attachVoice: attachVoice, setMode: setMode, voiceFailed: voiceFailed,
+      mode: function () { return mode; },
+      history: function () { return hist.map(function (h) { return { kind: h.cls, text: h.text }; }); }
+    };
   }
 
   // ---- bootstrap --------------------------------------------------------------------------------------------
@@ -593,7 +771,7 @@
       s.src = url;
       s.async = true;
       s.onload = function () { if (root.VCWidgetVoice) handle.attachVoice(root.VCWidgetVoice); };
-      s.onerror = function () { if (root.console) root.console.warn("vc-widget: the voice add-on did not load; text chat only."); };
+      s.onerror = function () { handle.voiceFailed(); if (root.console) root.console.warn("vc-widget: the voice add-on did not load; text chat only."); };
       (doc.head || doc.documentElement).appendChild(s);
     };
     if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", go); else go();
@@ -602,6 +780,7 @@
 
   var api = {
     VERSION: VERSION, HELP: HELP, FOOTER: FOOTER, UNAVAILABLE_TEXT: UNAVAILABLE_TEXT, VOICE_RENDERED: VOICE_RENDERED,
+    MIN_W: MIN_W, MIN_H: MIN_H, clampRect: clampRect, popoutUrl: popoutUrl,
     parseConfig: parseConfig, buildRequest: buildRequest, parseRetryAfter: parseRetryAfter, sanitizeUrl: sanitizeUrl,
     normalizeReply: normalizeReply, send: send, contrastText: contrastText, mount: mount, init: init,
     voiceAvailable: voiceAvailable, voiceScriptUrl: voiceScriptUrl, voiceFallbackText: voiceFallbackText, voiceErrorNotice: voiceErrorNotice
