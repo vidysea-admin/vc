@@ -1,0 +1,16 @@
+﻿2026-10-27T01:53:39.7191000+05:30
+bash.exe : [testlock] running slot 0 (free RAM 3.85 GB): bash 
+D:/vc/.worktrees/vca-int/qa/evidence/vc-admin-20261026/checker-b-c2/m3-repo-suite-driver.sh
+At line:1 char:495
++ ... oding utf8; & "C:\Program Files\Git\bin\bash.exe" D:/vc/scripts/vc-te ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([testlock] runn...suite-driver.sh:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+seededSources spread occurrences in the m3 copy of index.ts: 0
+index.test.ts
+main.test.ts
+ℹ tests 152
+ℹ pass 152
+ℹ fail 0
+2026-10-27T01:53:52.0447999+05:30

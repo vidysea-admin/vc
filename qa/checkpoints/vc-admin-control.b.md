@@ -15,3 +15,12 @@ Judged code: 78ddaef (HEAD b54c11f adds qa files only). Repair base 914a61d. Bas
 
 ## For the next repair checker (cycle 2)
 Failed: VA1, VA8 (P1 host binding of env-ref credentials), plus VA6 (P2). Re-run probe-h1-c1.mts H1d and the VA1 variants in H1a-H1c; do not re-prove VA5 unless admin-routes.ts route table changes.
+
+## Cycle 2 (head 6b8674c, repair base 78ddaef): PASS, qa/verdicts/vc-admin-control.b.md, Cycle checked: 2. No resume needed.
+Evidence identities (all under qa/evidence/vc-admin-20261026/checker-b-c2/, run via vc-testlock on 6b8674c tree):
+- probe-h1-c2.mts (P0-P7): 8/8 pass; command `pnpm exec tsx --test <probe>` from apps/api; log probe-h1-c2.log.
+- probe-startapi-c2.mts: startApi over HTTP with the real config/sources.json and fake mongo/github/postgres: 1/1; log probe-startapi-c2.log.
+- affected-tests-c2.log: apps/api admin-auth/admin-routes/admin-secrets-leak/admin-sync/chat-pathlynks 133/133; packages/schemas tests/sources.test.ts 15/15; apps/web admin-session-routes + admin-client 27/27; tsc --noEmit exit 0 in schemas, api, web.
+- Falsification, copies in scratchpad/fb2b (outside repo): m1 boundEnvRef host check removed, m2 429 login audit removed, m3 index.ts seededSources spread removed; each green-before, red-after (falsify-c2.run1.log m1+m2, falsify-c2.m3.log m3; run1 m3 was an invalid setup). m3-repo-suite.log: the repo's api suite stays green (152/152) with the wiring removed.
+- Static VA1 greps: clean (env names only).
+Not re-proved (inputs untouched by the repair): VA2-VA4, VA7, VA9-VA19 other than VA12/VA5; they keep cycle-1 results.

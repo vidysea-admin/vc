@@ -1,0 +1,28 @@
+﻿2026-10-27T01:52:12.6524703+05:30
+bash.exe : [testlock] running slot 0 (free RAM 3.04 GB): bash 
+D:/vc/.worktrees/vca-int/qa/evidence/vc-admin-20261026/checker-b-c2/falsify-driver-c2.sh m3
+At line:1 char:495
++ ... oding utf8; & "C:\Program Files\Git\bin\bash.exe" D:/vc/scripts/vc-te ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([testlock] runn...driver-c2.sh m3:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+===== m3 VA1 positive side (seeded sources keep their credential): index.ts drops the seededSources spread -> startApi probe
+-- GREEN-BEFORE
+✔ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (348.8894ms)
+ℹ tests 1
+ℹ pass 1
+ℹ fail 0
+-- EDIT
+mutated C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/fe5889a6-130f-4952-9226-886a6cea9053/scratchpad/fb2b/m3/apps/api/src/index.ts
+-- RED-AFTER
+✖ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (224.0036ms)
+ℹ tests 1
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+✖ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (224.0036ms)
+  AssertionError [ERR_ASSERTION]: seeded pathlynks-db received its env password through startApi wiring
+exit=0
+2026-10-27T01:52:22.1560486+05:30

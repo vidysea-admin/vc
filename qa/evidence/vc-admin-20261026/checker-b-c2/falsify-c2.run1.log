@@ -1,0 +1,68 @@
+﻿2026-10-27T01:51:14.6709615+05:30
+bash.exe : [testlock] running slot 1 (free RAM 3.88 GB): bash 
+D:/vc/.worktrees/vca-int/qa/evidence/vc-admin-20261026/checker-b-c2/falsify-driver-c2.sh
+At line:1 char:492
++ ... oding utf8; & "C:\Program Files\Git\bin\bash.exe" D:/vc/scripts/vc-te ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([testlock] runn...fy-driver-c2.sh:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+===== m1 VA1/VA8: boundEnvRef ignores the host (env credential follows the id/ref but not the host) -> probe P3 / P5
+-- GREEN-BEFORE
+✔ P3 'PATCH' (store-level upsert, the only way a seeded doc changes): any connection-field change withholds the credential; branch/tables change keeps it (135.705ms)
+✔ P5 live port: PATCHed seeded host -> unavailable & no connect; restore connects; no seeded list -> never (5.7934ms)
+ℹ tests 2
+ℹ pass 2
+ℹ fail 0
+-- EDIT
+mutated C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/fe5889a6-130f-4952-9226-886a6cea9053/scratchpad/fb2b/m1/apps/api/src/admin-routes.ts
+-- RED-AFTER
+✖ P3 'PATCH' (store-level upsert, the only way a seeded doc changes): any connection-field change withholds the credential; branch/tables change keeps it (100.8796ms)
+✖ P5 live port: PATCHed seeded host -> unavailable & no connect; restore connects; no seeded list -> never (4.825ms)
+ℹ tests 2
+ℹ pass 0
+ℹ fail 2
+✖ failing tests:
+✖ P3 'PATCH' (store-level upsert, the only way a seeded doc changes): any connection-field change withholds the credential; branch/tables change keeps it (100.8796ms)
+  AssertionError [ERR_ASSERTION]: changed seeded postgres connection never got the env password
+✖ P5 live port: PATCHed seeded host -> unavailable & no connect; restore connects; no seeded list -> never (4.825ms)
+  AssertionError [ERR_ASSERTION]: {"host":"attacker.example"}
+
+===== m2 VA6: a 429-limited login no longer writes its audit row -> probe P6
+-- GREEN-BEFORE
+✔ P6 VA6: every login attempt writes exactly one audit row, none with a secret/body/password (1448.905ms)
+ℹ tests 1
+ℹ pass 1
+ℹ fail 0
+-- EDIT
+mutated C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/fe5889a6-130f-4952-9226-886a6cea9053/scratchpad/fb2b/m2/apps/api/src/admin-routes.ts
+-- RED-AFTER
+✖ P6 VA6: every login attempt writes exactly one audit row, none with a secret/body/password (1188.6017ms)
+ℹ tests 1
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+✖ P6 VA6: every login attempt writes exactly one audit row, none with a secret/body/password (1188.6017ms)
+  AssertionError [ERR_ASSERTION]: attempt 5 rows 0
+
+===== m3 VA1 positive side (seeded sources keep their credential): index.ts drops the seededSources spread -> startApi probe
+-- GREEN-BEFORE
+✖ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (152.087ms)
+ℹ tests 1
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+✖ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (152.087ms)
+  Error: ENOENT: no such file or directory, lstat 'C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\fe5889a6-130f-4952-9226-886a6cea9053\scratchpad\fb2b\m3\skills'
+-- EDIT
+mutated C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/fe5889a6-130f-4952-9226-886a6cea9053/scratchpad/fb2b/m3/apps/api/src/index.ts
+-- RED-AFTER
+✖ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (119.6187ms)
+ℹ tests 1
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+✖ startApi: seeded pathlynks-db / repos get their env credential over HTTP; an admin-created clone at an attacker host gets none (119.6187ms)
+  Error: ENOENT: no such file or directory, lstat 'C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\fe5889a6-130f-4952-9226-886a6cea9053\scratchpad\fb2b\m3\skills'
+exit=0
+2026-10-27T01:51:42.1009101+05:30
