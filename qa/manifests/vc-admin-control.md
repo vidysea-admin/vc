@@ -2,8 +2,15 @@
 Policy-Version: proportional-verification/2026-10-19.17
 **Contract:** qa/contracts/vc-admin-control.md @1283b23 (VA1-VA19 buildable; VA20/VA21 HELD live proofs). Gate answers: qa/gates/vc-admin-control.md (G1 pathlynksadm with explicit override, G2 RDS IP allowlist, G5 email+password/scrypt/JWT 8h/CLI super-admin, G6 minimal-field allow-list, G7 simplest).
 **Date:** 2026-10-26T23:30:00+05:30
-**Fix cycle:** 0
+**Fix cycle:** 1 of max 2
 **Round:** 1 (est 45-90 min)
+Round: 9 files, 9 repair items, est 40 min — fix cycle 1: 2 parallel Sonnet builders (API group R1-R6,R9; ENGINE group E1-E3), selected tests, then 2 repair checkers
+slow-plan: L security repair with two blind repair checkers; builders run in parallel
+Owners: api (apps/api admin-routes/admin-auth, packages/schemas sources, packages/db admin-store, apps/web admin _lib), engine (packages/engine ingest/migrations, student/graph)
+Fan-out: vca-fix1-api + vca-fix1-eng dispatched in one message 2026-10-27
+Repair base: 914a61d
+Failed criteria (A): VA1, VA8, VA12, VA19 (P1 env-ref exfiltration, P2 live-port takeover, P3 dashboard window excludes today)
+Failed criteria (B): VA1, VA5, VA8 (F1 env-ref exfiltration)
 **Status:** ready-for-check
 **Executor:** claude-sonnet-subagent (maker role, unit vca-api)
 **Base:** branch wave/vc-admin-control (worktree D:/vc/.worktrees/vca-int) from e99842c. Code commits d0e48c1 and 2798e5e; this manifest is the next commit.
@@ -89,6 +96,25 @@ Real `withAdminRoutes` over a real HTTP server (port 4311, fake Db, fake GitHub/
 5. /admin/dashboard: all tiles render with zero usage (the fake had no turns); cost per student "0.00 INR, under target".
 6. Widget (stub API, `demo.html?voice=on`): open the floater, send "Which course should I pick?" -> sourced reply; click Voice -> toggle pressed, history kept; localStorage/sessionStorage/cookie all 0. The widget stub is canned; real chat-to-voice behaviour is covered by the api voice tests above.
 Not walked: admin and viewer roles, key rotate/revoke in the UI, a 360 px viewport (vca-ui's evidence covers those against its stub).
+
+## Fix cycle 1 (repair base 914a61d; merged head 78ddaef = 5078259 API group + 2c765dc engine group)
+Repair items: R1 credential-ref allow-list (schema refine sources.ts + credentialFor re-check), R2 live port by fixed seeded id `pathlynks-db`, R3 dashboard default window includes today (format.ts metricsWindow), R4 one-time key survives audit failure (`auditRecorded:false`), R5 bounded login audit (no row for 429/malformed; 1 row per client+email per 60 s, 10000-key cap), R6 empty sync -> status error, previous artifact kept, onSkip wired, capped diagnostics, R9 no XFF fallback + per-email guard 5/60 s; E1 migrations createTable diagnostics (skipped_columns, dropped_column, unknown_method), E2 namesAnotherStudent catches he/she/they, E3 engine-level G6 leak test.
+Evidence: qa/evidence/vc-admin-20261026/fix1-api.md, fix1-eng.md, fix1-merged.txt. Typecheck exit 0 in engine, api, web, schemas, db @78ddaef.
+- Pre-check[VA1]: 78ddaef apps/api: pnpm exec tsx --test tests/admin-auth.test.ts tests/admin-routes.test.ts tests/admin-secrets-leak.test.ts tests/admin-sync.test.ts tests/chat-pathlynks.test.ts -> pass 123 of 123; packages/schemas: pnpm exec tsx --test tests/*.test.ts -> pass 116 of 116
+- Pre-check[VA5]: 78ddaef apps/api: pnpm exec tsx --test tests/admin-auth.test.ts tests/admin-routes.test.ts tests/admin-secrets-leak.test.ts tests/admin-sync.test.ts tests/chat-pathlynks.test.ts -> pass 123 of 123
+- Pre-check[VA8]: 78ddaef apps/api: pnpm exec tsx --test tests/admin-auth.test.ts tests/admin-routes.test.ts tests/admin-secrets-leak.test.ts tests/admin-sync.test.ts tests/chat-pathlynks.test.ts -> pass 123 of 123; packages/schemas: pnpm exec tsx --test tests/*.test.ts -> pass 116 of 116
+- Pre-check[VA12]: 78ddaef apps/api: pnpm exec tsx --test tests/admin-auth.test.ts tests/admin-routes.test.ts tests/admin-secrets-leak.test.ts tests/admin-sync.test.ts tests/chat-pathlynks.test.ts -> pass 123 of 123
+- Pre-check[VA17]: 78ddaef apps/web: pnpm exec tsx --test tests/admin-client.test.ts tests/admin-session-routes.test.ts -> pass 26 of 26
+- Pre-check[VA19]: 78ddaef apps/web: pnpm exec tsx --test tests/admin-client.test.ts tests/admin-session-routes.test.ts -> pass 26 of 26; apps/api: pnpm exec tsx --test tests/admin-auth.test.ts tests/admin-routes.test.ts tests/admin-secrets-leak.test.ts tests/admin-sync.test.ts tests/chat-pathlynks.test.ts -> pass 123 of 123
+- Engine group pre-check (E1-E3, review items): 78ddaef packages/engine: pnpm exec tsx --test tests/ingest-migrations.test.ts tests/pathlynks-tools.test.ts tests/student-graph.test.ts -> pass 152 of 152
+- Tests[VA1]: tests/admin-routes.test.ts + packages/schemas tests/sources.test.ts — a source naming VC_ADMIN_MASTER_KEY / VC_ADMIN_JWT_SECRET / MONGODB_URL is refused at create, and a stored doc with such a ref never reaches the port
+- Tests[VA12]: tests/admin-routes.test.ts — an admin-created postgres source "aaa-evil" does not become the live port
+- Tests[VA19]: apps/web tests/admin-client.test.ts — a usage row stamped today appears in the default window
+Out-of-scope edit for the checkers to judge: apps/web/src/app/admin/(console)/dashboard/page.tsx (one line, R3), outside the API builder's owned list.
+Process note: the engine builder ran its E3 falsification in its own worktree and restored the file (diff since base = the E2 line only); E1/E2 falsification is red-before on the unmodified source. Re-do falsifications in a throwaway copy.
+Open risks (builders): login limiter and audit dedupe are in memory (reset on restart); the per-email guard lets someone lock a named admin out for 60 s; failed-sync diagnostics are capped text; E2 refuses any Pathlynks question containing "they" (fail-closed).
+mutant-cap-raise: apps/api/src/admin-routes.ts:389 the 11 are floor falsifications, one per repair item (R1-R6, R9, E1-E3 plus R1 schema), not .9-4 mutants
+Metrics: start=2026-10-27T00:05:00+05:30 end=2026-10-27T01:20:00+05:30 wall_min=75 agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=0 mutations=11 cycle=1 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=0 defects_unit=0 defects_6c=0
 
 ## Interpretations (flag if wrong)
 1. G1 vs contract VA12 text: VA12 says `vc_readonly`; the answered gate G1 uses `pathlynksadm` with the override. The port still refuses a writer role by default and only skips that probe when `PATHLYNKS_ALLOW_PRIVILEGED_ROLE` is exactly `1`; SELECT-only SQL, read-only transaction, 3 s timeout, 50-row cap are unchanged. The startup log carries a warn event (no secret).

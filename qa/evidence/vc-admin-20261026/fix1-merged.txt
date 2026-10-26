@@ -1,0 +1,24 @@
+engine exit 0 sha 78ddaef
+api exit 0
+web exit 0
+schemas exit 0
+tsc packages/engine 0
+tsc apps/api 0
+tsc apps/web 0
+tsc packages/schemas 0
+tsc packages/db 0
+--- counts @78ddaef
+engine ℹ tests 152
+engine ℹ pass 152
+engine ℹ fail 0
+api ℹ tests 123
+api ℹ pass 123
+api ℹ fail 0
+web files: tests/admin-client.test.ts
+tests/admin-session-routes.test.ts
+web ℹ tests 26
+web ℹ pass 26
+web ℹ fail 0
+schemas ℹ tests 116
+schemas ℹ pass 116
+schemas ℹ fail 0
