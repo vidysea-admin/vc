@@ -11,3 +11,10 @@
 - Findings: VA1 residual (allow-listed env refs reach an admin-chosen host, critical); R9 login-guard lock-out, R6 heuristic false error, VA6/R5 contract tension (medium); nav loader trust (low). Details in qa/verdicts/vc-admin-control.md.
 - Evidence (qa/evidence/vc-admin-20261026/checker-a/): chk-a-c1.test.ts, chk-a-c1p3.test.ts, chk-a-c1sync.test.ts, chk-a-c1guard.test.ts, falsify-c1.ps1, falsify-c1.log.txt, c1-run.log.txt. Cycle-0 falsify.log was overwritten by mistake.
 - Resume: a cycle-2 check re-runs C1-RESIDUAL first, then R9 guard and R6 heuristic, then the not-re-run list.
+
+## Cycle 2 (repair check) - 2026-10-27T01:55+05:30
+- Cycle checked: 2; code head 6b8674c (repair base 78ddaef); verdict PASS (A side).
+- Done: repair diff read in full (index.ts two-spread edit judged in scope), C1-RESIDUAL/guard/sync probes re-run, VA1 hostile matrix (per-field seeded-doc changes, twins under new ids, wrong-kind refs, legacy docs, live port, no seeded list), VA6 every login kind, VA8 sync, startApi wiring over HTTP, repair tests (api 133, schemas 15, web 27), 10/10 mutants killed.
+- Evidence (qa/evidence/vc-admin-20261026/checker-a-c2/): chk-a-c2*.test.ts, falsify-c2.ps1/.log, run logs.
+- Findings: only low PROPOSED-ISSUEs (audit_log unbounded anonymous growth, no startApi wiring test, Kelvin-sign lowercase store-level, LRU eviction reset, nav loader).
+- Resume: none needed; B's verdict decides the dual result.
