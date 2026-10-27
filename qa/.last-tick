@@ -1636,3 +1636,159 @@ NO OTHER UNIT DISPATCHED: 41/41 root manifests checked-PASS, 0 pending, and the
 2026-10-21T13:52:00+05:30 ADVANCED pushed dca99c6 13:51:39 (reflog): a10-diag + lk9 + lk7; push-gate green 764bbd3e; lk10 merge-hold clinical evidence=dca99c6a0fbc3325d257b7423ab99827dbbc468c
 2026-10-21T14:25:54+05:30 ADVANCED: pushed dc2bc97 (lk10 crisis langs, go-live alerts PASS b081d73, b13 fill); 6c scoped green 2378/0 fail evidence=dc2bc974d87e621466941d35b530d6171c8efec9
 2026-10-21T14:30:23+05:30 ADVANCED: closed out t-047 t-051 t-053 (historical bounded PASS); t-046 reverted 19e4f56 (dual required, no .b verdict). Go-live code pushed dc2bc97; waiting on Umesh: backlog hold-or-build, G-PROD deploy, B13 legal FILLs evidence=bced29976fc563b9f9a033ac06a5ae1f776fe079
+2026-10-21T16:11:48+05:30 WAITING golive-harden builder in flight; A10 voice output empty again (voice stays off, g-prod c)
+2026-10-21T16:16:05+05:30 golive-harden built (b589c11); checker dispatched evidence=b589c11
+2026-10-21T16:23:20+05:30 ADVANCED golive-harden PASS merged d436e90; 6c full-suite dispatched evidence=qa/verdicts/golive-harden.md
+2026-10-21T16:32:27+05:30 6c RED on d436e90: stale real-repo A20 test (only B13 unmet after g-publish answered); fix golive-a20 built, checker dispatched
+2026-10-21T16:35:29+05:30 ADVANCED golive-a20 PASS merged e4f151b; 6c rerun dispatched evidence=qa/verdicts/golive-a20.md
+2026-10-21T16:38:41+05:30 ADVANCED pushed 28dc4ff 16:37:57 (golive student-ui, json-robust, launcher, harden, a20); push-gate green 1b3c1e7; HUMAN_GATE B13 signature + KB keys + domain evidence=28dc4ffca3e40d992d8b36c40f7724e4eb3ebdba
+2026-10-21T17:10:05+05:30 HUMAN_GATE heartbeat 1/8: B13 still PENDING, no KB keys/domain on disk; nothing in flight; A10 voice task notification was stale (no output)
+2026-10-21T17:27:43+05:30 ADVANCED pushed golive-b13guard (checker PASS f17eafe, 6c green 428/428, push-gate green 185b9d1); HUMAN_GATE: B13 line (Umesh to write; agent write was permission-denied) + server env keys; domain/TLS with devops evidence=814a28660d7c47f98a72a3693540833ad1e778ac
+2026-10-21T17:43:08+05:30 HUMAN_GATE heartbeat: B13-signed still PENDING (Umesh writes line 13); code pushed 814a286 17:27:38; nothing in flight
+2026-10-21T18:10:13+05:30 ADVANCED: B13 signed (D-109), go-live gate ALLOWED, 6c green, pushed aae1b1a 18:10:02 evidence=aae1b1a8bcc8c632ee5c6d0b15cc18d55f160dce
+2026-10-21T19:26:14+05:30 2026-10-21T19:26:14+05:30 WAITING p1-nosource-expert builder in flight (a263c093); grounded queued after it; sweep deferred until builder lands
+2026-10-21T23:38:21+05:30 IN-FLIGHT p1-nosource-grounded builder editing (resumed after ECONNRESET); sweep deferred: SERIAL backstop waits on test lock held by builder
+2026-10-22T00:32:13+05:30 heartbeat: 6c p1-nosource-grounded + build p1-grounding-hardening in flight; waiting on Umesh (live probe, Gemini tier, decline wording, crisis/privacy units, worktree cleanup)
+2026-10-22T01:04:18+05:30 heartbeat: p1-grounding-hardening builder committed 00a671a, pre-check still running; awaiting ready line. Umesh gates unchanged
+2026-10-22T01:12:54+05:30 ADVANCED p1-grounding-hardening ready d04b754; checker + ai-engineer + senior reviews dispatched in one message evidence=c42617bd20caf8f13c9aed87495a7afd8a9745a4
+2026-10-22T01:24:29+05:30 ADVANCED p1-grounding-hardening checker FAIL H1 (verdict 7247d5f); fix cycle 1 builder dispatched with H1 + review fixes F1-F5 evidence=6d9d6b84fee6e117e514229db29766c7b03374f7
+2026-10-22T02:37:55+05:30 02:37 WAITING p1-grounding-hardening c1 builder alive (6 files edited since last tick, uncommitted); no dispatch
+2026-10-22T02:59:20+05:30 2026-10-22T02:59:20+05:30 WAITING c1 builder p1-grounding-hardening stalled since 01:36 (hung heredoc shell); pinged via SendMessage, TaskStop+redispatch next tick if no progress evidence=7247d5f
+2026-10-22T03:10:29+05:30 2026-10-22T03:10:29+05:30 WAITING c1 builder p1-grounding-hardening: killed its hung python3 stdin child (PID 27780, builder-started) so its shell returns and it reads the queued SendMessage; redispatch fresh at next tick if still no progress evidence=7247d5f
+2026-10-22T03:22:18+05:30 2026-10-22T03:22:18+05:30 c1 builder dead (shell host gone); TaskStopped + fresh c1 builder dispatched on existing worktree edits evidence=7247d5f
+2026-10-22T03:28:10+05:30 2026-10-22T03:28:10+05:30 c1 builder ready bc07790 (lint 0); repair checker + senior review dispatched evidence=bc07790
+2026-10-22T03:39:12+05:30 2026-10-22T03:39:12+05:30 c1 check FAIL H1 (PIN leak, 1bfd97f), review Approve; cycle 2 (last) Opus builder dispatched evidence=1bfd97f
+2026-10-22T03:45:01+05:30 2026-10-22T03:45:01+05:30 c2 builder ready d0810f0 (lint 0, lang.ts only); repair checker cycle 2 dispatched evidence=d0810f0
+2026-10-22T03:52:59+05:30 2026-10-22T03:52:58+05:30 p1-grounding-hardening checker PASS c2 ba29361; closed out eff0b0d, merged 722c8ee; 6c dispatched on 4f106ef evidence=4f106ef
+2026-10-22T04:02:07+05:30 2026-10-22T04:02:07+05:30 6c GREEN; push-gate green rc0; pushed 3772f4a..4f106ef; local API restarted evidence=4f106ef
+2026-10-22T04:02:38+05:30 2026-10-22T04:02:38+05:30 CORRECTION: local API NOT restarted - old 00:33 API (PID 27540) still holds 8787 on pre-hardening code; stopping it was denied by permission classifier; awaiting Umesh evidence=4f106ef
+2026-10-22T04:33:29+05:30 2026-10-22T04:33:29+05:30 HUMAN_GATE: P1 go-live blocked on Umesh (KB keys, Mongo allowlist, domain/TLS, Pathlynks JWT, g-prod, processor register, API restart PID 27540); no buildable P1 row; Candidates not built
+2026-10-22T05:05:07+05:30 2026-10-22T05:05:07+05:30 HUMAN_GATE heartbeat 2/8: P1 go-live blocked on Umesh (KB keys, Mongo allowlist, domain/TLS, Pathlynks JWT, g-prod, processor register); 8787 still held by PID 27540 (API restart needs Umesh)
+2026-10-22T05:50:50+05:30 2026-10-22T05:50:50+05:30 HUMAN_GATE heartbeat 8/8 -> loop stopped: P1 go-live blocked on Umesh (KB keys, Mongo allowlist, domain/TLS, Pathlynks JWT, g-prod, processor register); 8787 held by PID 27540, API restart needs Umesh
+2026-10-22T07:30:40+05:30 2026-10-22T07:30:40+05:30 ADVANCED: partner-chatbot planned (D-111, 9aee572); wave 1 dispatched pc-partner-keys + pc-widget + contract init; SERIAL: pc-voice, pc-docs-openapi wait on pc-partner-keys evidence=9aee572
+2026-10-22T07:48:16+05:30 2026-10-22T07:48:16+05:30 ADVANCED: pc-widget checked-PASS 20ee438, merged 9dd4e9c; pc-partner-keys building; SERIAL: 6c waits to batch with pc-partner-keys merge evidence=9dd4e9c
+2026-10-22T08:01:49+05:30 2026-10-22T08:01:49+05:30 wave2 builders pc-voice+pc-docs-openapi dispatched; keys review Warning (2 medium); dual check running evidence=40f0e9a
+2026-10-22T08:18:11+05:30 2026-10-22T08:18:11+05:30 pc-partner-keys checker A FAIL K1 (rotate lost-update) 4b46e6f; waiting on B for union fix cycle 1 evidence=4b46e6f
+2026-10-22T08:20:18+05:30 2026-10-22T08:20:18+05:30 pc-partner-keys B FAIL K1 56069f6 (same defect); fix cycle 1 builder dispatched (K1 atomic rotate + 2 review mediums + lookalike-origin test) evidence=56069f6
+2026-10-22T08:35:20+05:30 2026-10-22T08:35:20+05:30 pc-docs-openapi ready 41011dc + K5 test follow-through 7019e29; checker + review dispatched evidence=7019e29
+2026-10-22T08:37:22+05:30 2026-10-22T08:37:22+05:30 pc-partner-keys c1 ready 4ac5b36 (48/0); dual repair check A+B + review dispatched on 0345551 evidence=0345551
+2026-10-22T09:13:19+05:30 2026-10-22T09:13:19+05:30 heartbeat: in flight keys c1 A+B, docs check, voice build; no new verdicts
+2026-10-22T09:20:18+05:30 2026-10-22T09:20:18+05:30 pc-partner-keys c1 A PASS ae39b9f; waiting on B evidence=ae39b9f
+2026-10-22T09:22:46+05:30 2026-10-22T09:22:46+05:30 ADVANCED pc-partner-keys dual PASS (ae39b9f+e9860e8) merged ee5206a; ISS-pc-partner-keys-1..8; 6c full dispatched evidence=ee5206a
+2026-10-22T09:43:23+05:30 2026-10-22T09:43:23+05:30 pushed 8e54fe8 (6c green); docs PASS merged 516fb64; A10 override; pc-voice dual check + review dispatched evidence=c2dc6c5
+2026-10-22T09:58:53+05:30 2026-10-22T09:58:52+05:30 pc-voice c0 dual FAIL V1 (A b939639, B d74bb75) + review Block; fix cycle 1 dispatched evidence=dbe7af4
+2026-10-22T10:41:58+05:30 2026-10-22T10:41:58+05:30 ADVANCED pc-voice c1 ready f871146; dual repair check + review dispatched evidence=f871146
+2026-10-22T11:01:43+05:30 2026-10-22T11:01:43+05:30 ADVANCED pc-voice checked-PASS dual c1, merged d1f35a4; 6c full (docs+voice) dispatched evidence=d1f35a4
+2026-10-22T12:04:58+05:30 2026-10-22T12:04:58+05:30 6c RED (B21 approver literal, owner pc-voice); fix cycle 2 dispatched evidence=54f3a34
+2026-10-22T12:23:14+05:30 2026-10-22T12:23:14+05:30 pc-voice c2 dual PASS, merged; 6c rerun next evidence=23acdef
+2026-10-22T12:29:46+05:30 2026-10-22T12:29:46+05:30 6c GREEN c51ca33, push-gate green, pushed to origin/main (D-096) evidence=c51ca33
+2026-10-22T13:01:19+05:30 2026-10-22T13:01:19+05:30 pc-reserved-ids build dispatched (ISS-pc-partner-keys-1) evidence=bffd1b7
+2026-10-22T13:35:19+05:30 2026-10-22T13:35:19+05:30 pc-reserved-ids dual PASS merged 27fc284; 6c dispatched evidence=f4d6b77
+2026-10-22T13:39:37+05:30 2026-10-22T13:39:37+05:30 6c GREEN f4d6b77, push-gate green, pushed pc-reserved-ids (D-096) evidence=f4d6b77
+2026-10-22T14:27:39+05:30 2026-10-22T14:27:39+05:30 pc-reserved-ids-2 build dispatched evidence=eb2c132
+2026-10-22T15:15:23+05:30 2026-10-22T15:15:23+05:30 pc-reserved-ids-2 dual PASS merged; 6c dispatched evidence=c87fb44
+2026-10-22T15:20:23+05:30 2026-10-22T15:20:23+05:30 6c GREEN c87fb44, push-gate green, pushed pc-reserved-ids-2 (D-096) evidence=c87fb44
+2026-10-22T15:21:07+05:30 2026-10-22T15:21:07+05:30 pc-reserved-ids-2 pushed c87fb44; pc-hardening build dispatched evidence=350b4eb
+2026-10-22T15:48:58+05:30 2026-10-22T15:48:58+05:30 pc-hardening READY ca1d0a2; manifest lint fixed e62395b; dual check A+B + review dispatched evidence=e62395b
+2026-10-22T16:02:33+05:30 2026-10-22T16:02:33+05:30 pc-hardening checked-PASS, merged 4b3bcf2, close-out fc8f368; 6c dispatched (brief 32be045) evidence=32be045
+2026-10-22T16:09:21+05:30 2026-10-22T16:09:21+05:30 pc-hardening pushed: origin/main 32be045 (6c GREEN, push-gate green) evidence=32be045
+2026-10-22T16:10:20+05:30 2026-10-22T16:10:20+05:30 pc-hardening-2 build dispatched (brief 02483f6) evidence=02483f6
+2026-10-22T16:28:15+05:30 2026-10-22T16:28:15+05:30 pc-hardening-2 READY 23ccf93 (manifest 76b5a92, lint 0); dual check A+B + review dispatched (briefs 23e9159) evidence=23e9159
+2026-10-22T16:39:03+05:30 2026-10-22T16:39:03+05:30 pc-hardening-2 c0 dual FAIL on J1 (A 196bdbd, B f55d89a: Hindi helpline not LK10-verbatim); review Approve d2c0bf5; fix cycle 1 dispatched (24febaf) evidence=24febaf
+2026-10-22T16:48:01+05:30 2026-10-22T16:48:01+05:30 pc-hardening-2 c1 READY 6b578a7 (manifest de390e3); c1 dual check A+B dispatched (5231d72) evidence=5231d72
+2026-10-22T17:00:29+05:30 2026-10-22T17:00:29+05:30 pc-hardening-2 c1 dual PASS (A e4e1af1, B 830326f); browser validation dispatched (a92e911). Process note: A and B shared scratchpad root files reg.sh/reg.log (overwritten), verdict independence unaffected per both reports evidence=e4e1af1
+2026-10-22T17:07:11+05:30 2026-10-22T17:07:11+05:30 pc-hardening-2 checked-PASS, merged f960eae, close-out 5c65df3; 6c dispatched (3de0fb3) evidence=3de0fb3
+2026-10-22T17:11:46+05:30 2026-10-22T17:11:46+05:30 pc-hardening-2 pushed: origin/main 3de0fb3 (6c GREEN out7, push-gate green); diagram ad65ca2 included evidence=3de0fb3
+2026-10-22T17:12:37+05:30 2026-10-22T17:12:37+05:30 pc-hardening-3 build dispatched (fa1d1aa) evidence=fa1d1aa
+2026-10-22T17:44:05+05:30 2026-10-22T17:44:05+05:30 heartbeat: pc-hardening-3 builder in flight (fa1d1aa), nothing else ready
+2026-10-22T17:54:51+05:30 2026-10-22T17:54:51+05:30 ADVANCED pc-hardening-3 built (66d6d7d, manifest cf8ab0d, lint 0); c0 dual check A+B + review dispatched (briefs 333a7a7) evidence=333a7a7
+2026-10-22T18:34:46+05:30 2026-10-22T18:34:46+05:30 ADVANCED pc-hardening-3 dual PASS (A 896d5ad, B c139609), merged cc093fe, close-out ee34a82; 6c dispatched (a8f9110). Leftover dir .worktrees/pc-hardening-3 (deregistered, delete failed: not empty) evidence=ee34a82
+2026-10-22T18:44:05+05:30 2026-10-22T18:44:05+05:30 ADVANCED pc-hardening-3 pushed a8f9110 at 18:40:41 (reflog, push-gate green 7993f49); pc-hardening-4 build dispatched (bf48a51); HUMAN_GATE counsellor-jwt-partner-tenant opened. Process slip: maker ran an empty python heredoc (hung, stopped) evidence=bf48a51
+2026-10-22T18:55:17+05:30 2026-10-22T18:55:17+05:30 ADVANCED pc-hardening-4 built (4915760, manifest 6af94cc, lint 0); c0 checker + review dispatched (aa173a4) evidence=aa173a4
+2026-10-22T19:03:57+05:30 2026-10-22T19:03:57+05:30 ADVANCED pc-hardening-4 PASS (e48762e), merged 03f9115, close-out 84ce780; 6c dispatched (9973290) evidence=84ce780
+2026-10-22T19:08:47+05:30 2026-10-22T19:08:47+05:30 PUSHED pc-hardening-4 9973290 (6c GREEN scoped 484 tests, only A20 allowed red; push-gate green). Next: candidates need Umesh picks (counsellor guard a|b, ISS-pc-hardening-4-1 fail-closed) evidence=9973290
+2026-10-22T19:35:15+05:30 2026-10-22T19:35:15+05:30 pc-hardening-5 build dispatched (brief c5a5c6c, ISS-pc-hardening-4-1 approver-unset fail-closed); HUMAN_GATE open: counsellor-jwt-partner-tenant
+2026-10-22T19:57:32+05:30 2026-10-22T19:57:32+05:30 ADVANCED pc-hardening-5 READY 56035d5; c0 checker + senior review dispatched (briefs 30d5041) evidence=56035d5
+2026-10-22T20:28:09+05:30 2026-10-22T20:28:09+05:30 ADVANCED pc-hardening-5 PASS (d66d9bd), merged b736e34, close-out 5fc942a; 6c dispatched (dcca89d) evidence=5fc942a
+2026-10-22T20:33:50+05:30 2026-10-22T20:33:50+05:30 PUSHED pc-hardening-5 dcca89d (6c GREEN scoped 475 tests, push-gate green, reflog 20:33:04); pc-hardening-6 build dispatched (ab15b2b) evidence=dcca89d
+2026-10-22T20:41:43+05:30 2026-10-22T20:41:43+05:30 ADVANCED pc-hardening-6 READY 6b0fa65; c0 checker + review dispatched (bff2395) evidence=6b0fa65
+2026-10-22T20:48:25+05:30 2026-10-22T20:48:25+05:30 ADVANCED pc-hardening-6 PASS (bf28af9), merged 68b77a9, close-out 20800e6; 6c dispatched (2f886e3) evidence=20800e6
+2026-10-22T20:55:23+05:30 2026-10-22T20:55:23+05:30 PUSHED pc-hardening-6 2f886e3 (6c GREEN scoped 601 tests, reflog 20:53:48); pc-hardening-7 brief 78b9123, builder dispatched evidence=2f886e3
+2026-10-22T21:09:09+05:30 2026-10-22T21:09:09+05:30 pc-hardening-7 READY 1944eb9 (code 293e568, tests only); c0 checker + senior review dispatched (briefs 887f1b0) evidence=1944eb9
+2026-10-22T21:14:19+05:30 2026-10-22T21:14:19+05:30 pc-hardening-7 c0 PASS 06a0a69 + review Approve; merged 7839248, close-out 55d512e (closed ISS-pc-partner-keys-8, 3-2, 5-1, 6-1; added 7-1..4); 6c brief c0ee20e dispatched evidence=7839248
+2026-10-22T21:19:05+05:30 2026-10-22T21:19:05+05:30 PUSHED pc-hardening-7 c0ee20e (6c GREEN scoped 473 tests 0 fail, reflog 21:19:00); A20 allowed red retired evidence=c0ee20e
+2026-10-22T21:20:12+05:30 2026-10-22T21:20:12+05:30 pc-hardening-8 brief 56c2067 (ISS-pc-hardening-7-1..4, test-only), builder dispatched; stale p1-nosource-grounded queue row flipped DONE evidence=56c2067
+2026-10-22T21:31:03+05:30 2026-10-22T21:31:03+05:30 pc-hardening-8 READY 541761d (test-only) -> merged-no-check test-lane 173bd45, close-out da227b2 (closed ISS-pc-hardening-7-1..4); 6c dispatched evidence=173bd45
+2026-10-22T21:35:59+05:30 2026-10-22T21:35:59+05:30 PUSHED pc-hardening-8 da227b2 (6c GREEN 595 api tests 0 fail 0 skip, reflog 21:35:48). Partner-chatbot hardening queue empty; only HUMAN_GATE counsellor-jwt-partner-tenant (ISS-pc-hardening-3-3) open evidence=da227b2
+2026-10-22T22:07:54+05:30 2026-10-22T22:07:54+05:30 tick: partner-chatbot queue empty; HUMAN_GATE counsellor-jwt-partner-tenant still unanswered; backstop sweep due (last 2026-10-19) dispatched, brief 063c513
+2026-10-22T22:17:24+05:30 2026-10-22T22:17:24+05:30 backstop sweep 2026-10-22 PASS-with-lows c197b59 merged; api 595/0, engine 1 timing load flake (ISS-sweep-20261022-1), no HOLD, no bypass evidence=qa/verdicts/backstop-sweep-20261022.md
+2026-10-22T22:49:25+05:30 2026-10-22T22:49:25+05:30 HUMAN_GATE heartbeat: nothing in flight, no ready-for-check; waiting on counsellor-jwt-partner-tenant (a|b) + a10-voice-gate; adc12b9 unpushed (rides next push)
+2026-10-22T23:21:34+05:30 2026-10-22T23:21:34+05:30 HUMAN_GATE heartbeat: no gate answered (counsellor-jwt-partner-tenant, a10-voice-gate open); nothing in flight; adc12b9 unpushed (rides next push)
+2026-10-22T23:53:18+05:30 2026-10-22T23:53:18+05:30 HUMAN_GATE heartbeat cap (8) reached: stop. Open: counsellor-jwt-partner-tenant (a|b, rec a), a10-voice-gate; adc12b9 unpushed
+2026-10-25T06:54:00+05:30 2026-10-25T06:54:00+05:30 wave1 dispatched: 8 builders + ledger checker (D-112, da2faad)
+2026-10-25T06:55:15+05:30 2026-10-25T06:55:15+05:30 cards-b1 BLOCKED on T-010 merge (T-049 already on main) -> re-scoped to B1 on main + read-only T-010 comparison (c6c2996); hook issues 054/056/095/084 already fixed by 38e751d -> added to ledger checker
+2026-10-25T06:56:14+05:30 2026-10-25T06:56:14+05:30 w1-golive-docs merged docs-lane
+2026-10-25T07:03:45+05:30 2026-10-25T07:03:44+05:30 w1-data-boundary-config READY 3fd534c -> checker dispatched; builder left 2 stray python- PIDs 36452/23868 (kill denied, surfaced to Umesh)
+2026-10-25T07:11:32+05:30 2026-10-25T07:11:32+05:30 w1-data-boundary-config checked-PASS merged 5918ec6
+2026-10-25T07:16:08+05:30 2026-10-25T07:16:08+05:30 tenant-guard READY 141f324 + erasure-outbox READY f6d1fff -> 4 blind dual checkers dispatched
+2026-10-25T07:16:59+05:30 2026-10-25T07:16:59+05:30 chat-privacy READY 8c6657e -> 2 blind dual checkers dispatched
+2026-10-25T07:20:37+05:30 2026-10-25T07:20:37+05:30 ADVANCED ledger-closes done 08c9be2; conformance READY 08fe8af + cards-b1 READY 43570c7 -> checkers dispatched; 6 dual checkers + crisis-recall builder in flight evidence=08c9be2
+2026-10-25T07:24:53+05:30 2026-10-25T07:24:53+05:30 ADVANCED w1-conformance checked-PASS dc3187a merged 8b18fb3 evidence=qa/verdicts/w1-conformance.md
+2026-10-25T07:28:15+05:30 2026-10-25T07:28:15+05:30 ADVANCED w1-counsellor-tenant-guard dual checked-PASS merged 81f8e00; erasure-outbox B PASS 72d181b, A pending evidence=qa/verdicts/w1-counsellor-tenant-guard.B.md
+2026-10-25T07:29:27+05:30 2026-10-25T07:29:27+05:30 chat-privacy B FAIL C1 (crisis budget spent by concern/textless turns silences escalation) c4211d4; waiting A for union repair
+2026-10-25T07:30:29+05:30 2026-10-25T07:30:29+05:30 ADVANCED w1-erasure-outbox dual checked-PASS merged 01fe789; gate erasure-failed-hold opened evidence=qa/verdicts/w1-erasure-outbox.A.md
+2026-10-25T07:32:11+05:30 2026-10-25T07:32:11+05:30 chat-privacy dual FAIL C1 (4989476 A, c4211d4 B) -> fix cycle 1 sent to same builder; crisis-recall READY 2738e1a (R1 14/28 below bar) -> checker dispatched
+2026-10-25T07:33:13+05:30 2026-10-25T07:33:12+05:30 ADVANCED w1-cards-b1 checked-PASS 82bc192 merged 0341837 evidence=qa/verdicts/w1-cards-b1.md
+2026-10-25T07:39:59+05:30 2026-10-25T07:39:59+05:30 ADVANCED w1-chat-privacy fix1 READY 8835203; dual repair checkers C1 dispatched evidence=039467b
+2026-10-25T07:40:41+05:30 2026-10-25T07:40:41+05:30 ADVANCED w1-crisis-recall checked-PASS fc472c5 merged 12f08ae evidence=3729c25
+2026-10-25T07:47:22+05:30 2026-10-25T07:47:22+05:30 ADVANCED w1-chat-privacy c1 A FAIL 9637cba B PASS a1f751b; fix cycle 2 dispatched evidence=9637cba
+2026-10-25T07:50:16+05:30 2026-10-25T07:50:16+05:30 ADVANCED w1-chat-privacy fix2 READY 2b479b4; dual repair checkers cycle 2 dispatched evidence=2b479b4
+2026-10-25T07:56:33+05:30 2026-10-25T07:56:33+05:30 ADVANCED w1-chat-privacy checked-PASS cycle 2 merged 4df4a0e; wave 1 all merged evidence=5c5e05b
+2026-10-25T07:57:37+05:30 2026-10-25T07:57:37+05:30 ADVANCED wave 1 merged; 6c full-suite pre-push dispatched evidence=1142e8b
+2026-10-25T08:22:13+05:30 2026-10-25T08:22:13+05:30 ADVANCED wave 1 pushed da227b2..1142e8b (6c FULL green 3449 tests, push-gate green) evidence=1142e8b
+2026-10-25T08:58:39+05:30 2026-10-25T08:58:39+05:30 DISPATCHED backstop sweep 20261025 + p2 readiness fact pass evidence=a2eed3c
+2026-10-25T09:01:51+05:30 2026-10-25T09:01:51+05:30 ADVANCED backstop sweep 20261025 PASS-WITH-LOWS, no HOLD evidence=9a9174a
+2026-10-25T09:08:03+05:30 2026-10-25T09:08:02+05:30 DISPATCHED wave 2: t052 c2 (opus), cards-api plan, b22 harness, b15 rev2 note, ledger-closes-2 evidence=852e0e8
+2026-10-25T09:09:05+05:30 2026-10-25T09:09:05+05:30 ADVANCED b15-rev2-note merged-no-check docs-lane evidence=22e2134
+2026-10-25T09:12:10+05:30 2026-10-25T09:12:09+05:30 ADVANCED ledger-closes-2 7/7 verified evidence=d483798
+2026-10-25T09:18:44+05:30 2026-10-25T09:18:44+05:30 DISPATCHED cards-api build after PLAN-APPROVE 3640726 evidence=6b2f99a
+2026-10-25T09:20:29+05:30 2026-10-25T09:20:29+05:30 DISPATCHED b22-harness checker (ready 7ba49ad) evidence=80fd71c
+2026-10-25T09:22:34+05:30 2026-10-25T09:22:34+05:30 ADVANCED b22-harness checked-PASS merged 8b5c49b evidence=8cc34c9
+2026-10-25T09:35:55+05:30 2026-10-25T09:35:55+05:30 DISPATCHED cards-api dual check A+B (ready f046a36) evidence=854f64a
+2026-10-25T09:41:36+05:30 2026-10-25T09:41:36+05:30 BLOCKED t-052 c2 attempt 1 ENVIRONMENTAL (quiet gate Q 0/31 triples); attempt 2 held until cards-api dual check frees the lock evidence=854f64a
+2026-10-25T09:55:12+05:30 2026-10-25T09:55:12+05:30 REPAIRED shared node_modules/.pnpm (cards-api builder deleted cards-api-fcopy through junctions 09:34); pnpm install --frozen-lockfile --force --prefer-offline, tsx/tsc smoke ok; cards-api A PASS a4a0d7a, B pending evidence=a4a0d7a
+2026-10-25T09:59:53+05:30 2026-10-25T09:59:53+05:30 ADVANCED cards-api checked-PASS dual, merged f5f3ecf evidence=e6a0e00
+2026-10-25T10:00:28+05:30 2026-10-25T10:00:28+05:30 DISPATCHED wave-2 6c full pre-push; SERIAL: t-052 attempt 2 waits on 6c (quiet gate Q needs an idle machine) evidence=35cffef
+2026-10-25T10:16:41+05:30 2026-10-25T10:16:41+05:30 PUSHED wave 2 (b15-rev2-note, b22-harness, cards-api) origin/main 35cffef after 6c GREEN full 3567 tests evidence=35cffef
+2026-10-25T10:17:36+05:30 2026-10-25T10:17:36+05:30 RESUMED t-052 c2 attempt 2 (addendum e9fad07) evidence=e9fad07
+2026-10-25T10:31:05+05:30 2026-10-25T10:31:05+05:30 ADVANCED t-052 c2 P0 ran quiet (99/128 pass, 29 fail classified); C4 + rule-c rows -> delta plan for fresh review evidence=3cae385
+2026-10-25T10:38:46+05:30 2026-10-25T10:38:46+05:30 DISPATCHED t-052 delta-c2 fresh plan review (delta a67b109) evidence=d89324f
+2026-10-25T10:51:25+05:30 2026-10-25T10:51:25+05:30 RESUMED t-052 c2 P1 build after PLAN-APPROVE ea29f73 (D1-D10) evidence=658c05b
+2026-10-25T11:36:04+05:30 2026-10-25T11:36:03+05:30 BLOCKED-PLAN t-052 P1 partial ad60624 (109/128); DISPATCHED fresh review 2 on line-number pins + G5 deviation evidence=fba1155
+2026-10-25T11:41:48+05:30 2026-10-25T11:41:48+05:30 RESUMED t-052 c2 P1 continue after PLAN-APPROVE 19a228d (E1-E9) evidence=4bb0e8d
+2026-10-25T11:57:21+05:30 2026-10-25T11:57:21+05:30 ADVANCED t-052 addendum 5 (red attribution) committed + builder resumed; others waiting on Umesh gates evidence=4ebf26e
+2026-10-25T12:18:27+05:30 2026-10-25T12:18:27+05:30 ADVANCED t-052 ATTRIB bfcb317 in (i15 ii6 iii6); combined plan review 3 dispatched evidence=718362f
+2026-10-25T12:28:39+05:30 2026-10-25T12:28:39+05:30 ADVANCED t-052 review-3 PLAN-APPROVE 2138d39 (F1-F12, design 3a); builder resumed on F-probes evidence=2138d39
+2026-10-25T12:43:14+05:30 2026-10-25T12:43:14+05:30 STALLED t-052 (F3 fail, F5 graph.ts, F7 T046 regression); HUMAN_GATE t052-stall; stall diagnosis dispatched evidence=6fa7b9e
+2026-10-25T12:46:34+05:30 2026-10-25T12:46:34+05:30 HUMAN_GATE t052-stall (A measured plan-v3 recommended; acceptance + D10 sub-questions); no other unblocked unit
+2026-10-25T13:18:20+05:30 2026-10-25T13:18:20+05:30 HUMAN_GATE t-052 STALLED awaiting t052-stall answer (A|B|C|D + acceptance + D10); human-invoked tick, nothing else buildable
+2026-10-25T13:50:01+05:30 2026-10-25T13:50:01+05:30 HUMAN_GATE t-052 STALLED awaiting t052-stall answer (A|B|C|D + acceptance + D10); human-invoked tick, nothing else buildable
+2026-10-25T14:21:56+05:30 2026-10-25T14:21:56+05:30 HUMAN_GATE t-052 STALLED awaiting t052-stall answer (A|B|C|D + acceptance + D10); human-invoked tick, nothing else buildable
+2026-10-25T14:53:51+05:30 2026-10-25T14:53:51+05:30 HUMAN_GATE t-052 STALLED awaiting t052-stall answer (A|B|C|D + acceptance + D10); human-invoked tick, no Answered line, nothing else buildable
+2026-10-26T21:32:56+05:30 2026-10-26T21:32:56+05:30 ADVANCED vc-admin-control spec+plan committed 9cc4c73; contract authoring dispatched; 6 wave-1 worktrees ready; wave=1 binding=contract-pending serial=[B1-B7: wait on contract criteria] evidence=9cc4c73
+2026-10-26T22:26:33+05:30 2026-10-26T22:26:33+05:30 ADVANCED vc-admin-control wave 1 merged (6/6, tools unverified) at e99842c; killed approved PIDs 19204,2660; wave-2 integration builder dispatched evidence=e99842c
+2026-10-26T23:12:39+05:30 PUSHED main to vidysea-admin/vc (public, Umesh-approved) after push-gate green; vc-admin-control stays on wave/vc-admin-control until dual check evidence=b340f31
+2026-10-26T23:25:47+05:30 DISPATCHED vc-admin-control dual check (A+B blind) + sse/de/ai reviews at 914a61d; vca-api built 114/114 new tests evidence=914a61d
+2026-10-26T23:57:21+05:30 2026-10-26T23:57:21+05:30 WAITING vc-admin-control: checker A + B in flight; fix round waits on both verdicts (SERIAL: fix-round waits on checker A/B)
+2026-10-27T00:58:12+05:30 heartbeat vc-admin-control: fix1-api 5078259 done, fix1-eng building, nothing else ready
+2026-10-27T01:09:58+05:30 ADVANCED vc-admin-control fix cycle 1 ready-for-check b54c11f; repair checkers A+B dispatched in one message evidence=b54c11fbab19c1531bdd95d183ed98c2aadcd66c
+2026-10-27T01:59:25+05:30 vc-admin-control checked-PASS (dual cycle 2), merged f2da185, ledger 303e5cf; 6c pre-push full suite dispatched evidence=303e5cf
+2026-10-27T02:41:00+05:30 HUMAN_GATE vca-push: push approval for main 3ef1d34 (push-gate green); sweep SERIAL waits on push decision; no other unblocked buildable row (T-010/T-035/ISS gated or human)
+2026-10-27T03:12:58+05:30 2026-10-27T03:12:58+05:30 HUMAN_GATE vca-push: awaiting push|not yet; nothing else unblocked; sweep held SERIAL on push decision
+2026-10-27T03:45:00+05:30 HUMAN_GATE vca-push: awaiting push|not yet (heartbeat 3 of 8); push-gate re-verified green 68be13c; sweep held SERIAL on push decision
+2026-10-27T04:16:55+05:30 HUMAN_GATE vca-push: awaiting push|not yet (heartbeat 4 of 8); push-gate re-verified green 68be13c; sweep held SERIAL on push decision
+2026-10-27T04:47:57+05:30 HUMAN_GATE vca-push: awaiting push|not yet (heartbeat 5 of 8); push-gate re-verified green 68be13c; sweep held SERIAL on push decision
+2026-10-27T05:19:19+05:30 HUMAN_GATE vca-push: awaiting push|not yet (heartbeat 6 of 8); push-gate re-verified green 68be13c; sweep held SERIAL on push decision
+2026-10-27T05:51:00+05:30 HUMAN_GATE vca-push: awaiting push|not yet (heartbeat 7 of 8); push-gate re-verified green 68be13c; sweep held SERIAL on push decision
+2026-10-27T06:19:46+05:30 HUMAN_GATE vca-push: awaiting push|not yet (heartbeat 8 of 8, final); push-gate green 68be13c; heartbeat stopped, resumes on Umesh's reply
+2026-10-27T07:01:59+05:30 ADVANCED push vca: main 3ef1d34 pushed to vidysea-admin/vc at 2026-10-27 07:01:35 (reflog); push-gate green 68be13c evidence=3ef1d3470d29f08fb06421d825d13f18e11e3e3f
