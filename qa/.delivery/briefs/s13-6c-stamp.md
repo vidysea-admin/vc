@@ -1,0 +1,7 @@
+# s13-6c-stamp
+
+You are the 6c integration checker for commit 5c1ade42 on branch codex/vc-completion (D:/vc/.worktrees/vc-completion). The full suite already ran green on the uncommitted tree: qa/verdicts/s13-6c.md (all 11 packages, 4321 pass/0 fail/46 skip, 12:59-13:05 +05:30) and, after the last code fixes, qa/verdicts/s13-6c-4.md (engine/api/providers 0 fail, 13:31-13:33 +05:30). Your job is to decide whether that evidence covers HEAD and, only if it does, stamp it.
+1) Prove no code changed after the s13-6c-4 run started: list files in git show --name-only HEAD that are outside qa/ and docs/ and *.md, and check each one's mtime is before 13:31:17 +05:30 today (2026-10-29), and that git status shows no modified tracked files. Files touched between 12:59 and 13:31 must belong only to engine, api or providers (re-run in s13-6c-4); list any exception.
+2) Run the collection check: from the repo root, for each of the 11 packages in s13-6c.md, confirm every test file imports (e.g. pnpm exec tsc --noEmit where available, which s13-6c-4 ran for 3 packages; run pnpm run typecheck for the other 7 via bash scripts/vc-testlock.sh; long lock waits are normal).
+3) If 1 and 2 are clean, run: node D:/ai_os/.claude/skills/maker/tools/tick.mjs --stamp-6c-green --root D:/vc/.worktrees/vc-completion (check --help first for the exact flag form). Do NOT git add or commit qa/.6c-green. If anything is not clean, do not stamp; report why.
+Write qa/verdicts/s13-6c-stamp.md with the evidence and the exact stamp output line. Do not push.
