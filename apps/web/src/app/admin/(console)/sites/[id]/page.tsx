@@ -30,7 +30,7 @@ export default function SiteDetailPage() {
   }
   return (
     <SiteDetailView
-      key={`${site.partnerId}:${site.name}:${site.allowedOrigins.join("|")}`}
+      key={`${site.partnerId}:${site.name}:${site.allowedOrigins.join("|")}:${JSON.stringify(site.memoryPolicy ?? null)}`}
       role={role}
       site={site}
       revealed={revealed}

@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { createPathlynksPort, type PathlynksPortConfig } from "../src/index.js";
 import { createFakePg, type FakeOptions } from "./fakes.js";
 
-const TABLES = { profile: "students", savedCareers: "saved_careers", compareList: "compare_items", assessment: "assessments" };
+const TABLES = { profile: "users", savedCareers: "student_saved_careers", compareList: "student_career_compare", assessment: "assessment_response", userGrade: "user_grade", grade: "grade", careerOption: "career_option" };
 const ALLOW = Object.values(TABLES);
 const WRITER: FakeOptions["privileges"] = Object.fromEntries(ALLOW.map((t) => [t, { INSERT: true, UPDATE: true, DELETE: true }]));
 
@@ -22,7 +22,7 @@ test("G1: without the override a writer role is refused and no data SELECT is is
   const { h, port, events } = setup({ privileges: WRITER });
   const res = await port.getSavedCareers("stu-1");
   assert.deepEqual(res, { ok: false, reason: "unavailable", cause: "privilege_check_failed" });
-  assert.equal(h.statements.filter((s) => /FROM "saved_careers"/.test(s.text)).length, 0);
+  assert.equal(h.statements.filter((s) => /JOIN "student_saved_careers"/.test(s.text)).length, 0);
   assert.ok(!events.some((e) => (e as { type: string }).type === "privileged_role_override"));
 });
 
@@ -37,7 +37,7 @@ test("G1: with PATHLYNKS_ALLOW_PRIVILEGED_ROLE=1 a writer role reads, through SE
   assert.ok(texts.some((t) => /^SET statement_timeout = 3000$/.test(t)), "timeout stays");
   const data = texts.filter((t) => !/^SET\b/i.test(t));
   assert.equal(data.length, 1);
-  assert.match(data[0]!, /^SELECT \* FROM "saved_careers" WHERE student_id = \$1 LIMIT \d+$/);
+  assert.match(data[0]!, /^SELECT co\.preferred_label AS career[\s\S]*WHERE u\.id = \$1[\s\S]*LIMIT 51$/);
   assert.ok(data.every((t) => /^SELECT\b/i.test(t)), "only SELECT is ever sent");
   assert.ok(!texts.some((t) => /has_table_privilege/i.test(t)), "the probe is skipped under the override");
   assert.ok(!texts.some((t) => /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b\s+(INTO|FROM|TABLE)?/i.test(t.replace(/has_table_privilege.*/i, ""))), "no write statement of any kind");

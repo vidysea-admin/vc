@@ -312,7 +312,7 @@ export async function classifyConcern(rawInput: ConcernClassifierInput, deps: Cl
     try {
       raw = await Promise.race([attempt(), timeout]);
     } catch (first) {
-      if (!(first instanceof Error && first.name === "LiteLlmMalformedResponseError")) throw first;
+      if (!(first instanceof Error && (first.name === "LiteLlmMalformedResponseError" || first.name === "GeminiMalformedResponseError"))) throw first;
       raw = await Promise.race([attempt(), timeout]);
     }
     const out = ConcernClassifierOutputSchema.parse(raw);
@@ -324,7 +324,7 @@ export async function classifyConcern(rawInput: ConcernClassifierInput, deps: Cl
       model,
       reason: err instanceof ConcernClassifierTimeoutError ? "timeout" : "error",
       errorName: err instanceof ConcernClassifierTimeoutError ? "ConcernClassifierTimeoutError"
-        : err instanceof Error && ["LiteLlmHttpError", "LiteLlmNetworkError", "LiteLlmAbortedError", "LiteLlmMalformedResponseError", "ProviderAuthorizationRefusedError", "ModelOutputSchemaError", "ZodError"].includes(err.name) ? err.name : "Error",
+        : err instanceof Error && ["LiteLlmHttpError", "LiteLlmNetworkError", "LiteLlmAbortedError", "LiteLlmMalformedResponseError", "GeminiHttpError", "GeminiNetworkError", "GeminiAbortedError", "GeminiTimeoutError", "GeminiMalformedResponseError", "ProviderAuthorizationRefusedError", "ModelOutputSchemaError", "ZodError"].includes(err.name) ? err.name : "Error",
       attemptedAt: now().toISOString(),
     };
   } finally {

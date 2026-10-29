@@ -1,0 +1,3 @@
+# s13-6c-rerun-4
+
+Post-fix-C4 re-run, clean. From D:/vc/.worktrees/vc-completion, sequentially, no -x, each via bash scripts/vc-testlock.sh pnpm test from the package dir: packages/engine, apps/api, packages/providers. Then pnpm run typecheck in those three and python contracts/verify_contracts.py. Long lock waits are normal: wait. Before starting, record free RAM. Save raw logs to qa/evidence/s13-6c-4-<pkg>.log and write qa/verdicts/s13-6c-4.md with HEAD sha, table (tests/pass/fail/skip) and delta vs qa/verdicts/s13-6c-3.md. The previous run had apps/api tests/partner-voice.test.ts die as a file (likely voice.ts edited mid-run); if any file fails, re-run it alone once AND re-run the whole apps/api suite once more, report both. Do not touch qa/.6c-green.

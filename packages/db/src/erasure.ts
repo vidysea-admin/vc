@@ -1993,10 +1993,16 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
   const crisisReviews = await db.collection<SafetyAccessRow>(COLLECTION_NAMES.crisis_flag_reviews).find({ studentId }).toArray();
   crisisReviews.sort((a, b) => a._id.localeCompare(b._id));
   const chatThreads = await db.collection<ChatThreadDoc>(COLLECTION_NAMES.chat_threads).find({ studentId }).toArray();
-  const chatTurns = await db.collection<ChatTurnDoc>(COLLECTION_NAMES.chat_turns).find({ studentId }).toArray();
+  const rawChatTurns = await db.collection<ChatTurnDoc>(COLLECTION_NAMES.chat_turns).find({ studentId }).toArray();
+  const publishedPairs = new Map(rawChatTurns.filter(row => row.role === "user" && row.status === "done" && (row.publication === undefined || row.publication === "published"))
+    .map(row => [`${row.threadId}\0${row.turnId}`,row]));
+  const chatTurns = rawChatTurns.filter(row => row.role === "user" ? row.publication !== "invalidated" : row.publication === undefined
+    || row.publicationLease !== undefined && publishedPairs.get(`${row.threadId}\0${row.turnId}`)?.publicationLease === row.publicationLease)
+    .map(({ publication: _publication, publicationLease: _publicationLease, memorySnapshot: _snapshot, lease: _lease, ...turn }) => turn);
   chatTurns.sort((x, y) => x.threadId.localeCompare(y.threadId) || x.at.localeCompare(y.at) || x.turnId.localeCompare(y.turnId) || x.order - y.order);
   const profileFacts = await db.collection<ProfileFactDoc>(COLLECTION_NAMES.profile_facts).find({ studentId }).toArray();
-  const usage = await db.collection<StudentUsageDoc>(COLLECTION_NAMES.student_usage).find({ studentId }).toArray();
+  // student_usage also holds the "memory:<studentId>" revision marker (no month); export only monthly counters.
+  const usage = await db.collection<StudentUsageDoc>(COLLECTION_NAMES.student_usage).find({ studentId, month: { $type: "string" } } as never).toArray();
   const flags = await db.collection<StudentFlagDoc>(COLLECTION_NAMES.student_flags).find({ studentId }).toArray();
   return {
     format: "vc-student-export/v1",

@@ -400,12 +400,12 @@ class MalformedThenValidProvider implements LlmProvider {
   readonly kind = "mock" as const;
   readonly model = "flash-lite";
   calls = 0;
-  constructor(private readonly failures: number) {}
+  constructor(private readonly failures: number, private readonly errorName = "LiteLlmMalformedResponseError") {}
   async generate<T>(_request: GenerateRequest<T>): Promise<T> {
     this.calls++;
     if (this.calls <= this.failures) {
       const err = new Error("choices[0].message.content was not valid JSON");
-      err.name = "LiteLlmMalformedResponseError";
+      err.name = this.errorName;
       throw err;
     }
     return { severity: "critical", likelyBenign: false, rationale: "synthetic" } as unknown as T;
@@ -424,6 +424,16 @@ test("golive-json-robust: malformed twice -> unavailable with errorName recorded
   const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 1000, now });
   assert.deepEqual(out, { status: "unavailable", model: "flash-lite", reason: "error", errorName: "LiteLlmMalformedResponseError", attemptedAt: AT });
   assert.equal(provider.calls, 2);
+});
+
+test("T-057 W1: Gemini malformed reply is retried once like LiteLLM, and its name is recorded when both fail", async () => {
+  const once = new MalformedThenValidProvider(1, "GeminiMalformedResponseError");
+  assert.equal((await classifyConcern(INPUT, { provider: once, skillPrompt: "p", timeoutMs: 1000, now })).status, "classified");
+  assert.equal(once.calls, 2);
+  const twice = new MalformedThenValidProvider(5, "GeminiMalformedResponseError");
+  const out = await classifyConcern(INPUT, { provider: twice, skillPrompt: "p", timeoutMs: 1000, now });
+  assert.deepEqual(out, { status: "unavailable", model: "flash-lite", reason: "error", errorName: "GeminiMalformedResponseError", attemptedAt: AT });
+  assert.equal(twice.calls, 2);
 });
 
 test("golive-json-robust: safetyScreen fails closed on two malformed replies (possible/unavailable, never clear) and passes after a retry", async () => {

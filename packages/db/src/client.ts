@@ -103,6 +103,97 @@ export function getVcDb(client: MongoClient, name: string = VC_DB_NAME): Db {
   return client.db(name);
 }
 
+/**
+ * wire-fix-1 (D-134, contract B12, qa/gates/mongo-host.md): the ONE read-only opener for a database that is NOT `virtual_counsellor`.
+ * The allow-list holds exactly one name, the Career Quest database. Everything else on the server (`pathlynks`, `global_university_db`, `admin`, ...) is
+ * refused before the driver's `.db(` is reached, and `virtual_counsellor` is deliberately NOT on it (that database has its own full-CRUD path, `getVcDb`).
+ */
+export const READ_ONLY_DB_ALLOW_LIST: readonly string[] = Object.freeze(["pathlynks_journey"]);
+/** Every read through the read-only handle goes to a secondary when one is available, so production primaries carry no student-facing read load. */
+export const READ_ONLY_READ_PREFERENCE = "secondaryPreferred";
+
+export interface ReadOnlyCursor {
+  toArray(): Promise<Record<string, unknown>[]>;
+}
+/** Exactly three methods; no write, index, drop, rename, watch or single-document method exists on this type or on the object. */
+export interface ReadOnlyCollection {
+  find(filter: Record<string, unknown>, options?: Record<string, unknown>): ReadOnlyCursor;
+  aggregate(pipeline: Record<string, unknown>[], options?: Record<string, unknown>): ReadOnlyCursor;
+  countDocuments(filter: Record<string, unknown>, options?: Record<string, unknown>): Promise<number>;
+}
+export interface ReadOnlyDb {
+  collection(name: string): ReadOnlyCollection;
+}
+
+const PLAIN_COLLECTION_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
+const WRITE_STAGE = /^\$(out|merge)$/;
+/** The only caller options each read-only facade method forwards (tf-fix-2). */
+const FIND_OPTIONS: readonly string[] = ["maxTimeMS", "projection", "sort", "limit", "skip", "hint"];
+const AGGREGATE_OPTIONS: readonly string[] = ["maxTimeMS", "allowDiskUse"];
+const COUNT_OPTIONS: readonly string[] = ["maxTimeMS", "limit", "skip"];
+
+/**
+ * Opens an allow-listed database as a read-only facade: `collection(name)` returns a frozen object with only find / aggregate / countDocuments, each forced to
+ * `readPreference: secondaryPreferred` (only the allow-listed caller options pass through: find maxTimeMS/projection/sort/limit/skip/hint, aggregate maxTimeMS/allowDiskUse, countDocuments maxTimeMS/limit/skip; its readPreference is overridden). A cursor is
+ * narrowed to `toArray`. `$out` and `$merge` stages are refused before the driver. `collections` (optional) narrows further to the source's allow-list.
+ * No connection is made here (`client.db(name)` is a local call, contract B8).
+ */
+export function openReadOnlyDb(client: MongoClient, name: string, collections?: readonly string[]): ReadOnlyDb {
+  if (typeof name !== "string" || !READ_ONLY_DB_ALLOW_LIST.includes(name)) {
+    throw new Error(
+      `openReadOnlyDb: refusing database ${JSON.stringify(typeof name === "string" ? name.slice(0, 64) : typeof name)} — the read-only opener serves only ` +
+        `${READ_ONLY_DB_ALLOW_LIST.join(", ")} (contract B12, qa/gates/mongo-host.md). Every other database is off-limits.`,
+    );
+  }
+  const db = client.db(name);
+  // tf-fix-2: caller options are ALLOW-LISTED per method (own keys of a plain object only); anything else (out, merge, writeConcern, bypassDocumentValidation, session, ...) is dropped
+  // before the driver, because e.g. AggregateOptions.out makes the driver append a $out stage. readPreference is always forced.
+  const force = (allowed: readonly string[], options?: Record<string, unknown>): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    if (options !== null && typeof options === "object" && !Array.isArray(options)) {
+      for (const key of allowed) {
+        if (Object.prototype.hasOwnProperty.call(options, key) && options[key] !== undefined) out[key] = options[key];
+      }
+    }
+    out.readPreference = READ_ONLY_READ_PREFERENCE;
+    return out;
+  };
+  // A write stage can hide in a sub-pipeline ($facet, $lookup, $unionWith), so the screen walks every nested own key, bounded in depth.
+  const hasWriteStage = (v: unknown, depth = 0): boolean => {
+    if (v === null || typeof v !== "object") return false;
+    if (depth > 32) return true;
+    if (Array.isArray(v)) return v.some((x) => hasWriteStage(x, depth + 1));
+    return Object.keys(v).some((k) => WRITE_STAGE.test(k) || hasWriteStage((v as Record<string, unknown>)[k], depth + 1));
+  };
+  const narrow = (cursor: { toArray(): Promise<Record<string, unknown>[]> }): ReadOnlyCursor => Object.freeze({ toArray: () => cursor.toArray() });
+  const handle: ReadOnlyDb = {
+    collection(coll: string): ReadOnlyCollection {
+      if (typeof coll !== "string" || !PLAIN_COLLECTION_NAME.test(coll) || (collections !== undefined && !collections.includes(coll))) {
+        throw new Error(`openReadOnlyDb: refusing collection ${JSON.stringify(typeof coll === "string" ? coll.slice(0, 64) : typeof coll)} in "${name}"`);
+      }
+      const c = db.collection(coll);
+      const facade: ReadOnlyCollection = {
+        find: (filter, options) => narrow(c.find(filter as never, force(FIND_OPTIONS, options) as never) as never),
+        aggregate: (pipeline, options) => {
+          if (!Array.isArray(pipeline)) throw new Error("openReadOnlyDb: aggregate needs a pipeline array");
+          for (const stage of pipeline) {
+            if (stage === null || typeof stage !== "object" || hasWriteStage(stage)) throw new Error("openReadOnlyDb: refusing a write stage ($out / $merge) in a read-only aggregate");
+          }
+          return narrow(c.aggregate(pipeline as never, force(AGGREGATE_OPTIONS, options) as never) as never);
+        },
+        countDocuments: (filter, options) => c.countDocuments(filter as never, force(COUNT_OPTIONS, options) as never),
+      };
+      return Object.freeze(facade);
+    },
+  };
+  return Object.freeze(handle);
+}
+
+/** The Career Quest database (`pathlynks_journey`), read-only; pass the source's collection list to narrow it further. */
+export function openPathlynksJourney(client: MongoClient, collections?: readonly string[]): ReadOnlyDb {
+  return openReadOnlyDb(client, "pathlynks_journey", collections);
+}
+
 export type MongoClientFactory = (url: string, options?: MongoClientOptions) => MongoClient;
 
 const defaultClientFactory: MongoClientFactory = (url, options) => new MongoClient(url, options);

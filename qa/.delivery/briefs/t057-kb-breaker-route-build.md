@@ -1,0 +1,12 @@
+# t057-kb-breaker-route-build
+
+Maker build lane (TDD, edit IN PLACE, no new modules unless unavoidable). VC side of the KB speed fix. The KB team (separate session) will add a vectorless '/route' endpoint with the SAME hit shape as POST /search; its exact contract is not known yet. Evidence: qa/evidence/t057/kb-slowness-analysis.md, qa/evidence/t057/kb-vectorless-design.md.
+
+Build, in mcp/university-kb/src/kb-client.ts and mcp/university-kb/src/source-kind.ts (searchKb ~199-203), plus the engine only if needed:
+1. Circuit breaker for KB calls (in kb-client.ts, per base URL, in-memory): after N consecutive timeouts/5xx (default 2, env VC_KB_BREAKER_FAILS) open for a cooldown (default 120 s, env VC_KB_BREAKER_COOLDOWN_MS); while open, /search and /ask fail fast (no network) with the same error type the graph already treats as searchFailed, so the turn goes straight to the grounded/general fallback. Half-open: one probe after cooldown; success closes it. No student text in any log line (log only event name, endpoint, counts).
+2. Lower defaults: /search and /ask timeout caps 8 s -> 4 s (env still overrides; keep VC_KB_TIMEOUT_MS semantics). Check the turn-deadline budget math in packages/engine/src/student/graph.ts still holds.
+3. Optional route-first: add 'route()' to the KB client calling 'POST /route' with the same body as /search, behind env flag VC_KB_ROUTE=1 (default OFF). In searchKb: if the flag is on, try route first (timeout cap 4 s); on 404/405/501, timeout or breaker-open, fall back to /search; response is parsed by the SAME hit parser/validator as /search (reuse, do not duplicate). A 404 should mark route unsupported for the cooldown so we do not pay it every turn.
+4. Tests first (red, then green) in the existing kb-client / source-kind test files: breaker opens after N failures, fails fast while open, half-opens and closes; no network call while open; route flag off = never calls /route; route 404 -> falls back to /search and caches unsupported; route success parsed by the shared parser; a hit for a withdrawn source in a route response is dropped exactly as for /search (whatever filter /search hits pass through today); timeouts at the new 4 s cap.
+5. Run only the focused test files for mcp/university-kb and the engine student-graph tests plus 'tsc --noEmit' for the touched packages. Paste commands + output.
+Do not restart the API. Write qa/evidence/t057/kb-breaker-route-build.md (what changed file:line, tests, outputs). Return <= 20 lines.
+

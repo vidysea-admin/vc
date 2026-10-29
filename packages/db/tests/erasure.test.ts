@@ -76,6 +76,20 @@ function setup() {
   return { db, fakeDb };
 }
 
+test("S12 export: unpublished assistant output is excluded and completed history stays without internal lease/snapshot metadata", async () => {
+  const { db, fakeDb } = setup();
+  const common = { studentId: "syn-export", threadId: "syn-thread", channel: "text", at: "2026-10-27T12:00:00.000Z" };
+  for (const row of [
+    { ...common, _id: "published-u", turnId: "published", role: "user", order: 0, text: "Earlier question", status: "done", publication: "published", publicationLease: "INTERNAL-LEASE-CANARY" },
+    { ...common, _id: "published-a", turnId: "published", role: "assistant", order: 1, text: "Completed historical answer", publication: "published", publicationLease: "INTERNAL-LEASE-CANARY", memorySnapshot: { revision: "old", policy: "INTERNAL-POLICY-CANARY" } },
+    { ...common, _id: "pending-u", turnId: "pending", role: "user", order: 0, text: "Current question", status: "in_progress", publication: "pending", lease: { token: "INTERNAL-LEASE-CANARY", expiresAt: "2026-10-27T12:05:00.000Z" } },
+    { ...common, _id: "pending-a", turnId: "pending", role: "assistant", order: 1, text: "UNPUBLISHED-ANSWER-CANARY", publication: "pending", publicationLease: "INTERNAL-LEASE-CANARY" },
+  ]) fakeDb.collection(COLLECTION_NAMES.chat_turns).seed(row);
+  const exported = JSON.stringify(await exportStudent(db, "syn-export"));
+  assert.match(exported, /Completed historical answer/);
+  assert.doesNotMatch(exported, /UNPUBLISHED-ANSWER-CANARY|INTERNAL-LEASE-CANARY|INTERNAL-POLICY-CANARY/);
+});
+
 function coll(fakeDb: FakeDb, name: string): FakeCollection<AnyDoc> {
   return fakeDb.collection<AnyDoc>(name);
 }

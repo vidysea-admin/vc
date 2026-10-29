@@ -111,7 +111,8 @@ export function readLedger(path: string): LedgerEntry[] {
     if (line.trim().length === 0) continue;
     try {
       const parsed = JSON.parse(line) as LedgerEntry;
-      if (typeof parsed.ts !== "string" || typeof parsed.kind !== "string") throw new Error("missing ts/kind");
+      if (typeof parsed.ts !== "string" || !Number.isFinite(Date.parse(parsed.ts))) throw new Error("invalid timestamp");
+      if (typeof parsed.kind !== "string") throw new Error("missing kind");
       if (parsed.kind === "charge" && (typeof parsed.usd !== "number" || !Number.isFinite(parsed.usd) || parsed.usd < 0)) {
         throw new Error("charge entry without a finite usd >= 0");
       }
@@ -132,7 +133,9 @@ export function monthSpendUsd(entries: readonly LedgerEntry[], at: Date): number
   const key = monthKey(at);
   let total = 0;
   for (const e of entries) {
-    if (e.kind === "charge" && e.ts.slice(0, 7) === key) total += e.usd ?? 0;
+    const instant = typeof e.ts === "string" ? Date.parse(e.ts) : NaN;
+    if (!Number.isFinite(instant)) throw new Error("budget ledger contains an invalid timestamp; refusing to undercount spend");
+    if (e.kind === "charge" && monthKey(new Date(instant)) === key) total += e.usd ?? 0;
   }
   return Math.round(total * 1e6) / 1e6;
 }

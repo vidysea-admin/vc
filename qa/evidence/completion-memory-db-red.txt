@@ -1,0 +1,168 @@
+✔ a fact proposed from chat starts as proposed, is hidden from 'confirmed', and confirming it makes it student-confirmed (9.8747ms)
+✔ a student correcting a proposed fact replaces its value (redacted) and confirms it (1.0118ms)
+✔ p1-u8r low: a fact key a model proposed with a phone number or email in it is stored redacted, like the value (0.6889ms)
+✔ a student erasing a proposed fact deletes it from the store (0.7576ms)
+✔ a student cannot decide on another student's fact, or on one that does not exist (0.8201ms)
+✔ proposing the same key twice keeps one fact per key, and a confirmed fact is not downgraded back to proposed (0.791ms)
+✔ two tenants with the same student id keep separate profile facts and flag logs (A6) (1.0742ms)
+✔ the profile store and flag log refuse an unscoped Db (0.2238ms)
+✔ a crisis turn leaves a text-free flag row (ids and time only), and the same turn flagged twice is one row (0.5014ms)
+✔ an unanswerable turn raises that day's gap count by one, with no student or text in the row (7.3644ms)
+✔ a student under erasure gets no new profile fact and no new flag row (1.5076ms)
+✔ every new student-bearing chat collection is in the B15 erasure plan and the gap counts are exempt with a reason (0.1915ms)
+✔ erasing a student removes their threads, turns, facts, usage and flags and leaves another student's untouched; the receipt counts them (5.7177ms)
+✔ exporting a student returns their chat threads, turns, facts, usage and flags, and nobody else's (2.2547ms)
+✔ p1-lk6: a proposed fact keeps the original-language quote and sourceLang next to its English value, and the quote is redacted like the value (6.3958ms)
+✔ p1-lk6: quote and sourceLang are optional: a fact proposed without them has neither field (old rows and old callers are unchanged) (0.5214ms)
+✔ p1-lk6: an unusable quote or language label (empty, over-long, not a language tag) is left out of the row and never fails the proposal (1.1907ms)
+✔ p1-lk6: proposing the same key again replaces the quote with the newer value's quote; without one the stale quote is removed; a confirmed fact keeps its own (1.4405ms)
+✔ p1-lk6: a student correcting a fact whose quote supports the old value drops the quote (the corrected value is the student's own words) (0.9622ms)
+✖ S12: replacement preserves active provenance and needs exact candidate/version/displayed value; reject preserves active (2.9008ms)
+✖ S12: correction clears candidate and provenance, forget removes active and candidate, initial reject removes only proposal (0.6692ms)
+✖ S12: stale extraction successful cleanup never rewinds the explicit forget history cutoff (2.0302ms)
+✖ S12: unknown legacy cutoff excludes history without discarding confirmed facts; marker-free history stays usable (0.4014ms)
+✖ S12: later explicit decision retains monotonic cutoff even if an earlier decision completes last (1.818ms)
+✖ S12: overlapping candidate confirmations cannot overwrite a newer explicit correction (4.4765ms)
+✔ Q3: Quest context is optional fixed presentation metadata, never an identity or an instruction (1.8672ms)
+✔ claims[]: status is exactly verified | attributed | unverified (0.5767ms)
+✔ A1 shape: verified and attributed claims need >= 1 sourceId; an unverified claim may have none (0.3542ms)
+✔ turn response: state is one of ok | concern | escalated | no_sourced_answer | sign_in_required (0.8537ms)
+✔ turn response: source kind is internal-seminar | toc | whatsapp | unknown (A22) (0.2141ms)
+✔ profileFactsUsed carries source pathlynks | student-confirmed only (D-087 Q15) (0.1052ms)
+✔ turn request: text required and bounded, a body-supplied identity is rejected (0.1508ms)
+✔ fact decision: confirm | correct (needs value) | erase (0.1389ms)
+✔ D-088 default limits: 20-min session, 60 voice-min/month, 30 rpm, anon 10 rpm, PCM16 16k in / 24k out, 2 s crisis bound (0.7498ms)
+✔ A23 config: a per-tenant override changes only the named field and is validated (0.5311ms)
+✔ audio format is PCM16 only, 16 kHz in, 24 kHz out (0.1572ms)
+✔ A6 prefix: synthetic ids start with syn- (exact, case-sensitive, non-empty remainder) (0.1ms)
+✔ voice session response: token, wsUrl (wss/ws), expiry and the limits that apply (0.6298ms)
+✔ WS server events: transcript.partial/final, answer.sources, state, flag, confirm, error; each has an eventId for resume (0.3526ms)
+✔ WS client events: start | interrupt | end | confirm, resume via lastEventId (0.1636ms)
+✔ A15a counter: only date, kind, count (strict) and kind is answered | no_answer | sign_in_required | crisis (0.2286ms)
+✔ anonymous response: no thread/profile fields; state ok | no_sourced_answer | sign_in_required | escalated (0.1625ms)
+✔ Q10-Q12: public DTOs reject internal context and strictly bound session/memory projections (1.0063ms)
+✖ S12: candidate DTOs and decisions bind bounded refs while legacy first confirmation remains valid (2.3611ms)
+✖ S12: canonical preferences share aliases and authoritative account fields cannot become preferences (0.3772ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 37
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1324.664
+
+✖ failing tests:
+
+test at packages\db\tests\student-store.test.ts:1:13682
+✖ S12: replacement preserves active provenance and needs exact candidate/version/displayed value; reject preserves active (2.9008ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'France'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\student-store.test.ts:270:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'France',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages\db\tests\student-store.test.ts:1:15793
+✖ S12: correction clears candidate and provenance, forget removes active and candidate, initial reject removes only proposal (0.6692ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - '10 lakh'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\student-store.test.ts:287:9)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '10 lakh',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages\db\tests\student-store.test.ts:1:16910
+✖ S12: stale extraction successful cleanup never rewinds the explicit forget history cutoff (2.0302ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '2026-11-01T10:00:00.000Z'
+  - '2026-11-01T10:00:02.000Z'
+                       ^
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\student-store.test.ts:314:11)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '2026-11-01T10:00:00.000Z',
+    expected: '2026-11-01T10:00:02.000Z',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages\db\tests\student-store.test.ts:1:18644
+✖ S12: unknown legacy cutoff excludes history without discarding confirmed facts; marker-free history stays usable (0.4014ms)
+  TypeError: m.readStudentMemorySnapshot is not a function
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\student-store.test.ts:322:27)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at packages\db\tests\student-store.test.ts:1:20154
+✖ S12: later explicit decision retains monotonic cutoff even if an earlier decision completes last (1.818ms)
+  TypeError: m.readStudentMemorySnapshot is not a function
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\student-store.test.ts:348:26)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at packages\db\tests\student-store.test.ts:1:21364
+✖ S12: overlapping candidate confirmations cannot overwrite a newer explicit correction (4.4765ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(proposed.pendingChange)
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\student-store.test.ts:357:9)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at packages\schemas\tests\student-api.test.ts:1:10940
+✖ S12: candidate DTOs and decisions bind bounded refs while legacy first confirmation remains valid (2.3611ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\schemas\tests\student-api.test.ts:221:9)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages\schemas\tests\student-api.test.ts:1:13080
+✖ S12: canonical preferences share aliases and authoritative account fields cannot become preferences (0.3772ms)
+  TypeError: canonicalPreferenceKey is not a function
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\schemas\tests\student-api.test.ts:237:97)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)

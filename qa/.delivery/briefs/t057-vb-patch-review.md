@@ -1,0 +1,7 @@
+# t057-vb-patch-review
+
+Read-only senior review (never edit, never start servers, never touch DBs) of the LOCAL demo patch in the Vidysea backend checkout D:/vc/.worktrees/vc-vidysea-backend (see `git -C D:/vc/.worktrees/vc-vidysea-backend diff`) and frontend D:/vc/.worktrees/vc-vidysea-frontend (`git diff next.config.mjs`).
+Intent: env switch VC_DEMO_NO_PROD_WRITES=1 must skip EVERY startup write/loop and the login-streak wallet credit (app/main.py ~159-711, app/api/deps.py ~256); unset must leave behaviour byte-for-byte unchanged. VC_DEMO_ELIGIBILITY=1 adds a vc_eligibility claim to student ACCESS tokens only (app/core/security.py create_token ~60-75), tenantId parsed from VC_PARTNER_SERVER_KEY. Frontend: VC_DEMO_LOCAL=1 rewrites /api/v1 to localhost:8000 and widens CSP connect-src to loopback VC.
+Check: (1) any startup/background write to production still reachable with the flag set (grep lifespan/on_event/create_task/scheduler/INSERT/UPDATE/commit in startup paths); (2) flag-unset behaviour unchanged; (3) the eligibility claim cannot be minted for non-students or refresh tokens and is not enabled in any non-local env by default; (4) VC_DEMO_ELIGIBILITY_AGE defaults to 20 - flag whether this misstates a minor's age to VC (VC stores no text for minors) and whether the real age from the user record should be used instead; (5) the frontend change cannot affect a production build when VC_DEMO_LOCAL is unset.
+Return Approve / Warning / Block with file:line evidence, most severe first.
+

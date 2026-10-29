@@ -186,3 +186,17 @@ test("fix1 R3: the dashboard page sends the exclusive end, not the raw To date",
   assert.ok(/metricsWindow\(range\)/.test(src), "metrics are requested through metricsWindow");
   assert.ok(!/to: range\.to/.test(src), "no raw range.to goes to the API");
 });
+
+
+test("Q13 memory policy: client sends and reads independent flags/zero without exposing unknown fields", async () => {
+  const policy = {shortTermEnabled:true,longTermEnabled:false,learningEnabled:true,contextMessages:0,maxFacts:9};
+  const h=harness(200,{partner:{partnerId:"own-site",memoryPolicy:policy}});
+  assert.deepEqual((await h.client.updateSite("own-site",{memoryPolicy:policy})).memoryPolicy,policy);
+  assert.deepEqual(JSON.parse(String(h.calls[0]!.init.body)),{memoryPolicy:policy});
+  assert.equal(headerOf(h.calls[0]!,"authorization"),"Bearer tok.en.mem");
+  for(const bad of [null,{}, {...policy,maxFacts:"9"}, {...policy,contextMessages:13}, {...policy,secret:"private"}]) {
+    const b=harness(200,{sites:[{partnerId:"legacy",memoryPolicy:bad}]});
+    assert.equal((await b.client.listSites())[0]!.memoryPolicy,undefined);
+    assert.ok(!JSON.stringify(await b.client.listSites()).includes("private"));
+  }
+});

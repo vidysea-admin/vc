@@ -12,6 +12,30 @@ import { CRISIS_TEXT, GERMANY_QUESTION, SKILLS_DIR, adult, call, chatWorld, ever
 
 const PII_TEXT = "My name is Priya Sharma, call me on 9876543210 or mail priya.sharma@example.com. What are the tuition fees for public universities in Germany?";
 
+test("S13 a no-text thread stays content-free after the same student becomes eligible", async () => {
+  const w = chatWorld();
+  try {
+    const studentId = "s13-no-text";
+    const before = await studentToken(minor(studentId));
+    const threadId = await newThread(w, before, studentId);
+    const token = await studentToken(adult(studentId));
+    for (const clientTurnId of ["no-text-turn", "no-text-turn"]) {
+      const reply = await call(w, "POST", turnsPath(studentId, threadId), {
+        token, body: { text: GERMANY_QUESTION, clientTurnId },
+      });
+      assert.equal(reply.status, 200);
+      const history = await call(w, "GET", `${threadsPath(studentId)}/${threadId}`, { token });
+      assert.equal(history.status, 200);
+      assert.equal(history.json.textStored, false);
+      assert.deepEqual(history.json.turns, []);
+      assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);
+      assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
+    }
+  } finally {
+    w.cleanup();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // 6A: redacted persistence
 // ---------------------------------------------------------------------------
@@ -337,6 +361,9 @@ test("D-015: a student whose erasure is in progress is told 409 student_fenced, 
     const turn = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "f-1" } });
     assert.equal(turn.status, 409);
     assert.equal(turn.json.error, "student_fenced");
+    const history = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+    assert.equal(history.status, 409, "an existing thread remains fenced before its turns are read");
+    assert.deepEqual(history.json, { error: "student_fenced" });
     assert.equal(w.provider.calls.length, 0);
     assert.equal((await call(w, "POST", threadsPath("stu-1"), { token })).status, 409);
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);

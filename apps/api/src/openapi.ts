@@ -466,6 +466,9 @@ export const STUDENT_API_DRAFT = {
           source: { enum: [...PROFILE_FACT_SOURCES] },
         },
       },
+      PendingProfileChange: {type:"object",additionalProperties:false,required:["candidateId","version","value","proposedAt"],properties:{candidateId:idStr,version:idStr,value:str({minLength:1,maxLength:1000}),proposedAt:dateTime,quote:str({maxLength:1000}),sourceLang:str({maxLength:35}),threadId:idStr,turnId:idStr}},
+      MemoryConfirmation: {type:"object",additionalProperties:false,required:["factId","promptId","candidateId","expectedVersion","value"],properties:{factId:idStr,promptId:idStr,candidateId:idStr,expectedVersion:idStr,value:str({minLength:1,maxLength:1000})}},
+      MemoryPrompt: {type:"object",additionalProperties:false,required:["factId","key","threadId","promptId","candidateId","expectedVersion","value"],properties:{factId:idStr,key:str({minLength:1,maxLength:128}),threadId:idStr,promptId:idStr,candidateId:idStr,expectedVersion:idStr,value:str({minLength:1,maxLength:1000}),currentValue:str({minLength:1,maxLength:1000})}},
       ProposedFact: {
         type: "object",
         additionalProperties: false,
@@ -475,19 +478,27 @@ export const STUDENT_API_DRAFT = {
           key: str({ minLength: 1, maxLength: 128 }),
           value: str({ minLength: 1, maxLength: 1000 }),
           status: { enum: ["proposed", "confirmed"] },
+          pendingChange: ref("PendingProfileChange"),
         },
       },
+      MemoryItem:{type:"object",additionalProperties:false,required:["key","value","status","source","readOnly"],properties:{factId:idStr,key:str({minLength:1,maxLength:128}),value:str({minLength:1,maxLength:1000}),status:{enum:["confirmed","proposed"]},source:{enum:["chat","pathlynks","vidysea"]},pendingChange:ref("PendingProfileChange"),readOnly:{type:"boolean"},threadId:idStr,turnId:idStr,quote:str({maxLength:1000}),sourceLang:str({maxLength:35})}},
+      MemoryGraph:{type:"object",additionalProperties:false,required:["items","nodes","edges"],properties:{items:{type:"array",maxItems:20,items:ref("MemoryItem")},nodes:{type:"array",maxItems:21,items:{type:"object",additionalProperties:false,required:["id","type"],properties:{id:str(),type:{enum:["student","fact"]},key:str(),value:str(),status:{enum:["confirmed","proposed"]}}}},edges:{type:"array",maxItems:20,items:{type:"object",additionalProperties:false,required:["from","to","type"],properties:{from:str(),to:str(),type:{const:"has_fact"}}}},nextCursor:str({maxLength:1024})}},
+      QuestContext:{type:"object",additionalProperties:false,required:["role","island"],properties:{role:{enum:["greeter","ikigai","cadence","coach","decide"]},island:{enum:["hub","dashboard","help","know-yourself","career-selection","profile-building","university-selection"]}}},
+      ThreadCreateRequest:{type:"object",additionalProperties:false,properties:{quest:ref("QuestContext")}},
+      ThreadMetadata:{type:"object",additionalProperties:false,required:["threadId","createdAt","lastActivityAt","textStored"],properties:{threadId:idStr,createdAt:dateTime,lastActivityAt:dateTime,textStored:{type:"boolean"},quest:ref("QuestContext")}},
+      ThreadList:{type:"object",additionalProperties:false,required:["threads"],properties:{threads:{type:"array",maxItems:50,items:ref("ThreadMetadata")},nextCursor:str({maxLength:1024})}},
       ProfileResponse: {
         type: "object",
         additionalProperties: false,
         required: ["facts", "proposed"],
-        properties: { facts: { type: "array", items: ref("ProfileFact") }, proposed: { type: "array", items: ref("ProposedFact") } },
+        properties: { facts: { type: "array", items: ref("ProfileFact") }, proposed: { type: "array", items: ref("ProposedFact") }, memory:ref("MemoryGraph") },
       },
       FactDecisionRequest: {
         type: "object",
         additionalProperties: false,
         required: ["action"],
-        properties: { action: { enum: [...FACT_DECISION_ACTIONS] }, value: str({ minLength: 1, maxLength: 1000, description: "Required for correct" }) },
+        properties: { action: { enum: [...FACT_DECISION_ACTIONS] }, value: str({ minLength: 1, maxLength: 1000, description: "Required for correct and candidate confirm/reject; binds displayed value" }),candidateId:idStr,expectedVersion:idStr,threadId:idStr },
+        description: "Replacement confirm/reject requires current candidateId, expectedVersion and displayed value. Stale choices return 409 memory_changed. Reject retains the active value; erase removes both active and pending values.",
       },
       TurnRequest: {
         type: "object",
@@ -496,6 +507,11 @@ export const STUDENT_API_DRAFT = {
         properties: {
           text: str({ minLength: 1, maxLength: MAX_TURN_TEXT_LENGTH }),
           clientTurnId: str({ minLength: 1, maxLength: 128, description: "Idempotency key: a retry returns the same turn" }),
+          memoryConfirmation: ref("MemoryConfirmation"),
+          quest: { type: "object", additionalProperties: false, required: ["role", "island"], description: "Presentation context only; no identity, facts or permissions", properties: {
+            role: { type: "string", enum: ["greeter", "ikigai", "cadence", "coach", "decide"] },
+            island: { type: "string", enum: ["hub", "dashboard", "help", "know-yourself", "career-selection", "profile-building", "university-selection"] },
+          } },
         },
       },
       TurnResponse: {
@@ -510,6 +526,7 @@ export const STUDENT_API_DRAFT = {
           sources: { type: "array", items: ref("Source") },
           profileFactsUsed: { type: "array", items: ref("ProfileFact") },
           rankingProfile: str({ minLength: 1, maxLength: 64 }),
+          memoryConfirmation: ref("MemoryPrompt"),
         },
       },
       ThreadCreated: { type: "object", additionalProperties: false, required: ["threadId"], properties: { threadId: idStr } },
@@ -535,6 +552,7 @@ export const STUDENT_API_DRAFT = {
         properties: {
           threadId: idStr,
           turns: { type: "array", items: ref("ThreadTurn") },
+          quest:ref("QuestContext"),
           textStored: { type: "boolean", description: "false when a turn was answered without storing its text (under-18 student with no guardian-consent signal; D-093 4A); such turns have empty text" },
         },
       },
@@ -607,7 +625,7 @@ export const STUDENT_API_DRAFT = {
       start: eventDoc(["threadId"], { threadId: idStr, lastEventId: eventId }),
       interrupt: eventDoc([], {}),
       end: eventDoc([], {}),
-      confirm: eventDoc(["key", "accepted"], { key: str({ minLength: 1, maxLength: 128 }), accepted: { type: "boolean" } }),
+      confirm: eventDoc(["key", "accepted"], { key: str({ minLength: 1, maxLength: 128 }), accepted: { type: "boolean" },value:str({minLength:1,maxLength:1000}),candidateId:idStr,expectedVersion:idStr,threadId:idStr,promptId:idStr }),
     },
     serverEvents: {
       "transcript.partial": eventDoc(["eventId", "role", "text"], { eventId, role, text: str({ maxLength: 8000 }) }),
@@ -620,12 +638,12 @@ export const STUDENT_API_DRAFT = {
       state: eventDoc(["eventId", "state"], { eventId, state: { enum: [...TURN_STATES] } }),
       flag: eventDoc(["eventId", "reason"], { eventId, reason: ref("VoiceFlagReason"), detail: str({ maxLength: 500 }) }),
       confirm: eventDoc(["eventId", "fact"], {
-        eventId,
+        eventId,threadId:idStr,promptId:idStr,question:str({minLength:1,maxLength:2400}),
         fact: {
           type: "object",
           additionalProperties: false,
           required: ["key", "value"],
-          properties: { key: str({ minLength: 1, maxLength: 128 }), value: str({ minLength: 1, maxLength: 1000 }) },
+          properties: { key: str({ minLength: 1, maxLength: 128 }), value: str({ minLength: 1, maxLength: 1000 }),candidateId:idStr,expectedVersion:idStr,currentValue:str({minLength:1,maxLength:1000}) },
         },
       }),
       error: eventDoc(["eventId", "code", "message"], { eventId, code: str({ minLength: 1, maxLength: 64 }), message: str({ maxLength: 500 }) }),
@@ -633,7 +651,9 @@ export const STUDENT_API_DRAFT = {
   },
   paths: {
     "/v1/students/{studentId}/chat/threads": {
+      get: draftOp(["student"], {operationId:"listChatThreads",summary:"List owned sessions in immutable createdAt/threadId order",parameters:[studentId,{name:"limit",in:"query",schema:{type:"integer",minimum:1,maximum:50}},{name:"cursor",in:"query",schema:str({maxLength:1024})}],responses:{"200":ok("Owned sessions",ref("ThreadList")),...studentErrors}}),
       post: draftOp(["student"], {
+        requestBody:{required:false,content:{"application/json":{schema:ref("ThreadCreateRequest")}}},
         operationId: "createChatThread",
         summary: "Start a thread for the authenticated student (the JWT student must equal studentId)",
         parameters: [studentId],
@@ -676,7 +696,7 @@ export const STUDENT_API_DRAFT = {
     "/v1/students/{studentId}/chat/profile/facts/{factId}/decision": {
       post: draftOp(["student"], {
         operationId: "decideProfileFact",
-        summary: "Confirm, correct or erase a proposed or stored fact; an unconfirmed chat-extracted fact is never used",
+        summary: "Confirm, correct, reject or erase an owned fact; stale candidate/version returns 409 memory_changed",
         parameters: [studentId, factId],
         requestBody: { required: true, ...json(ref("FactDecisionRequest")) },
         responses: { "200": ok("The updated profile", ref("ProfileResponse")), ...studentErrors },
@@ -720,8 +740,9 @@ const PARTNER_SCHEMA_NAMES = [
   "Claim",
   "Source",
   "ProfileFact",
-  "ProposedFact",
+  "ProposedFact","PendingProfileChange","MemoryConfirmation","MemoryPrompt",
   "ProfileResponse",
+  "MemoryItem","MemoryGraph","QuestContext","ThreadCreateRequest","ThreadMetadata","ThreadList",
   "FactDecisionRequest",
   "TurnRequest",
   "TurnResponse",
@@ -855,7 +876,9 @@ export const PARTNER_OPENAPI = {
       },
     },
     "/v1/students/{studentId}/chat/threads": {
+      get: studentOp({operationId:"listPartnerChatThreads",summary:"List owned sessions",parameters:[studentId,...studentHeaders,{name:"limit",in:"query",schema:{type:"integer",minimum:1,maximum:50}},{name:"cursor",in:"query",schema:str({maxLength:1024})}],responses:{"200":ok("Owned sessions",ref("ThreadList")),...studentCommon}}),
       post: studentOp({
+        requestBody:{required:false,content:{"application/json":{schema:ref("ThreadCreateRequest")}}},
         operationId: "createPartnerChatThread",
         summary: "Start a thread for one of your students (server key)",
         parameters: [studentId, ...studentHeaders],
@@ -891,7 +914,7 @@ export const PARTNER_OPENAPI = {
     "/v1/students/{studentId}/chat/profile/facts/{factId}/decision": {
       post: studentOp({
         operationId: "decidePartnerProfileFact",
-        summary: "Confirm, correct or erase a proposed or stored fact; an unconfirmed chat-extracted fact is never used",
+        summary: "Confirm, correct, reject or erase an owned fact; stale candidate/version returns 409 memory_changed",
         parameters: [studentId, factId, ...studentHeaders],
         requestBody: { required: true, ...json(ref("FactDecisionRequest")) },
         responses: { "200": ok("The updated profile", ref("ProfileResponse")), ...studentCommon, "413": errorRes("Body larger than 64 KiB", "Error") },

@@ -112,3 +112,48 @@ If a message shows signs of crisis, VC does not run a normal answer: it returns 
 - Never put the server key in a browser, a mobile app, a public repo or a log. If it leaks, rotate it at once.
 - Never send student data in the page-key (anonymous) call; it is for generic questions and stores nothing.
 - Never trust a browser for the student id or age: your backend sets them from your own session.
+
+## Vidysea handover received — 2026-10-27
+
+Source: https://docs.google.com/document/d/1oZU5yV8N_4qOXlObQ9ZKhd22du7V-K1w/edit . Connection values below are non-secret metadata; passwords and database URIs are deliberately absent. This is an integration inventory, not a claim that Vidysea is connected or deployed.
+
+| Existing component | Production source | Verified reuse point |
+|---|---|---|
+| Gateway backend | `vidysea-admin/vidysea-main-service-backend`, branch `prod` | Python/FastAPI + SQLAlchemy; existing authentication, users, student shortlist and conversation routes. `app/models/user.py` defines users/user_sessions/user_preferences; use server-verified ownership. |
+| AI/ML engine | `vidysea-admin/furtherstudies-aiml-engine`, branch `prod` | Existing Python service; `dbfunc.py` uses MongoDB, `main.py` provides `/health`, existing university/programme and compare APIs should be reused after their contracts are mapped. |
+| Student UI | `vidysea-admin/vidysea-user-frontend`, branch `prod` | Next16/React19; existing course/university compare, shortlisted-programme and auth flows. This is the future host for the existing central widget/API, not another counsellor implementation. |
+| Admin UI | `vidysea-admin/vidysea-admin-frontend`, branch `prod` | Next16/React19; keep this platform admin separate from VC's existing control console. |
+| Sanity CMS | user frontend `prod/src/sanity` | Integration source provided; standalone Studio repository/branch are still placeholders in the handover. |
+
+Gateway Postgres: host `vidysea-prod-ecs.clk264aaira9.ap-south-1.rds.amazonaws.com`, port5432, database `vidyseaprodecs`, SSL enabled. AI/ML Mongo database: `Vanced_new`. AI/ML deployment names for gateway credentials are `PROD_NEW_GATEWAY_DB_HOST`, `PROD_NEW_GATEWAY_DB_USER`, `PROD_NEW_GATEWAY_DB_PASSWORD`, `PROD_NEW_GATEWAY_DB_NAME`. These describe another service's environment; do not replace VC's own `MONGODB_URL`/`virtual_counsellor` database with the Vidysea application database.
+
+Pre-S12 runtime limits to preserve: `config/sources.json` was a single-site bootstrap; its Postgres credential refs are Pathlynks-bound and its student-data adapter explicitly targets `pathlynks-db`. Adding Vidysea records under the Pathlynks site, relabelling its password as a Pathlynks credential, or supplying an API key alone would not create a correct personalized Vidysea connection. Admin already supports per-site source records and encrypted credentials. Reuse those surfaces; prepare the explicit Vidysea ownership/schema/API mapping before enabling personal reads. No Vidysea production data was queried or changed in this inventory pass.
+
+The supplied Virtual Counsellor tab `t.bo52uq822dd2` is a Living Knowledge Base task/architecture snapshot. It names the existing `D:/KnowledgeBase` and `POST /ask`; it supplies no deployed KB base URL or integration key. Keep the existing VC KB client and request contract; do not treat historical task PASS labels in that document as current live-connection evidence.
+
+### S12 isolated local adapter contract
+
+The version1 bootstrap now carries paired optional `siteId` / `platform` on each source. Legacy records without both retain the top-level site and Pathlynks meaning. Explicit Vidysea records use platform `vidysea`; credential names are `VIDYSEA_DB_*` only. Runtime callers must resolve the authenticated tenant to exactly one enabled Postgres source, then bind kind, exact site, source id, destination and ref against the trusted bootstrap before any environment lookup. Unknown tenants, ambiguous sources and disabled sources have no default personal adapter. Mutable Admin source destination/platform/site changes must reject or clear and re-provision encrypted credentials; a secret cannot silently travel with a retargeted source. Root owns that store/Admin and text/voice integration.
+
+The Vidysea seed is disabled and its role `UNPROVISIONED_READONLY_ROLE` is an explicit placeholder, not a discovered database user. The team must supply a readonly role, password and official CA configuration before enabling it. This changes no production configuration and initiates no connection. The nonsecret host/database match the handover above; no deployment or live schema parity is claimed.
+
+The existing `@vc/mcp-pathlynks` barrel exports `createVidyseaPort` with native labelled profile, shortlisted programmes and saved AI profile classifications. Each SELECT joins active/nondisabled users through `students.id = users.id`, excludes deleted students/shortlist rows, binds the verified student UUID as `$1`, and caps output before materialization (profile/classification1, shortlist51 to detect a50-row truncation; preference arrays20 bounded string excerpts). Stored shortlist decisions are labelled `stored_student_decision`, not asserted to be the latest UI round. Assessment classifications are not psychometric completion or career ranking. Comparison selection is explicitly unavailable because the proven selection store is browser-local. No shortlist GET/self-healing endpoint, other Mongo database, raw assessment JSON or contact/document columns are used.
+
+The shared SQL runner retains TLS verification, bounded connection/query deadlines, SELECT-only fixed read models, read-only sessions and fail-closed write-privilege checks. Vidysea never inherits `PATHLYNKS_ALLOW_PRIVILEGED_ROLE`. Existing Pathlynks SQL/table joins and its explicitly approved G1 behavior are preserved.
+
+### S13 release configuration — preparation, not deployment approval
+
+Pathlynks's production workflow targets `pathlynks.vidysea.com` from `production_frontend`; pushing that branch triggers deployment. Both local Vidysea `prod` buildspecs name UAT ECR repositories, so DevOps must resolve the actual CodePipeline/ECS service and immutable image digest before rollout. The central VC API/Admin origin remains unresolved: `VC_HOST` and `vc.example.org` are placeholders. The two `/autotesting` links resolve to AutoTester sign-in and do not identify a VC endpoint.
+
+The two host backends authenticate their existing user, derive student/eligibility server-side, and forward the per-site server key. Pathlynks uses `VC_QUEST_ENABLED`, `VC_BASE_URL`, `VC_PARTNER_SERVER_KEY`; Vidysea uses `VC_STUDENT_CENTRAL_ENABLED`, `VC_BASE_URL`, `VC_PARTNER_SERVER_KEY`. Provision each site independently; a page key alone is anonymous access. Keep central VC persistence in `virtual_counsellor`, and use provisioned read-only roles and verified CA certificates for both host Postgres sources. Consent/test identities remain team-provisioned.
+
+Build the host images with public asset settings, not runtime-only environment injection:
+
+- Pathlynks: repository variable/build argument `NEXT_PUBLIC_VC_WIDGET_BASE_URL=https://<confirmed-vc-origin>/widget/releases/<reviewed-40-character-commit>`.
+- Vidysea: CodeBuild variable/build argument `NEXT_PUBLIC_VC_WIDGET_SCRIPT_URL=https://<confirmed-vc-origin>/widget/releases/<reviewed-40-character-commit>/vc-widget.v1.js`.
+- Place the reviewed `apps/widget/src/vc-widget.js` in that release directory as `vc-widget.js` and `vc-widget.v1.js`, and reviewed `voice.js` as `vc-widget-voice.v1.js`. These are deployment artifacts from the same source revision. Record their SHA256 values; never overwrite a released directory. The voice loader resolves beside its widget. Existing immutable v1 URLs must not be reused for changed bytes.
+- Vidysea's built headers allow that configured script origin and microphone permission on `/student/*`; other routes retain their existing microphone denial. Verify the final CDN/reverse-proxy headers too.
+
+Voice requires explicit `VC_VOICE_MODEL` plus the existing provider/WS/crisis settings in `.env.example`. The paid allowance is exhausted. No new model fallback, paid probe or production enablement is authorized by these instructions. A separate reviewed, bounded synthetic probe must prove the exact question, authoritative finalized speech, and scoped DB readback; generated acknowledgement alone proves none of them. The optional transcription `finished` flag is documented by the SDK, but runtime emission still needs verification for the configured model.
+
+Deploy only after independent acceptance and explicit approval. Record reviewed and pushed SHAs for central VC and both host repos, resulting image digests, actual origins and asset hashes. Verify API health/auth and Admin roles; then both actual signed-in pages: personalized source-backed answer, memory confirm/reject/correct/forget, history/new session, Chat/Voice controls, move/resize/input focus, microphone permission/reconnect, logout and account/tenant isolation. Keep fixture, real-provider and live-data evidence distinct. Rollback restores the previous central/host image digests and their prior asset directory/settings together; it does not roll back or copy student databases. An older runtime that cannot interpret S13 publication metadata is not a safe storage rollback target.

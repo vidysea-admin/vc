@@ -1,0 +1,41 @@
+✖ S12: legacy authoritative chat rows cannot be read or confirmed as editable preferences but may be erased (4.6425ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 516.6338
+
+✖ failing tests:
+
+test at packages\db\tests\student-store.test.ts:1:26652
+✖ S12: legacy authoritative chat rows cannot be read or confirmed as editable preferences but may be erased (4.6425ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     _id: 'legacy-name',
+  +     factId: 'legacy-name',
+  +     key: 'studentName',
+  +     proposedAt: '2026-10-27T00:00:00.000Z',
+  +     source: 'chat',
+  +     status: 'proposed',
+  +     studentId: 'stu-1',
+  +     value: 'synthetic'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\student-store.test.ts:416:9)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { _id: 'legacy-name', factId: 'legacy-name', studentId: 'stu-1', key: 'studentName', value: 'synthetic', source: 'chat', status: 'proposed', proposedAt: '2026-10-27T00:00:00.000Z' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

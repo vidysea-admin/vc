@@ -154,6 +154,63 @@ test("the visitor's page key sits in a header only: the session URL carries no k
 
 // ---- the conversation ---------------------------------------------------------------------------------------
 
+test("Q5: injected proxy mint uses same-origin authentication and only the returned owned thread", async () => {
+  const cfg = W.parseConfig({ vcProxy: "/api/vc", vcVoice: "on", vcVoiceProxy: "/api/voice/session", vcKey: "ignored", vcThreadId: "spoof" }, SRC);
+  cfg.threadId = "also-spoofed";
+  const s = setup({ cfg, fetch: fakeFetch(resp(200, session({ threadId: "owned-thread", expiresAt: "2030-01-01T00:00:00Z" }))) });
+  assert.equal(V.sessionUrl(cfg), "/api/voice/session");
+  assert.equal(await s.vc.start(), true);
+  assert.equal(s.o.mediaDevices.asked.length, 1);
+  const call = s.o.fetch.calls[0];
+  assert.equal(call.url, "/api/voice/session");
+  assert.equal(call.init.method, "POST");
+  assert.equal(call.init.credentials, "same-origin");
+  assert.equal(call.init.redirect, "error");
+  assert.deepEqual(call.init.headers, {});
+  assert.equal(call.init.body, undefined, "host interceptor supplies allowlisted role/island, never browser identity");
+  const ws = s.ws();
+  assert.equal(ws.url, WS_URL);
+  assert.deepEqual(ws.protocols, ["vc-voice-v1", "vc-token.tok.en.sig"]);
+  ws.open();
+  assert.deepEqual(ws.json(), [{ type: "start", threadId: "owned-thread" }]);
+  await s.vc.stop();
+  assert.equal(s.o.mediaDevices.stopped, 1);
+  assert.equal(s.o.audio.captureStops, 1);
+});
+
+test("Q5: proxy refuses malformed binding/credentials before opening a socket and frees the mic", async () => {
+  const cfg = { mode: "proxy", voice: true, voiceProxy: "/api/voice/session", threadId: "spoof" };
+  for (const over of [{}, { threadId: "" }, { threadId: "anonymous" }, { threadId: " bad " }, { threadId: "a\nb" }, { threadId: "x".repeat(201) }, { threadId: "owned", expiresAt: undefined }, { threadId: "owned", expiresAt: "expired" }, { threadId: "owned", expiresAt: "2000-01-01T00:00:00Z" }, { threadId: "owned", wsUrl: WS_URL + "?token=secret" }, { threadId: "owned", wsUrl: "wss://name:secret@vc.example.org/stream" }]) {
+    const s = setup({ cfg, fetch: fakeFetch(resp(201, session(Object.assign({ expiresAt: "2030-01-01T00:00:00Z" }, over)))) });
+    assert.equal(await s.vc.start(), false, JSON.stringify(over));
+    assert.equal(FakeWS.all.length, 0);
+    assert.equal(s.o.mediaDevices.stopped, 1);
+    assert.equal(s.of("fallback").length, 1);
+  }
+  for (const voiceProxy of ["//evil.test/mint", "/\\evil.test/mint", "/api\\mint", "https://evil.test/mint", "/mint?key=bad"]) {
+    assert.equal(V.sessionUrl({ mode: "proxy", voiceProxy }), "", voiceProxy);
+  }
+});
+
+test("Q5: proxy permission denial, missing mic and unavailable mint return to text without leaking resources", async () => {
+  const cfg = { mode: "proxy", voice: true, voiceProxy: "/api/voice/session" };
+  for (const [md, result, reason, fetches] of [
+    [fakeMic({ name: "NotAllowedError" }), resp(201, session()), "permission", 0],
+    [fakeMic({ name: "NotFoundError" }), resp(201, session()), "no_mic", 0],
+    [null, resp(201, session()), "unsupported", 0],
+    [fakeMic(), resp(401, {}), "unavailable", 1],
+    [fakeMic(), resp(403, { error: "voice_unavailable" }), "off", 1],
+  ]) {
+    const s = setup({ cfg, mediaDevices: md, fetch: fakeFetch(result) });
+    assert.equal(await s.vc.start(), false);
+    assert.equal(s.of("fallback")[0].reason, reason);
+    assert.equal(s.o.fetch.calls.length, fetches);
+    assert.equal(FakeWS.all.length, 0);
+    assert.equal(s.vc.state(), "idle");
+    if (fetches) assert.equal(md.stopped, 1);
+  }
+});
+
 test("live transcript: partial words grow in place, a final line closes them, for the visitor and for the counsellor's reply", async () => {
   const s = await started();
   const ws = s.wsk;
@@ -441,7 +498,7 @@ test("bad frames from the server (not JSON, not an object) are ignored, not thro
 
 // ---- helpers ------------------------------------------------------------------------------------------------
 
-test("voice needs key mode: proxy and open mode have no session URL, so the mic is not offered there", () => {
+test("voice needs a key or explicit proxy endpoint: unconfigured proxy and open modes have no session URL", () => {
   assert.equal(V.sessionUrl(W.parseConfig({ vcProxy: "/api/vc", vcVoice: "on" }, SRC)), "");
   assert.equal(V.sessionUrl(W.parseConfig({ vcVoice: "on" }, SRC)), "");
   assert.equal(W.voiceAvailable(W.parseConfig({ vcProxy: "/api/vc", vcVoice: "on" }, SRC)), false);
@@ -680,4 +737,27 @@ test("R1: the Hindi helpline line is built only from fragments copied verbatim f
   for (const f of fs.readdirSync(srcDir)) {
     assert.ok(!fs.readFileSync(path.join(srcDir, f), "utf8").includes("आपातकाल"), f + " still has the invented word");
   }
+});
+
+test('S12 voice: only authenticated server confirm refresh events are surfaced, without inferring transcript approval',async()=>{
+  const q=setup({cfg:{mode:'proxy',voiceProxy:'/api/vc/voice/session',authenticated:{basePath:'/api/vc'}},fetch:fakeFetch(resp(201,{...session(),threadId:'owned-1',expiresAt:'2030-01-01T00:00:00Z'}))});
+  const prompts=[];q.o.on.confirm=(m)=>prompts.push(m);await q.vc.start();q.ws().open();
+  q.ws().say({type:'confirm',eventId:'prompt-1',fact:{key:'target_country',value:'Germany',candidateId:'candidate-2',expectedVersion:'version-2'}});
+  assert.equal(prompts.length,1);assert.equal(prompts[0].fact.candidateId,'candidate-2');
+  q.ws().say({type:'transcript.final',role:'user',text:'yes'});
+  assert.deepEqual(q.ws().json(),[{type:'start',threadId:'owned-1'}]);await q.vc.stop();
+});
+
+
+test("S12 voice addon sends only exact current server choice and forgets it on disconnect",async()=>{
+  const cfg={mode:"proxy",authenticated:true,voiceProxy:"/voice/mint"};
+  const s=await started({cfg,fetch:fakeFetch(resp(201,session({threadId:"owned-thread",expiresAt:"2099-10-22T10:00:00.000Z"})))});
+  const prompt={type:"confirm",fact:{key:"interest",value:"astronomy",candidateId:"candidate-1",expectedVersion:"version-1"},threadId:"owned-thread",promptId:"prompt-1"};
+  s.wsk.say(prompt);
+  const choice={...prompt.fact,threadId:prompt.threadId,promptId:prompt.promptId};
+  assert.equal(s.vc.confirm({...choice,promptId:"stale"},true),false);
+  assert.equal(s.vc.confirm(choice,false),true);
+  assert.deepEqual(s.wsk.json().at(-1),{type:"confirm",...choice,accepted:false});
+  assert.equal(s.vc.confirm(choice,true),false,"single explicit decision");
+  s.wsk.say(prompt);s.wsk.serverClose();assert.equal(s.vc.confirm(choice,true),false);
 });

@@ -1,0 +1,27 @@
+{
+  "verifiedAt": "2026-10-27T15:48:28.986Z",
+  "syntheticStudentOnly": true,
+  "facts": [
+    {
+      "id": "tum-location",
+      "text": "The Technical University of Munich contact address is in Munich, Germany.",
+      "url": "https://www.tum.de/en/about-tum/contact-directions/",
+      "title": "TUM Contact and Directions"
+    },
+    {
+      "id": "uoft-location",
+      "text": "The University of Toronto contact address is in Toronto, Ontario, Canada.",
+      "url": "https://www.utoronto.ca/contacts",
+      "title": "University of Toronto Contacts"
+    }
+  ],
+  "geminiLivePricing": {
+    "url": "https://ai.google.dev/gemini-api/docs/pricing",
+    "model": "gemini-3.1-flash-live-preview",
+    "inputAudioUsdPerMinute": 0.005,
+    "outputAudioUsdPerMinute": 0.018,
+    "inputTextUsdPerMillion": 0.75,
+    "outputTextUsdPerMillion": 4.5,
+    "note": "Published rates; actual bill unverified. Existing reservation0.09USD retained; one remaining synthetic session<=20sec and bounded output, no search grounding."
+  }
+}

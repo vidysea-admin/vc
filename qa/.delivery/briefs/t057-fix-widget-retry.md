@@ -1,0 +1,3 @@
+# t057-fix-widget-retry
+
+Fix the widget Retry bug from qa/evidence/t057/reply-fail-diagnosis.md fix #8. File you own: apps/widget/src/vc-widget.js (~754-758 and the retry/turn-id code) and apps/widget/tests/*. Retry currently reuses the same turn id and gets 409 "Memory or chat state changed". Make Retry after a transport failure (network/5xx/timeout) send a fresh turn id (or the server-supported idempotent path if the API treats a same-id retry as replay — read apps/api/src/chat.ts to decide; prefer whatever the API contract already defines and do not edit the API). Keep the message "Could not get a reply. Your question is kept for Retry." for transport failures, and ensure a 409 shows its own accurate text. Run the widget tests (node --test apps/widget/tests).

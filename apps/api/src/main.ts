@@ -14,11 +14,13 @@
  * `buildLauncherConfig` is pure (no network, no listening socket); `launch` is the only function that starts anything.
  * Importing this module does nothing: it runs only when it is the process entrypoint.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, openSync, fstatSync, readSync, closeSync } from "node:fs";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SpeakersFileSchema, type SpeakersFile } from "@vc/engine";
+import { SpeakersFileSchema, crisisMessageFor, type SpeakersFile } from "@vc/engine";
+import { GeminiLiveProvider, type GeminiLiveConnector } from "@vc/providers";
 import {
   createAnonymousKbClient,
   createKnowledgeBaseClient,
@@ -27,7 +29,8 @@ import {
 import { anonymousEnabledFromEnv, normalizeClientAddress } from "./anonymous.js";
 import { STUDENT_JWT_ENV, studentJwtConfigFromEnv } from "./auth.js";
 import { chatEnabledFromEnv } from "./chat.js";
-import { startApi, type Api, type StartApiOptions } from "./index.js";
+import { voiceEnabledFromEnv } from "./voice.js";
+import { startApi, type Api, type StartApiOptions, type StartApiVoiceOptions } from "./index.js";
 import type { ApiRequest } from "./server.js";
 
 type Env = Record<string, string | undefined>;
@@ -85,6 +88,86 @@ export function loadSpeakers(env: Env, readFile: (path: string) => string = (p) 
 export interface LauncherDeps {
   /** Tests inject a reader; default reads the file from disk. */
   readFile?: (path: string) => string;
+  /** Offline connector and bounded binary-reader seams; neither is used with voice off. */
+  voiceConnector?: GeminiLiveConnector;
+  readBinaryFile?: (path: string, maxBytes: number) => Uint8Array;
+  /** Trusted programmatic wiring, never supplied by a browser. */
+  voiceOverride?: StartApiVoiceOptions;
+}
+
+/** At most60 seconds of mono PCM16 at24kHz. Wording/rate/quality still require operator vetting. */
+export const VOICE_CRISIS_PCM_MAX_BYTES = 2_880_000;
+
+function readVoicePcm(file: string, maxBytes: number): Uint8Array {
+  const fd = openSync(file, "r");
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.size < 2 || stat.size > maxBytes) throw new Error("invalid asset");
+    const bytes = Buffer.alloc(stat.size);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const got = readSync(fd, bytes, offset, bytes.length - offset, null);
+      if (!got) throw new Error("partial asset");
+      offset += got;
+    }
+    if (fstatSync(fd).size !== bytes.length || readSync(fd, Buffer.alloc(1), 0, 1, null)) throw new Error("changed asset");
+    return bytes;
+  } finally { closeSync(fd); }
+}
+
+function validPcm(bytes: Uint8Array): boolean {
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 2 || bytes.byteLength > VOICE_CRISIS_PCM_MAX_BYTES || bytes.byteLength % 2) return false;
+  const head = Buffer.from(bytes.subarray(0, 12)).toString("ascii");
+  return !/^(?:RIFF|RF64|ID3|OggS|fLaC)/.test(head) && !(bytes[0] === 255 && (bytes[1]! & 224) === 224);
+}
+
+function voiceConfig(env: Env, deps: LauncherDeps): StartApiVoiceOptions {
+  const supplied = deps.voiceOverride ?? {};
+  let live = supplied.live;
+  if (!live) {
+    requireVars(env, "VC_VOICE_ENABLED", ["GEMINI_API_KEY", "VC_VOICE_MODEL"]);
+    const apiKey = env.GEMINI_API_KEY!, model = env.VC_VOICE_MODEL!;
+    if (!/^[A-Za-z0-9._/-]{1,200}$/.test(model)) throw new LauncherConfigError("VC_VOICE_MODEL is invalid");
+    // Client/SDK import and network are deferred until the existing gated voice session connects.
+    const connector: GeminiLiveConnector = deps.voiceConnector ?? {
+      async connect({ model, config, callbacks }) {
+        try {
+          const { GoogleGenAI } = await import("@google/genai");
+          const sdk = new GoogleGenAI({ apiKey, httpOptions: { timeout: 10_000 } });
+          const connection = await sdk.live.connect({ model, config, callbacks });
+          return {
+            sendRealtimeInput: (input) => connection.sendRealtimeInput(input),
+            sendToolResponse: (input) => connection.sendToolResponse(input),
+            close: () => connection.close(),
+          };
+        } catch { throw new Error("Voice provider connection failed"); }
+      },
+    };
+    live = new GeminiLiveProvider({ model, connector });
+  }
+  const wsSecret = supplied.wsSecret ?? new TextEncoder().encode(env.VC_VOICE_WS_SECRET ?? "");
+  if (!(wsSecret instanceof Uint8Array) || wsSecret.byteLength < 32) throw new LauncherConfigError("VC_VOICE_WS_SECRET must contain at least32 UTF-8 bytes");
+  const wsBaseUrl = supplied.wsBaseUrl ?? env.VC_VOICE_WS_BASE_URL;
+  try {
+    const url = new URL(wsBaseUrl ?? "");
+    const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if (!(url.protocol === "wss:" || (url.protocol === "ws:" && local)) || url.username || url.password || url.search || url.hash) throw new Error("invalid");
+  } catch { throw new LauncherConfigError("VC_VOICE_WS_BASE_URL must be a credential-free wss URL (ws allowed only on loopback)"); }
+  let crisis = supplied.crisis;
+  if (!crisis) {
+    requireVars(env, "VC_VOICE_ENABLED", ["VC_VOICE_CRISIS_PCM_FILE", "VC_VOICE_CRISIS_PCM_SHA256"]);
+    const hash = env.VC_VOICE_CRISIS_PCM_SHA256!;
+    if (!/^[0-9a-fA-F]{64}$/.test(hash)) throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_SHA256 must be64 hexadecimal characters");
+    let audio: Uint8Array;
+    try { audio = (deps.readBinaryFile ?? readVoicePcm)(env.VC_VOICE_CRISIS_PCM_FILE!, VOICE_CRISIS_PCM_MAX_BYTES); }
+    catch { throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_FILE cannot be read as a bounded regular PCM asset"); }
+    if (!validPcm(audio)) throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_FILE must be nonempty whole raw PCM16 samples within the byte limit");
+    const actual = createHash("sha256").update(audio).digest();
+    if (!timingSafeEqual(actual, Buffer.from(hash, "hex"))) throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_SHA256 does not match the supplied asset");
+    crisis = { message: { text: crisisMessageFor("en", "student"), audio } };
+  }
+  if (typeof crisis.message?.text !== "string" || !crisis.message.text.trim() || !crisis.message.audio || !validPcm(crisis.message.audio)) throw new LauncherConfigError("The effective voice crisis message/audio is incomplete");
+  return { ...supplied, live, crisis, wsSecret, wsBaseUrl: wsBaseUrl! };
 }
 
 /**
@@ -95,13 +178,21 @@ export function buildLauncherConfig(env: Env, deps: LauncherDeps = {}): HttpOpti
   const http: HttpOptions = { host: "127.0.0.1" };
   const anonymous = anonymousEnabledFromEnv(env);
   const chat = chatEnabledFromEnv(env);
-  if (!anonymous && !chat) return http;
+  const voice = voiceEnabledFromEnv(env);
+  if (!anonymous && !chat && !voice) return http;
 
   const speakers = loadSpeakers(env, deps.readFile);
+  // T-057: optional KB client timeout (ms), bounded 1000..30000; unset keeps the client default. A bad value fails startup by name.
+  const kbTimeoutRaw = present(env, "VC_KB_TIMEOUT_MS");
+  const kbTimeoutMs = kbTimeoutRaw === undefined ? undefined : Number(kbTimeoutRaw);
+  if (kbTimeoutMs !== undefined && !(Number.isInteger(kbTimeoutMs) && kbTimeoutMs >= 1_000 && kbTimeoutMs <= 30_000)) {
+    throw new LauncherConfigError("VC_KB_TIMEOUT_MS must be an integer between 1000 and 30000");
+  }
+  const kbTimeout = kbTimeoutMs === undefined ? {} : { timeoutMs: kbTimeoutMs };
 
   if (anonymous) {
     requireVars(env, "VC_ANONYMOUS_ENABLED", ["VC_KB_BASE_URL", "VC_KB_ANON_API_KEY"]);
-    const client = createAnonymousKbClient({ baseUrl: present(env, "VC_KB_BASE_URL")!, apiKey: present(env, "VC_KB_ANON_API_KEY")! });
+    const client = createAnonymousKbClient({ baseUrl: present(env, "VC_KB_BASE_URL")!, apiKey: present(env, "VC_KB_ANON_API_KEY")!, ...kbTimeout });
     http.anonymous = { kb: createStudentKbPort({ client }), speakers, clientKey: clientKeyFromRequest };
   }
 
@@ -120,9 +211,10 @@ export function buildLauncherConfig(env: Env, deps: LauncherDeps = {}): HttpOpti
     } catch (err) {
       throw new LauncherConfigError(`VC_CHAT_ENABLED is enabled but the student JWT configuration is invalid (${err instanceof Error ? err.message : "error"})`);
     }
-    const client = createKnowledgeBaseClient({ baseUrl: present(env, "VC_KB_BASE_URL")!, apiKey: present(env, "VC_KB_API_KEY")! });
+    const client = createKnowledgeBaseClient({ baseUrl: present(env, "VC_KB_BASE_URL")!, apiKey: present(env, "VC_KB_API_KEY")!, ...kbTimeout });
     http.chat = { kb: createStudentKbPort({ client }), speakers };
   }
+  if (voice) http.voice = { speakers, ...voiceConfig(env, deps) };
   return http;
 }
 
@@ -130,14 +222,15 @@ export function buildLauncherConfig(env: Env, deps: LauncherDeps = {}): HttpOpti
  * Builds the config and starts the API. `overrides` are for tests (a fake Mongo client, a mock provider, a port 0, a gates
  * directory): the built `anonymous` / `chat` options are extended by, not replaced with, the override's.
  */
-export async function launch(env: Env = process.env, overrides: Partial<StartApiOptions> & { http?: HttpOptions } = {}): Promise<Api> {
+export async function launch(env: Env = process.env, overrides: Partial<StartApiOptions> & { http?: HttpOptions } = {}, deps: LauncherDeps = {}): Promise<Api> {
   const { http: over, ...rest } = overrides;
-  const built = buildLauncherConfig(env);
+  const built = buildLauncherConfig(env, { ...deps, ...(over?.voice ? { voiceOverride: over.voice } : {}) });
   const http: HttpOptions = {
     ...built,
     ...over,
     ...(built.anonymous || over?.anonymous ? { anonymous: { ...built.anonymous, ...over?.anonymous } } : {}),
     ...(built.chat || over?.chat ? { chat: { ...built.chat, ...over?.chat } } : {}),
+    ...(built.voice || over?.voice ? { voice: { ...built.voice, ...over?.voice } } : {}),
   };
   return startApi(env, { ...rest, http });
 }

@@ -17,7 +17,7 @@
  *   - Every write is a fence-aware writer (D-015/D-016): pre-check, bounded deadline, post-check that undoes exactly what the
  *     call created if the student was fenced meanwhile. A student under erasure gets nothing written.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Collection, Db } from "mongodb";
 import { COLLECTION_NAMES } from "./collections.js";
 import {
@@ -37,6 +37,7 @@ export interface ChatThreadDoc {
   lastActivityAt: string;
   /** false once any turn of this thread was answered without storing its text (D-093 4A). */
   textStored: boolean;
+  quest?: { role: "greeter" | "ikigai" | "cadence" | "coach" | "decide"; island: "hub" | "dashboard" | "help" | "know-yourself" | "career-selection" | "profile-building" | "university-selection" };
 }
 
 export type ChatChannel = "text" | "voice";
@@ -61,6 +62,10 @@ export interface ChatTurnDoc {
   lease?: { token: string; expiresAt: string };
   /** Assistant row only: the full validated TurnResponse (message already redacted). */
   response?: Record<string, unknown>;
+  /** New exchanges stay private until the owning attempt passes its final guard. */
+  publication?: "pending" | "published" | "invalidated";
+  publicationLease?: string;
+  memorySnapshot?: { revision: string; policy: string };
   completedAt?: string;
   /**
    * P1 U10 (A9b): assistant row of a VOICE turn only. The post-hoc audit findings for that spoken answer, stored with the thread
@@ -103,6 +108,18 @@ export const CHAT_TURN_LEASE_MS = 90_000;
 
 export function chatTurnDocId(threadId: string, turnId: string, role: "user" | "assistant"): string {
   return `${threadId}:${turnId}:${role === "user" ? "u" : "a"}`;
+}
+
+/**
+ * Partner memory-policy change: mark every leased, still-pending user turn of the tenant as invalidated so a
+ * prepared answer built under the old policy can never publish. CAS on the lease, so it only ever hides a turn;
+ * an erased (purged) turn matches nothing. Explicit tenant selector: the caller owns the unscoped VC database.
+ */
+export async function invalidatePendingPublications(db: Db, tenantId: string): Promise<void> {
+  const turns = db.collection(COLLECTION_NAMES.chat_turns);
+  for await (const turn of turns.find({ tenantId, role: "user", publication: "pending", publicationLease: { $exists: true } })) {
+    await turns.updateOne({ _id: turn._id, tenantId, publication: "pending", publicationLease: turn.publicationLease } as never, { $set: { publication: "invalidated" } });
+  }
 }
 
 /** The UTC month key `YYYY-MM` the usage counters use. */
@@ -170,6 +187,7 @@ export interface CreateChatThreadInput {
   textStored: boolean;
   /** Optional caller-chosen id (tests); normally generated. */
   threadId?: string;
+  quest?: ChatThreadDoc["quest"];
 }
 
 export async function createChatThread(db: Db, input: CreateChatThreadInput, options: { now?: Date } = {}): Promise<ChatThreadDoc> {
@@ -178,7 +196,7 @@ export async function createChatThread(db: Db, input: CreateChatThreadInput, opt
   const threadId = input.threadId ?? randomUUID();
   requireNonEmptyFields({ threadId }, "createChatThread");
   const at = (options.now ?? new Date()).toISOString();
-  const doc: ChatThreadDoc = { _id: threadId, threadId, studentId: input.studentId, createdAt: at, lastActivityAt: at, textStored: input.textStored };
+  const doc: ChatThreadDoc = { _id: threadId, threadId, studentId: input.studentId, createdAt: at, lastActivityAt: at, textStored: input.textStored, ...(input.quest ? { quest: input.quest } : {}) };
   await fencedStudentWrite(
     db,
     input.studentId,
@@ -204,6 +222,10 @@ export async function markChatThreadTextNotStored(db: Db, input: { studentId: st
     async (op) => {
       const res = await threadsOf(db).updateOne({ _id: input.threadId, studentId: input.studentId } as never, { $set: { textStored: false } }, op);
       if (res.matchedCount === 0) throw new ChatThreadNotFoundError();
+      for await (const turn of turnsOf(db).find({ studentId: input.studentId, threadId: input.threadId, role: "user", publication: "pending", publicationLease: { $exists: true } } as never)) {
+        await turnsOf(db).updateOne({ _id: turn._id, studentId: input.studentId, publication: "pending", publicationLease: turn.publicationLease } as never,
+          { $set: { publication: "invalidated" } } as never, op);
+      }
     },
     async () => undefined, // an idempotent flag on a row erasure purges; there is nothing created to undo
   );
@@ -214,7 +236,11 @@ export async function listChatTurns(db: Db, input: { studentId: string; threadId
   requireScopedDb(db, "listChatTurns");
   requireNonEmptyFields(input, "listChatTurns");
   const docs = await turnsOf(db).find({ studentId: input.studentId, threadId: input.threadId } as never).toArray();
-  return docs.sort((x, y) => x.at.localeCompare(y.at) || x.turnId.localeCompare(y.turnId) || x.order - y.order);
+  const published = new Map(docs.filter(r => r.role === "user" && r.status === "done" && (r.publication === undefined || r.publication === "published")).map(r => [r.turnId,r]));
+  return docs.filter(r => r.role === "user" ? r.publication !== "invalidated"
+    : r.publication === undefined ? r.channel === "voice" || published.has(r.turnId)
+    : published.get(r.turnId)?.publicationLease === r.publicationLease && r.publicationLease !== undefined)
+    .sort((x, y) => x.at.localeCompare(y.at) || x.turnId.localeCompare(y.turnId) || x.order - y.order);
 }
 
 export interface ClaimChatTurnInput {
@@ -230,7 +256,7 @@ export interface ClaimChatTurnInput {
 
 export type ClaimChatTurnResult =
   | { kind: "claimed"; leaseToken: string }
-  | { kind: "replay"; response: Record<string, unknown> }
+  | { kind: "replay"; response: Record<string, unknown>; memorySnapshot?: ChatTurnDoc["memorySnapshot"] }
   | { kind: "in_progress" };
 
 /**
@@ -253,7 +279,9 @@ export async function claimChatTurn(
   const userId = chatTurnDocId(input.threadId, input.turnId, "user");
   const assistId = chatTurnDocId(input.threadId, input.turnId, "assistant");
 
-  if ((await getChatThread(db, { studentId: input.studentId, threadId: input.threadId })) === null) throw new ChatThreadNotFoundError();
+  const thread = await getChatThread(db, { studentId: input.studentId, threadId: input.threadId });
+  if (thread === null) throw new ChatThreadNotFoundError();
+  if (!thread.textStored) throw new TypeError("ChatThreadTextNotStored");
 
   const created: string[] = [];
   const outcome = await fencedStudentWrite(
@@ -275,6 +303,7 @@ export async function claimChatTurn(
               order: 0,
               requestHash: input.requestHash,
               status: "in_progress",
+              publication: "pending",
               lease,
             },
           } as never,
@@ -291,22 +320,22 @@ export async function claimChatTurn(
       const existing = await turnsOf(db).findOne({ _id: userId, studentId: input.studentId } as never, op);
       if (existing === null || existing.requestHash !== input.requestHash) throw new ChatTurnConflictError();
       const stored = await turnsOf(db).findOne({ _id: assistId, studentId: input.studentId } as never, op);
-      if (existing.status === "done" && stored?.response) return { kind: "replay", response: stored.response } as ClaimChatTurnResult;
-      if (existing.lease !== undefined && existing.lease.expiresAt >= nowIso) return { kind: "in_progress" } as ClaimChatTurnResult;
-      if (stored?.response) {
-        // The previous holder wrote the answer but died before closing the exchange: close it now and replay that answer.
-        await turnsOf(db).updateOne(
-          { _id: userId, studentId: input.studentId, status: "in_progress" } as never,
-          { $set: { status: "done" }, $unset: { lease: "" } } as never,
-          op,
-        );
-        return { kind: "replay", response: stored.response } as ClaimChatTurnResult;
+      if (existing.status === "done" && (existing.publication === undefined || existing.publication === "published") && stored?.response && (stored.publication === undefined || stored.publicationLease === existing.publicationLease)) {
+        return { kind: "replay", response: stored.response, ...(stored.memorySnapshot ? { memorySnapshot: stored.memorySnapshot } : {}) } as ClaimChatTurnResult;
       }
+      if (existing.publication === "invalidated" ) throw new TypeError("ChatTurnMemoryChanged");
+      if (existing.lease !== undefined && existing.lease.expiresAt >= nowIso) return { kind: "in_progress" } as ClaimChatTurnResult;
+      if (existing.status === "done") throw new TypeError("ChatTurnMemoryChanged");
       const took = await turnsOf(db).updateOne(
-        { _id: userId, studentId: input.studentId, status: "in_progress", "lease.expiresAt": { $lt: nowIso } } as never,
-        { $set: { lease } } as never,
+        { _id: userId, studentId: input.studentId, status: "in_progress", "lease.expiresAt": { $lt: nowIso }, "lease.token": existing.lease?.token } as never,
+        { $set: { lease, publication: "pending" } } as never,
         op,
       );
+      if (took.matchedCount === 1 && stored && stored.publication !== "published") {
+        await turnsOf(db).deleteMany({ _id: assistId, studentId: input.studentId,
+          publication: stored.publication ?? { $exists: false },
+          publicationLease: stored.publicationLease ?? { $exists: false } } as never, op);
+      }
       return (took.matchedCount === 1 ? { kind: "claimed", leaseToken: lease.token } : { kind: "in_progress" }) as ClaimChatTurnResult;
     },
     () => (created.length === 0 ? Promise.resolve() : turnsOf(db).deleteMany({ _id: { $in: created }, studentId: input.studentId } as never)),
@@ -324,10 +353,11 @@ export interface CompleteChatTurnInput {
   assistantText: string;
   /** The validated TurnResponse (its message already redacted); replayed verbatim on a retry. */
   response: Record<string, unknown>;
+  memorySnapshot?: ChatTurnDoc["memorySnapshot"];
 }
 
 /** Stores the answer and closes the exchange. Throws ChatTurnLeaseLostError if the caller's lease was taken over. */
-export async function completeChatTurn(db: Db, input: CompleteChatTurnInput, options: { now?: Date } = {}): Promise<void> {
+export async function completeChatTurn(db: Db, input: CompleteChatTurnInput, options: { now?: Date; validatePublication?: () => Promise<boolean> } = {}): Promise<void> {
   requireScopedDb(db, "completeChatTurn");
   requireNonEmptyFields({ studentId: input.studentId, threadId: input.threadId, turnId: input.turnId, leaseToken: input.leaseToken }, "completeChatTurn");
   const userId = chatTurnDocId(input.threadId, input.turnId, "user");
@@ -336,6 +366,13 @@ export async function completeChatTurn(db: Db, input: CompleteChatTurnInput, opt
   if (!user || user.status !== "in_progress" || user.lease?.token !== input.leaseToken) throw new ChatTurnLeaseLostError();
   const completedAt = (options.now ?? new Date()).toISOString();
   const created: string[] = [];
+  const validate = async () => {
+    const thread = await getChatThread(db, { studentId: input.studentId, threadId: input.threadId });
+    if (!thread?.textStored) throw new TypeError("ChatThreadTextNotStored");
+    if (options.validatePublication && !await options.validatePublication()) throw new TypeError("ChatTurnMemoryChanged");
+  };
+  try {
+  await validate();
   await fencedStudentWrite(
     db,
     input.studentId,
@@ -353,32 +390,96 @@ export async function completeChatTurn(db: Db, input: CompleteChatTurnInput, opt
             order: 1,
             response: input.response,
             completedAt,
+            publication: "pending",
+            publicationLease: input.leaseToken,
+            ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
           },
         } as never,
         { upsert: true, ...op },
       );
       if (res.upsertedCount === 1) created.push(assistId);
+      else if (!await turnsOf(db).findOne({ _id: assistId, studentId: input.studentId, publication: "pending", publicationLease: input.leaseToken } as never, op)) {
+        throw new ChatTurnLeaseLostError();
+      }
+      await validate();
       const flip = await turnsOf(db).updateOne(
-        { _id: userId, studentId: input.studentId, status: "in_progress", "lease.token": input.leaseToken } as never,
-        { $set: { status: "done" }, $unset: { lease: "" } } as never,
+        { _id: userId, studentId: input.studentId, status: "in_progress", publication: "pending", "lease.token": input.leaseToken } as never,
+        { $set: { status: "done", publication: "pending", publicationLease: input.leaseToken } } as never,
         op,
       );
       if (flip.matchedCount === 0) throw new ChatTurnLeaseLostError();
     },
     () => (created.length === 0 ? Promise.resolve() : turnsOf(db).deleteMany({ _id: { $in: created }, studentId: input.studentId } as never)),
   );
+  // Staging, erasure post-check and every asynchronous freshness check precede
+  // release. Decisions and policy writers invalidate these exact pending leases
+  // before completing; only this final user-row CAS certifies a delivered pair.
+  await validate();
+  if (input.memorySnapshot) {
+    const revision = input.memorySnapshot.revision;
+    // S13 fix A2: the marker upsert is a student write like any other, so it runs fenced. Erasure landing after the last freshness check but before this
+    // upsert must not leave a `memory:<studentId>` row for an erased student: on a fence the marker is removed and the writer is refused (StudentFencedError).
+    const markers = db.collection(COLLECTION_NAMES.student_usage);
+    const markerId = "memory:" + input.studentId;
+    const undoMarker = async () => {
+      try { await assertStudentNotFenced(db, input.studentId); }
+      catch (err) {
+        if (!(err instanceof StudentFencedError)) throw err;
+        await markers.deleteMany({ _id: markerId, studentId: input.studentId } as never);
+      }
+    };
+    const marker = await fencedStudentWrite(db, input.studentId, (op) => markers.updateOne({
+      _id: markerId, studentId: input.studentId,
+      revision: revision || { $exists: false },
+      $and: [
+        { $or: [{ pendingDecisions: 0 }, { pendingDecisions: { $exists: false } }] },
+        { $or: [{ pendingCompensations: 0 }, { pendingCompensations: { $exists: false } }] },
+      ],
+    } as never, { $inc: { publicationSequence: 1 }, $setOnInsert: { publicationOnly: true } } as never,
+    { ...(revision === "" ? { upsert: true } : {}), ...op }).catch(err => { if (isDuplicateKey(err)) throw new TypeError("ChatTurnMemoryChanged"); throw err; }), undoMarker);
+    if (marker.matchedCount !== 1 && marker.upsertedCount !== 1) throw new TypeError("ChatTurnMemoryChanged");
+  }
+  await validate();
+  const released = await turnsOf(db).updateOne(
+    { _id: userId, studentId: input.studentId, status: "done", publication: "pending", publicationLease: input.leaseToken, "lease.token": input.leaseToken } as never,
+    { $set: { publication: "published" }, $unset: { lease: "" } } as never,
+  );
+  if (released.matchedCount !== 1) throw new TypeError("ChatTurnMemoryChanged");
+  } catch (err) {
+    // Only the staged assistant created by this attempt is disposable. An older
+    // delivered exchange is never rewritten by a newer memory decision.
+    await turnsOf(db).updateOne({ _id: userId, studentId: input.studentId, publication: "pending", publicationLease: input.leaseToken } as never,
+      { $set: { publication: "invalidated" } } as never).catch(() => undefined);
+    // An acknowledged error can still mean the final CAS committed. Invalidate
+    // pending first, then read the exact certificate: either operation wins the
+    // same user row. Never delete a committed exchange after an ambiguous write.
+    const settled = await turnsOf(db).findOne({ _id: userId, studentId: input.studentId, publicationLease: input.leaseToken } as never).catch(() => null);
+    if (settled?.publication === "published") return;
+    if (settled?.publication === "invalidated") {
+      await turnsOf(db).deleteMany({ _id: assistId, studentId: input.studentId, publicationLease: input.leaseToken } as never).catch(() => undefined);
+      await turnsOf(db).deleteMany({ _id: userId, studentId: input.studentId, publication: "invalidated", publicationLease: input.leaseToken } as never).catch(() => undefined);
+    }
+    await abandonChatTurn(db, { studentId: input.studentId, threadId: input.threadId, turnId: input.turnId, leaseToken: input.leaseToken }).catch(() => undefined);
+    throw err;
+  }
 }
 
 /** Drops a claim whose turn failed (model error), so the student's retry runs again. Only the lease holder can. */
 export async function abandonChatTurn(db: Db, input: { studentId: string; threadId: string; turnId: string; leaseToken: string }): Promise<void> {
   requireScopedDb(db, "abandonChatTurn");
   requireNonEmptyFields(input, "abandonChatTurn");
-  await turnsOf(db).deleteMany({
+  const filter = {
     _id: chatTurnDocId(input.threadId, input.turnId, "user"),
     studentId: input.studentId,
     status: "in_progress",
     "lease.token": input.leaseToken,
-  } as never);
+  };
+  const holder = await turnsOf(db).findOne(filter as never);
+  if (!holder) return;
+  await turnsOf(db).updateOne(filter as never, { $set: { publication: "invalidated" } } as never);
+  await turnsOf(db).deleteMany({ _id: chatTurnDocId(input.threadId, input.turnId, "assistant"), studentId: input.studentId,
+    publicationLease: input.leaseToken } as never);
+  await turnsOf(db).deleteMany(filter as never);
 }
 
 export interface AppendVoiceTurnInput {
@@ -405,7 +506,9 @@ export async function appendVoiceTurn(db: Db, input: AppendVoiceTurnInput): Prom
   if (input.role !== "user" && input.role !== "assistant") throw new Error("appendVoiceTurn: role must be user or assistant");
   if (typeof input.text !== "string") throw new Error("appendVoiceTurn: text must be a string");
   if (Number.isNaN(Date.parse(input.at))) throw new Error("appendVoiceTurn: at must be an ISO time");
-  if ((await getChatThread(db, { studentId: input.studentId, threadId: input.threadId })) === null) throw new ChatThreadNotFoundError();
+  const thread = await getChatThread(db, { studentId: input.studentId, threadId: input.threadId });
+  if (thread === null) throw new ChatThreadNotFoundError();
+  if (!thread.textStored) throw new TypeError("ChatThreadTextNotStored");
   const _id = chatTurnDocId(input.threadId, input.turnId, input.role);
   const created: string[] = [];
   await fencedStudentWrite(
@@ -504,4 +607,35 @@ export async function getStudentUsage(
   requireNonEmptyFields(input, "getStudentUsage");
   const doc = await usageOf(db).findOne({ _id: `${input.month}:${input.studentId}`, studentId: input.studentId } as never);
   return { month: input.month, textTurns: doc?.textTurns ?? 0, voiceMs: doc?.voiceMs ?? 0 };
+}
+
+
+/** Immutable owner-bound createdAt/threadId pagination; a cursor is never a filter supplied by a caller. */
+export async function listChatThreads(db: Db,input:{studentId:string;limit?:number;cursor?:string}):Promise<{items:ChatThreadDoc[];nextCursor?:string}>{
+ requireScopedDb(db,"listChatThreads");requireNonEmptyFields({studentId:input.studentId},"listChatThreads");
+ await assertStudentNotFenced(db,input.studentId);
+ const limit=input.limit??20;if(!Number.isInteger(limit)||limit<1||limit>50)throw new TypeError("Invalid memory cursor or limit");
+ const owner=createHash("sha256").update(tenantIdOf(db)+"\0"+input.studentId).digest("hex");
+ let after:{at:string;id:string}|undefined;
+ if(input.cursor){try{const c=JSON.parse(Buffer.from(input.cursor,"base64url").toString());if(input.cursor.length>1024||Buffer.from(input.cursor,"base64url").toString("base64url")!==input.cursor||c.owner!==owner||typeof c.at!=="string"||new Date(c.at).toISOString()!==c.at||typeof c.id!=="string"||c.id.length>128)throw 0;after={at:c.at,id:c.id};}catch{throw new TypeError("Invalid memory cursor or limit");}}
+ const filter={studentId:input.studentId,...(after?{$or:[{createdAt:{$lt:after.at}},{createdAt:after.at,threadId:{$lt:after.id}}]}:{})};
+ const rows=await threadsOf(db).find(filter as never).sort({createdAt:-1,threadId:-1}).limit(limit+1).toArray();
+ await assertStudentNotFenced(db,input.studentId);const items=rows.slice(0,limit),last=items.at(-1);
+ return {items,...(rows.length>limit&&last?{nextCursor:Buffer.from(JSON.stringify({owner,at:last.createdAt,id:last.threadId})).toString("base64url")}:{})};
+}
+
+/** Separate bounded prompt read; legacy history/export remains complete. Pending/orphan/current exchanges never qualify. */
+export async function listChatContext(db:Db,input:{studentId:string;threadId:string;turnId?:string;before?:string;after?:string;maxMessages?:number}):Promise<ChatTurnDoc[]>{
+ requireScopedDb(db,"listChatContext");await assertStudentNotFenced(db,input.studentId);
+ const thread=await getChatThread(db,{studentId:input.studentId,threadId:input.threadId});
+ const cap=input.maxMessages??12;if(!Number.isInteger(cap)||cap<0||cap>12)throw new TypeError("Invalid context cap");if(!thread?.textStored||cap<2)return [];
+ const filter={studentId:input.studentId,threadId:input.threadId,role:"user",status:"done",...(input.before?{at:{$lt:input.before}}:{})};
+ const users=await turnsOf(db).find(filter as never).sort({at:-1,turnId:-1}).limit(6).toArray();
+ const pairs:ChatTurnDoc[][]=[];let chars=0;
+ for(const user of users){if(user.turnId===input.turnId||!user.text)continue;
+ const assistant=await turnsOf(db).findOne({_id:chatTurnDocId(input.threadId,user.turnId,"assistant"),studentId:input.studentId,threadId:input.threadId,turnId:user.turnId,role:"assistant"} as never);
+ if((user.publication!==undefined&&user.publication!=="published")||(assistant?.publication!==undefined&&(!assistant.publicationLease||assistant.publicationLease!==user.publicationLease))||!assistant?.completedAt||!assistant.text||assistant.channel!==user.channel||assistant.at!==user.at||(input.before&&assistant.completedAt>=input.before)||(input.after&&assistant.completedAt<=input.after)||(user.channel==="voice"&&assistant.status!=="done")||(user.channel==="text"&&!assistant.response))continue;
+ if(pairs.length*2+2>cap)break;const size=user.text.length+assistant.text.length;if(chars+size>12000)break;chars+=size;pairs.push([user,assistant]);
+ }
+ await assertStudentNotFenced(db,input.studentId);return pairs.reverse().flat();
 }

@@ -55,7 +55,41 @@ export type Source = z.infer<typeof SourceSchema>;
 // Profile facts (scope item 10, A16b)
 // ---------------------------------------------------------------------------
 
-export const PROFILE_FACT_SOURCES = ["pathlynks", "student-confirmed"] as const;
+export const PROFILE_FACT_SOURCES = ["pathlynks", "vidysea", "student-confirmed"] as const;
+
+/** Canonical preference keys shared by extraction and consumers; account fields are authoritative. */
+export const AUTHORITATIVE_PROFILE_KEY = /^\s*(?:|(?:(?:student|account|user|tenant|school|profile)[\s._-]*)?(?:id|name|first[\s._-]*name|last[\s._-]*name|full[\s._-]*name|grade|class|email|phone|mobile|age|dob|date[\s._-]*of[\s._-]*birth|gender|board)|(?:guardian|parent|father|mother)[\s._-]*(?:name|email|phone|id))\s*$/i;
+export function canonicalPreferenceKey(raw: string): string | null {
+  if (typeof raw !== "string") return null;
+  const key = raw.trim().replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase().replace(/[\s.\-]+/g, "_");
+  if (AUTHORITATIVE_PROFILE_KEY.test(raw)) return null;
+  const aliases: Record<string, string> = {
+    country: "target_country", preferred_country: "target_country", study_country: "target_country", destination_country: "target_country",
+    preferred_destination: "target_country", country_preference: "target_country",
+    budget_range: "budget", study_budget: "budget", annual_budget: "budget",
+    interests: "interest", career_interest: "interest", preferred_interest: "interest",
+  };
+  return aliases[key] ?? (["target_country", "budget", "interest"].includes(key) ? key : raw.trim());
+}
+
+export const PendingProfileChangeSchema = z.object({
+  candidateId: z.string().min(1).max(128), version: z.string().min(1).max(128),
+  value: z.string().min(1).max(1000), proposedAt: z.string().datetime(),
+  quote: z.string().max(1000).optional(), sourceLang: z.string().max(35).optional(),
+  threadId: z.string().min(1).max(128).optional(), turnId: z.string().min(1).max(128).optional(),
+}).strict();
+export type PendingProfileChange = z.infer<typeof PendingProfileChangeSchema>;
+/** Server additionally verifies current ownership and prompt binding. */
+export const MemoryConfirmationRefSchema = z.object({
+  candidateId: z.string().min(1).max(128), expectedVersion: z.string().min(1).max(128), value: z.string().min(1).max(1000),
+}).strict();
+export type MemoryConfirmationRef = z.infer<typeof MemoryConfirmationRefSchema>;
+export const MemoryPromptSchema = MemoryConfirmationRefSchema.extend({
+  factId: z.string().min(1).max(128), key: z.string().min(1).max(128),
+  threadId: z.string().min(1).max(128), promptId: z.string().min(1).max(128),
+  currentValue: z.string().min(1).max(1000).optional(),
+}).strict();
+export type MemoryPrompt = z.infer<typeof MemoryPromptSchema>;
 
 export const ProfileFactSchema = z
   .object({
@@ -73,24 +107,33 @@ export const ProposedFactSchema = z
     key: z.string().min(1).max(128),
     value: z.string().min(1).max(1000),
     status: z.enum(["proposed", "confirmed"]),
+    pendingChange: PendingProfileChangeSchema.optional(),
   })
   .strict();
 export type ProposedFact = z.infer<typeof ProposedFactSchema>;
 
+export const MemoryItemSchema = z.object({factId:z.string().min(1).max(128).optional(),key:z.string().min(1).max(128),value:z.string().min(1).max(1000),status:z.enum(["confirmed","proposed"]),source:z.enum(["chat","pathlynks","vidysea"]),readOnly:z.boolean(),pendingChange:PendingProfileChangeSchema.optional(),threadId:z.string().max(128).optional(),turnId:z.string().max(128).optional(),quote:z.string().max(1000).optional(),sourceLang:z.string().max(35).optional()}).strict();
+export const MemoryGraphSchema=z.object({items:z.array(MemoryItemSchema).max(20),nodes:z.array(z.object({id:z.string(),type:z.enum(["student","fact"]),key:z.string().optional(),value:z.string().optional(),status:z.enum(["confirmed","proposed"]).optional()}).strict()).max(21),edges:z.array(z.object({from:z.string(),to:z.string(),type:z.literal("has_fact")}).strict()).max(20),nextCursor:z.string().max(1024).optional()}).strict();
+
 export const ProfileResponseSchema = z
-  .object({ facts: z.array(ProfileFactSchema), proposed: z.array(ProposedFactSchema) })
+  .object({ facts: z.array(ProfileFactSchema), proposed: z.array(ProposedFactSchema), memory:MemoryGraphSchema.optional() })
   .strict();
 
-export const FACT_DECISION_ACTIONS = ["confirm", "correct", "erase"] as const;
+export const FACT_DECISION_ACTIONS = ["confirm", "correct", "erase", "reject"] as const;
 
 export const FactDecisionRequestSchema = z
   .object({
     action: z.enum(FACT_DECISION_ACTIONS),
-    /** The corrected value; required for `correct`, ignored otherwise. */
+    /** Required for `correct`; optional displayed-value binding for `confirm`. */
     value: z.string().min(1).max(1000).optional(),
+    candidateId: z.string().min(1).max(128).optional(),
+    expectedVersion: z.string().min(1).max(128).optional(),
+    threadId: z.string().min(1).max(128).optional(),
   })
   .strict()
-  .refine((d) => d.action !== "correct" || d.value !== undefined, { message: "correct needs a value", path: ["value"] });
+  .refine((d) => d.action !== "correct" || d.value !== undefined, { message: "correct needs a value", path: ["value"] })
+  .refine((d) => (d.candidateId === undefined) === (d.expectedVersion === undefined), { message: "candidate and version must be paired" })
+  .refine((d) => (d.action !== "reject" && d.candidateId === undefined) || (d.candidateId !== undefined && d.expectedVersion !== undefined && d.value !== undefined), { message: "candidate decision needs candidate, version and displayed value" });
 
 // ---------------------------------------------------------------------------
 // Chat (authenticated)
@@ -100,11 +143,25 @@ export const TURN_STATES = ["ok", "concern", "escalated", "no_sourced_answer", "
 export const TURN_CHANNELS = ["text", "voice"] as const;
 export const MAX_TURN_TEXT_LENGTH = 4000;
 
+/** Presentation/page context only. No identity, student facts, free-text instructions or permissions. */
+export const QuestContextSchema = z.object({
+  role: z.enum(["greeter", "ikigai", "cadence", "coach", "decide"]),
+  island: z.enum(["hub", "dashboard", "help", "know-yourself", "career-selection", "profile-building", "university-selection"]),
+}).strict();
+export type QuestContext = z.infer<typeof QuestContextSchema>;
+export const ThreadCreateRequestSchema=z.object({quest:QuestContextSchema.optional()}).strict();
+export const ThreadMetadataSchema=z.object({threadId:z.string().min(1).max(128),createdAt:z.string().datetime(),lastActivityAt:z.string().datetime(),textStored:z.boolean(),quest:QuestContextSchema.optional()}).strict();
+export const ThreadListSchema=z.object({threads:z.array(ThreadMetadataSchema).max(50),nextCursor:z.string().max(1024).optional()}).strict();
+
 export const TurnRequestSchema = z
   .object({
     text: z.string().min(1).max(MAX_TURN_TEXT_LENGTH),
     /** Idempotency key: a retry with the same key returns the same turn instead of creating one. */
     clientTurnId: z.string().min(1).max(128).optional(),
+    quest: QuestContextSchema.optional(),
+    memoryConfirmation: MemoryConfirmationRefSchema.extend({
+      factId: z.string().min(1).max(128), promptId: z.string().min(1).max(128),
+    }).strict().optional(),
   })
   .strict();
 
@@ -119,6 +176,7 @@ export const TurnResponseSchema = z
     profileFactsUsed: z.array(ProfileFactSchema),
     /** Set when options were ranked against the profile (e.g. "student-success"). */
     rankingProfile: z.string().min(1).max(64).optional(),
+    memoryConfirmation: MemoryPromptSchema.optional(),
   })
   .strict();
 export type TurnResponse = z.infer<typeof TurnResponseSchema>;
@@ -142,6 +200,7 @@ export const ThreadSchema = z
   .object({
     threadId: z.string().min(1).max(128),
     turns: z.array(ThreadTurnSchema),
+    quest:QuestContextSchema.optional(),
     /**
      * P1 U8 (D-093 4A): false when any turn was answered without storing its text (an under-18 student with no guardian-consent
      * signal). Those turns come back with empty `text`; absent means every turn's (redacted) text is stored.
@@ -274,9 +333,13 @@ export const VoiceServerEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("answer.sources"), eventId, sources: z.array(SourceSchema), claims: z.array(ClaimSchema) }).strict(),
   z.object({ type: z.literal("state"), eventId, state: z.enum(TURN_STATES) }).strict(),
   z.object({ type: z.literal("flag"), eventId, reason: z.enum(VOICE_FLAG_REASONS), detail: z.string().max(500).optional() }).strict(),
-  z.object({ type: z.literal("confirm"), eventId, fact: z.object({ key: z.string().min(1).max(128), value: z.string().min(1).max(1000) }).strict() }).strict(),
+  z.object({ type: z.literal("confirm"), eventId, fact: z.object({ key: z.string().min(1).max(128), value: z.string().min(1).max(1000), candidateId: z.string().min(1).max(128).optional(), expectedVersion: z.string().min(1).max(128).optional(), currentValue: z.string().min(1).max(1000).optional() }).strict(), threadId: eventId.optional(), promptId: eventId.optional(), question: z.string().min(1).max(2400).optional() }).strict(),
   z.object({ type: z.literal("error"), eventId, code: z.string().min(1).max(64), message: z.string().max(500) }).strict(),
-]);
+]).superRefine((event, ctx) => {
+  if (event.type === "confirm" && ((event.fact.candidateId === undefined) !== (event.fact.expectedVersion === undefined))) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "candidate and version must be paired" });
+  }
+});
 export type VoiceServerEvent = z.infer<typeof VoiceServerEventSchema>;
 
 /** Client -> server control messages (audio is binary PCM16 frames). */
@@ -284,6 +347,11 @@ export const VoiceClientEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start"), threadId: z.string().min(1).max(128), lastEventId: eventId.optional() }).strict(),
   z.object({ type: z.literal("interrupt") }).strict(),
   z.object({ type: z.literal("end") }).strict(),
-  z.object({ type: z.literal("confirm"), key: z.string().min(1).max(128), accepted: z.boolean() }).strict(),
-]);
+  z.object({ type: z.literal("confirm"), key: z.string().min(1).max(128), accepted: z.boolean(), value: z.string().min(1).max(1000).optional(), candidateId: eventId.optional(), expectedVersion: eventId.optional(), threadId: eventId.optional(), promptId: eventId.optional() }).strict(),
+]).superRefine((event, ctx) => {
+  if (event.type === "confirm" && (event.candidateId !== undefined || event.expectedVersion !== undefined)
+    && (event.candidateId === undefined || event.expectedVersion === undefined || event.value === undefined)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "candidate decision needs candidate, version and displayed value" });
+  }
+});
 export type VoiceClientEvent = z.infer<typeof VoiceClientEventSchema>;

@@ -96,7 +96,9 @@ export type KbUnavailableReason =
   | "malformed_response"
   | "invalid_schema"
   | "uncited"
-  | "not_found";
+  | "not_found"
+  /** The circuit breaker is open for this KB: failed fast with no network call (the graph treats it like any search failure). */
+  | "circuit_open";
 
 export interface KbAskOk {
   status: "ok";
@@ -150,6 +152,13 @@ export class KbHttpError extends Error {
   }
 }
 
+export class KbCircuitOpenError extends Error {
+  constructor(baseUrl: string) {
+    super(`KbCircuitOpenError: the KnowledgeBase (${baseUrl}) circuit breaker is open after repeated timeouts or 5xx; failing fast with no network call`);
+    this.name = "KbCircuitOpenError";
+  }
+}
+
 export class KbMalformedResponseError extends Error {
   constructor(baseUrl: string, reason: string) {
     super(`KbMalformedResponseError: the KnowledgeBase (${baseUrl}) returned an unusable response: ${reason}`);
@@ -160,7 +169,35 @@ export class KbMalformedResponseError extends Error {
 // ---------------------------------------------------------------------------
 // Client
 // ---------------------------------------------------------------------------
-export const KB_DEFAULT_TIMEOUT_MS = 10_000;
+export const KB_DEFAULT_TIMEOUT_MS = 8_000;
+/** T-057: the chat path never waits longer than this for `/ask` (a configured timeout above it is capped; one below it is kept). Lowered 8 s -> 4 s (kb-breaker-route-build). */
+export const KB_ASK_TIMEOUT_CAP_MS = 4_000;
+/** T-057 r2: the same ceiling for `/search`, which is on the chat path for every turn (a configured timeout above it is capped; one below it is kept). Lowered 8 s -> 4 s. */
+export const KB_SEARCH_TIMEOUT_CAP_MS = 4_000;
+/** The optional vectorless `GET /route` hits the chat path before `/search`; the KB's own hard deadline is 3 s, so the client gives it 3.5 s. */
+export const KB_ROUTE_TIMEOUT_CAP_MS = 3_500;
+/** After the KB answers 503 `{error:"route_timeout"}`, /route is skipped for this long (a route-only miss: it never touches the shared breaker). */
+export const KB_ROUTE_SOFT_SKIP_MS = 10_000;
+
+/** Circuit breaker defaults (env `VC_KB_BREAKER_FAILS` / `VC_KB_BREAKER_COOLDOWN_MS` override; an `options.breaker` override beats env). */
+export const KB_BREAKER_DEFAULT_FAILS = 2;
+export const KB_BREAKER_DEFAULT_COOLDOWN_MS = 120_000;
+
+export interface KbBreakerOptions {
+  /** Consecutive timeouts / network errors / 5xx before the breaker opens. */
+  failThreshold?: number;
+  /** How long the breaker stays open (and a missing `/route` stays skipped) before one probe is allowed. */
+  cooldownMs?: number;
+  /** How long `/route` is skipped after the KB's 503 `route_timeout` (a route-only miss; default `KB_ROUTE_SOFT_SKIP_MS`). */
+  routeSkipMs?: number;
+}
+
+/** A breaker log line: event name, endpoint path (no query) and a count only. Never a query, a hit or any student text. */
+export interface KbBreakerEvent {
+  event: "kb_breaker_open" | "kb_breaker_half_open" | "kb_breaker_closed" | "kb_route_unsupported" | "kb_route_timeout_skip";
+  endpoint: string;
+  failures: number;
+}
 
 export interface KnowledgeBaseClientOptions {
   baseUrl: string;
@@ -168,6 +205,10 @@ export interface KnowledgeBaseClientOptions {
   timeoutMs?: number;
   /** Injectable for tests; defaults to the global `fetch` (Node >=20, per package.json engines). */
   fetchImpl?: typeof fetch;
+  /** Circuit breaker thresholds; unset values fall back to env then the defaults above. */
+  breaker?: KbBreakerOptions;
+  /** Breaker log sink; defaults to one JSON `console.warn` line per transition. */
+  onBreakerEvent?: (event: KbBreakerEvent) => void;
 }
 
 export interface KnowledgeBaseClient {
@@ -177,12 +218,18 @@ export interface KnowledgeBaseClient {
 /** P1/U2: the read endpoints. Kept a separate interface so an ask-only fake still satisfies `KnowledgeBaseClient`. */
 export interface KnowledgeBaseReadClient {
   search(query: string, k?: number): Promise<KbSearchResult>;
+  /**
+   * Vectorless `GET /route?q=&k=` (k default 5, max 20; same auth/scope as /search; same hit shape, parsed by the SAME hit parser;
+   * the score only orders hits within one response and is never compared with a /search score). 404/405/501 = `not_found`, skipped
+   * for the cooldown. 503 `{error:"route_timeout"}` = a route-only miss: skipped for a short time and never counted by the breaker.
+   */
+  route(query: string, k?: number): Promise<KbSearchResult>;
   getSession(sessionId: string): Promise<KbSessionResult>;
   gaps(): Promise<KbGapsResult>;
   sources(): Promise<KbSourcesResult>;
 }
 
-/** Anonymous mode (A15c): structurally search-only. No `ask`, no `getSession`, so those calls cannot be made. */
+/** Anonymous mode (A15c): structurally search-only. No `ask`, no `getSession`, so those calls cannot be made. (No `route` either until the KB's /route key scope is known.) */
 export type KnowledgeBaseAnonymousClient = Pick<KnowledgeBaseReadClient, "search" | "sources">;
 
 // ---------------------------------------------------------------------------
@@ -385,7 +432,7 @@ export function applyServeRule(result: KbAskResult): ServedAsk {
 // ---------------------------------------------------------------------------
 // Transport
 // ---------------------------------------------------------------------------
-type Fetched = { ok: true; json: unknown } | { ok: false; unavailable: KbAskUnavailable };
+type Fetched = { ok: true; json: unknown } | { ok: false; unavailable: KbAskUnavailable; tripped: boolean; soft?: "route_timeout" };
 
 interface RequestSpec {
   method: "GET" | "POST";
@@ -396,63 +443,231 @@ interface RequestSpec {
   redactNetworkMessage?: boolean;
   /** `GET /sessions/:id` 404 = the session cannot be re-read (A13), not a generic HTTP error. */
   notFoundReason?: boolean;
+  /** Extra statuses (besides a 404 under `notFoundReason`) that mean `not_found`: `GET /route` is "unsupported" on 404/405/501. */
+  notFoundStatuses?: readonly number[];
+  /** Per-call ceiling on the configured timeout (the lower of the two applies). */
+  timeoutCapMs?: number;
+  /** `GET /route`: a 503 whose body is `{error:"route_timeout"}` is a route-only miss (`soft`), not a server failure. */
+  routeTimeoutIs503?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Circuit breaker (kb-breaker-route-build). One state per KB base URL, in memory, shared by every client built for that
+// URL (the anonymous and the authenticated client talk to the same KB, so a hang seen by one spares the other).
+// closed -> (N consecutive timeouts / network errors / 5xx) -> open for a cooldown -> half-open (ONE probe) -> closed on
+// success, open again on failure. While open, calls fail fast with `circuit_open` and make NO network call.
+// ---------------------------------------------------------------------------
+interface KbHostState {
+  failures: number;
+  /** Epoch ms the breaker opened; null while closed. */
+  openedAt: number | null;
+  /** A half-open probe is in flight: every other call fails fast until it settles. */
+  probing: boolean;
+  /** Epoch ms until which `GET /route` is skipped (unsupported by the KB, or it just timed out / 5xx'd). */
+  routeSkipUntil: number;
+}
+
+const kbHostStates = new Map<string, KbHostState>();
+
+function hostState(baseUrl: string): KbHostState {
+  let state = kbHostStates.get(baseUrl);
+  if (!state) {
+    state = { failures: 0, openedAt: null, probing: false, routeSkipUntil: 0 };
+    kbHostStates.set(baseUrl, state);
+  }
+  return state;
+}
+
+/** Test hook: forget every breaker and every "route unsupported" mark. */
+export function resetKbBreakers(): void {
+  kbHostStates.clear();
+}
+
+function positiveInt(raw: string | undefined, fallback: number): number {
+  const n = raw === undefined ? NaN : Number(raw.trim());
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
+function resolveBreaker(options: KnowledgeBaseClientOptions): { failThreshold: number; cooldownMs: number; routeSkipMs: number } {
+  const env = typeof process === "undefined" ? {} : process.env;
+  const pick = (given: number | undefined, envValue: string | undefined, fallback: number) =>
+    given !== undefined && Number.isInteger(given) && given > 0 ? given : positiveInt(envValue, fallback);
+  return {
+    failThreshold: pick(options.breaker?.failThreshold, env.VC_KB_BREAKER_FAILS, KB_BREAKER_DEFAULT_FAILS),
+    cooldownMs: pick(options.breaker?.cooldownMs, env.VC_KB_BREAKER_COOLDOWN_MS, KB_BREAKER_DEFAULT_COOLDOWN_MS),
+    routeSkipMs: pick(options.breaker?.routeSkipMs, undefined, KB_ROUTE_SOFT_SKIP_MS),
+  };
+}
+
+function defaultBreakerLog(e: KbBreakerEvent): void {
+  console.warn(JSON.stringify(e));
+}
+
+/** Request path without its query string: the query carries student text and must never reach a log line. */
+function endpointOf(path: string): string {
+  const q = path.indexOf("?");
+  return q === -1 ? path : path.slice(0, q);
 }
 
 function makeTransport(options: KnowledgeBaseClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const { apiKey } = options;
-  const timeoutMs = options.timeoutMs ?? KB_DEFAULT_TIMEOUT_MS;
+  const configuredTimeoutMs = options.timeoutMs ?? KB_DEFAULT_TIMEOUT_MS;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const breaker = resolveBreaker(options);
+  const log = options.onBreakerEvent ?? defaultBreakerLog;
 
-  return async function request(spec: RequestSpec): Promise<Fetched> {
-    const fail = (reason: KbUnavailableReason, detail: string): Fetched => ({
+  const send = async function send(spec: RequestSpec): Promise<Fetched> {
+    const fail = (reason: KbUnavailableReason, detail: string, httpStatus?: number): Fetched => ({
       ok: false,
       unavailable: { status: "unavailable", reason, detail },
+      tripped: reason === "timeout" || reason === "network_error" || (reason === "http_error" && httpStatus !== undefined && httpStatus >= 500),
     });
+    const timeoutMs = spec.timeoutCapMs === undefined ? configuredTimeoutMs : Math.min(configuredTimeoutMs, spec.timeoutCapMs);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    let res: Response;
+    // T-057: the timer stays armed until the body is read (a slow body download used to run with no deadline).
     try {
-      res = await fetchImpl(`${baseUrl}${spec.path}`, {
-        method: spec.method,
-        headers:
-          spec.method === "POST"
-            ? { "content-type": "application/json", authorization: `Bearer ${apiKey}` }
-            : { accept: "application/json", authorization: `Bearer ${apiKey}` },
-        ...(spec.method === "POST" ? { body: JSON.stringify(spec.body) } : {}),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return fail("timeout", new KbTimeoutError(baseUrl, timeoutMs).message);
+      let res: Response;
+      try {
+        res = await fetchImpl(`${baseUrl}${spec.path}`, {
+          method: spec.method,
+          headers:
+            spec.method === "POST"
+              ? { "content-type": "application/json", authorization: `Bearer ${apiKey}` }
+              : { accept: "application/json", authorization: `Bearer ${apiKey}` },
+          ...(spec.method === "POST" ? { body: JSON.stringify(spec.body) } : {}),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return fail("timeout", new KbTimeoutError(baseUrl, timeoutMs).message);
+        }
+        const why = spec.redactNetworkMessage
+          ? err instanceof Error
+            ? err.name
+            : "unknown"
+          : err instanceof Error
+            ? err.message
+            : String(err);
+        return fail("network_error", new KbNetworkError(baseUrl, why).message);
       }
-      const why = spec.redactNetworkMessage
-        ? err instanceof Error
-          ? err.name
-          : "unknown"
-        : err instanceof Error
-          ? err.message
-          : String(err);
-      return fail("network_error", new KbNetworkError(baseUrl, why).message);
+
+      if (res.status === 401 || res.status === 403) {
+        return fail("unauthorized", new KbHttpError(baseUrl, res.status).message);
+      }
+      if ((res.status === 404 && spec.notFoundReason) || spec.notFoundStatuses?.includes(res.status)) {
+        return fail("not_found", new KbHttpError(baseUrl, res.status).message);
+      }
+      const readJson = async (): Promise<unknown> => {
+        const aborted = new Promise<never>((_, reject) => {
+          const onAbort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          if (controller.signal.aborted) onAbort();
+          else controller.signal.addEventListener("abort", onAbort, { once: true });
+        });
+        aborted.catch(() => undefined);
+        const body = res.json();
+        body.catch(() => undefined);
+        return Promise.race([body, aborted]);
+      };
+      if (res.status === 503 && spec.routeTimeoutIs503) {
+        // The KB's /route hit its own 3 s deadline: a route-only miss. Not tripped, so the shared breaker never sees it.
+        let errorCode: unknown;
+        try {
+          const parsed = (await readJson()) as { error?: unknown } | null;
+          errorCode = parsed && typeof parsed === "object" ? parsed.error : undefined;
+        } catch {
+          errorCode = undefined;
+        }
+        if (errorCode === "route_timeout") {
+          return {
+            ok: false,
+            unavailable: { status: "unavailable", reason: "timeout", detail: new KbHttpError(baseUrl, 503).message + " (route_timeout)" },
+            tripped: false,
+            soft: "route_timeout",
+          };
+        }
+      }
+      if (!res.ok) {
+        return fail("http_error", new KbHttpError(baseUrl, res.status).message, res.status);
+      }
+      try {
+        return { ok: true, json: await readJson() };
+      } catch (err) {
+        if (controller.signal.aborted || (err instanceof Error && err.name === "AbortError")) {
+          return fail("timeout", new KbTimeoutError(baseUrl, timeoutMs).message);
+        }
+        return fail("malformed_response", new KbMalformedResponseError(baseUrl, "response body was not valid JSON").message);
+      }
     } finally {
       clearTimeout(timer);
     }
+  };
 
-    if (res.status === 401 || res.status === 403) {
-      return fail("unauthorized", new KbHttpError(baseUrl, res.status).message);
+  /** The breaker around `send`: fail fast while open, let exactly one probe through after the cooldown, settle on its outcome. */
+  const request = async function request(spec: RequestSpec): Promise<Fetched> {
+    const state = hostState(baseUrl);
+    const endpoint = endpointOf(spec.path);
+    let probe = false;
+    if (state.openedAt !== null) {
+      if (Date.now() - state.openedAt < breaker.cooldownMs || state.probing) {
+        return {
+          ok: false,
+          unavailable: { status: "unavailable", reason: "circuit_open", detail: new KbCircuitOpenError(baseUrl).message },
+          tripped: false,
+        };
+      }
+      state.probing = true;
+      probe = true;
+      log({ event: "kb_breaker_half_open", endpoint, failures: state.failures });
     }
-    if (res.status === 404 && spec.notFoundReason) {
-      return fail("not_found", new KbHttpError(baseUrl, res.status).message);
-    }
-    if (!res.ok) {
-      return fail("http_error", new KbHttpError(baseUrl, res.status).message);
-    }
+    let fetched: Fetched | undefined;
     try {
-      return { ok: true, json: await res.json() };
-    } catch {
-      return fail("malformed_response", new KbMalformedResponseError(baseUrl, "response body was not valid JSON").message);
+      fetched = await send(spec);
+      return fetched;
+    } finally {
+      const tripped = fetched === undefined || (!fetched.ok && fetched.tripped);
+      if (probe) {
+        state.probing = false;
+        if (tripped) {
+          state.openedAt = Date.now();
+          log({ event: "kb_breaker_open", endpoint, failures: state.failures });
+        } else {
+          state.failures = 0;
+          state.openedAt = null;
+          log({ event: "kb_breaker_closed", endpoint, failures: 0 });
+        }
+      } else if (state.openedAt === null) {
+        // Closed: count consecutive failures. (A call that was already in flight when the breaker opened settles into the open state and is ignored.)
+        if (tripped) {
+          state.failures += 1;
+          if (state.failures >= breaker.failThreshold) {
+            state.openedAt = Date.now();
+            log({ event: "kb_breaker_open", endpoint, failures: state.failures });
+          }
+        } else {
+          state.failures = 0;
+        }
+      }
     }
   };
+
+  return Object.assign(request, {
+    /** True while `GET /route` is being skipped (unsupported by the KB, or it just failed). No network. */
+    routeSkipped: (): boolean => Date.now() < hostState(baseUrl).routeSkipUntil,
+    /** Skip `GET /route` for one breaker cooldown. */
+    skipRoute: (): void => {
+      const state = hostState(baseUrl);
+      state.routeSkipUntil = Date.now() + breaker.cooldownMs;
+      log({ event: "kb_route_unsupported", endpoint: "/route", failures: state.failures });
+    },
+    /** Skip `GET /route` for the SHORT route-timeout skip only; the shared breaker state (failures, open) is not touched. */
+    skipRouteBriefly: (): void => {
+      const state = hostState(baseUrl);
+      state.routeSkipUntil = Math.max(state.routeSkipUntil, Date.now() + breaker.routeSkipMs);
+      log({ event: "kb_route_timeout_skip", endpoint: "/route", failures: state.failures });
+    },
+  });
 }
 
 function invalidSchema(options: KnowledgeBaseClientOptions, message: string): KbAskUnavailable {
@@ -464,30 +679,81 @@ function invalidSchema(options: KnowledgeBaseClientOptions, message: string): Kb
   };
 }
 
+/**
+ * The ONE hit parser/validator for `{ hits: [...] }` bodies, shared by `GET /search` and `GET /route`. A hit with no inline
+ * turn/session (null in the KB response) cannot be checked against its text (A13). A hit whose inline turn/session is a
+ * different record than the ids it claims (or has no turn id to compare) is likewise dropped and counted: its text cannot be
+ * vouched for as that turn's text.
+ */
+function parseSearchBody(options: KnowledgeBaseClientOptions, json: unknown): KbSearchResult {
+  const parsed = KbSearchResponseSchema.safeParse(json);
+  if (!parsed.success) return invalidSchema(options, "body is not { hits: [] }");
+  const hits: KbSearchHit[] = [];
+  let dropped = 0;
+  for (const raw of parsed.data.hits) {
+    const hit = KbSearchHitSchema.safeParse(raw);
+    if (hit.success && hit.data.turn._id === hit.data.turnId && hit.data.session._id === hit.data.sessionId) {
+      hits.push(hit.data);
+    } else {
+      dropped += 1;
+    }
+  }
+  return { status: "ok", hits, dropped };
+}
+
+/** `GET /route` statuses that mean "this KB has no vectorless route": the client falls back to `/search` and skips `/route` for the cooldown. */
+const ROUTE_UNSUPPORTED_STATUSES = [404, 405, 501] as const;
+
+const KB_ROUTE_DEFAULT_K = 5;
+const KB_ROUTE_MAX_K = 20;
+/** `k` for /route: default 5, at most 20, at least 1 (the KB's contract). */
+function clampRouteK(k: number | undefined): number {
+  if (k === undefined || !Number.isFinite(k)) return KB_ROUTE_DEFAULT_K;
+  return Math.min(KB_ROUTE_MAX_K, Math.max(1, Math.floor(k)));
+}
+
 function makeReadClient(options: KnowledgeBaseClientOptions): KnowledgeBaseReadClient {
   const request = makeTransport(options);
   return {
     async search(query: string, k?: number): Promise<KbSearchResult> {
       const params = new URLSearchParams({ q: query });
       if (k !== undefined) params.set("k", String(k));
-      const fetched = await request({ method: "GET", path: `/search?${params.toString()}`, redactNetworkMessage: true });
+      const fetched = await request({ method: "GET", path: `/search?${params.toString()}`, redactNetworkMessage: true, timeoutCapMs: KB_SEARCH_TIMEOUT_CAP_MS });
       if (!fetched.ok) return fetched.unavailable;
-      const parsed = KbSearchResponseSchema.safeParse(fetched.json);
-      if (!parsed.success) return invalidSchema(options, "body is not { hits: [] }");
-      const hits: KbSearchHit[] = [];
-      let dropped = 0;
-      for (const raw of parsed.data.hits) {
-        const hit = KbSearchHitSchema.safeParse(raw);
-        // A hit with no inline turn/session (null in the KB response) cannot be checked against its text (A13).
-        // A hit whose inline turn/session is a different record than the ids it claims (or has no turn id to
-        // compare) is likewise dropped and counted: its text cannot be vouched for as that turn's text.
-        if (hit.success && hit.data.turn._id === hit.data.turnId && hit.data.session._id === hit.data.sessionId) {
-          hits.push(hit.data);
-        } else {
-          dropped += 1;
-        }
+      return parseSearchBody(options, fetched.json);
+    },
+
+    async route(query: string, k?: number): Promise<KbSearchResult> {
+      // A route the KB does not have (or that just timed out / 5xx'd) is not retried every turn: no network until the cooldown ends.
+      if (request.routeSkipped()) {
+        return {
+          status: "unavailable",
+          reason: "not_found",
+          detail: `KbHttpError: the KnowledgeBase (${options.baseUrl.replace(/\/+$/, "")}) /route is being skipped (unsupported or failing); /search is used`,
+        };
       }
-      return { status: "ok", hits, dropped };
+      // Contract (KB wave/kb-route, draft): GET /route?q=<text>&k=<n>, k default 5 max 20, same auth/scope as /search.
+      const params = new URLSearchParams({ q: query, k: String(clampRouteK(k)) });
+      const fetched = await request({
+        method: "GET",
+        path: `/route?${params.toString()}`,
+        redactNetworkMessage: true,
+        notFoundStatuses: ROUTE_UNSUPPORTED_STATUSES,
+        timeoutCapMs: KB_ROUTE_TIMEOUT_CAP_MS,
+        routeTimeoutIs503: true,
+      });
+      if (!fetched.ok) {
+        if (fetched.soft === "route_timeout") {
+          // The KB's own 3 s route deadline: a route-only miss. The caller falls back to /search at once; only a short skip, no breaker count.
+          request.skipRouteBriefly();
+          return fetched.unavailable;
+        }
+        // Unsupported (404/405/501), refused (401/403: e.g. a search-only key without the route scope) or failing (timeout/5xx):
+        // skip /route for the cooldown. A breaker-open refusal is not a route verdict and is not cached here.
+        if (fetched.unavailable.reason === "not_found" || fetched.unavailable.reason === "unauthorized" || fetched.tripped) request.skipRoute();
+        return fetched.unavailable;
+      }
+      return parseSearchBody(options, fetched.json);
     },
 
     async getSession(sessionId: string): Promise<KbSessionResult> {
@@ -583,7 +849,7 @@ export function createKnowledgeBaseClient(
   return {
     ...read,
     async ask(query: string): Promise<KbAskResult> {
-      const fetched = await request({ method: "POST", path: "/ask", body: { query } });
+      const fetched = await request({ method: "POST", path: "/ask", body: { query }, timeoutCapMs: KB_ASK_TIMEOUT_CAP_MS });
       if (!fetched.ok) return fetched.unavailable;
 
       const parsed = KbAskResponseSchema.safeParse(fetched.json);

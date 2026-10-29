@@ -1,0 +1,108 @@
+
+> vidysea-frontend-phase2@0.1.0 prebuild
+> node scripts/review-student-translations.cjs --check && node scripts/service-translations.cjs --check
+
+{
+  "de": {
+    "entries": 8977,
+    "edited": 1440,
+    "terms": 0,
+    "technical": 135,
+    "changed": 0,
+    "unsafe": [],
+    "warnings": []
+  },
+  "nl": {
+    "entries": 8968,
+    "edited": 1435,
+    "terms": 0,
+    "technical": 135,
+    "changed": 0,
+    "unsafe": [],
+    "warnings": []
+  }
+}
+{"phrases":873,"languages":["hi","de","nl"],"missing":0}
+
+> vidysea-frontend-phase2@0.1.0 build
+> next build --webpack
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of D:\vc\pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * D:\vc\.worktrees\vc-vidysea-frontend\package-lock.json
+
+   ▲ Next.js 16.0.10 (webpack)
+
+   Creating an optimized production build ...
+Client network socket disconnected before secure TLS connection was established
+
+Retrying 1/3...
+read ECONNRESET
+
+Retrying 1/3...
+Client network socket disconnected before secure TLS connection was established
+
+Retrying 1/3...
+read ECONNRESET
+
+Retrying 1/3...
+read ECONNRESET
+
+Retrying 1/3...
+read ECONNRESET
+
+Retrying 1/3...
+read ECONNRESET
+
+Retrying 1/3...
+Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of D:\vc\.worktrees\vc-vidysea-frontend\node_modules\next-intl\dist\esm\production\extractor\format\index.js for build dependencies failed at 'import(t)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of D:\vc\.worktrees\vc-vidysea-frontend\node_modules\next-intl\dist\esm\production\extractor\format\index.js for build dependencies failed at 'import(t)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+
+warn - The class `duration-[220ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;220ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[250ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;250ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[450ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;450ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[900ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;900ms&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(.4,0,.2,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(.4,0,.2,1)&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(0.22,1,0.36,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(0.22,1,0.36,1)&rsqb;` to silence this warning.
+
+warn - The class `lg:duration-[650ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `lg:duration-&lsqb;650ms&rsqb;` to silence this warning.
+
+warn - The class `lg:ease-[cubic-bezier(0.22,1,0.36,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `lg:ease-&lsqb;cubic-bezier(0.22,1,0.36,1)&rsqb;` to silence this warning.
+
+<--- Last few GCs --->
+
+[41456:000001814C0A3000]   278907 ms: Scavenge (interleaved) 2027.4 (2048.9) -> 2026.6 (2058.9) MB, pooled: 0 MB, 6.72 / 0.00 ms  (average mu = 0.394, current mu = 0.330) allocation failure; 
+[41456:000001814C0A3000]   279349 ms: Mark-Compact (reduce) 2040.8 (2067.0) -> 2035.3 (2055.7) MB, pooled: 0 MB, 288.12 / 0.00 ms  (+ 82.1 ms in 70 steps since start of marking, biggest step 5.2 ms, walltime since start of marking 433 ms) (average mu = 0.
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF711EFB6AF node::OnFatalError+1343
+ 2: 00007FF712B43257 v8::Function::NewInstance+423
+ 3: 00007FF712943937 v8::base::AddressSpaceReservation::AddressSpaceReservation+322071
+ 4: 00007FF7129415D6 v8::base::AddressSpaceReservation::AddressSpaceReservation+313014
+ 5: 00007FF71295BC8A X509_STORE_set_cleanup+5098
+ 6: 00007FF712968126 uv_timer_set_repeat+20694
+ 7: 00007FF71253B207 v8::String::Utf8Value::~Utf8Value+143495
+ 8: 000001811FE77750 

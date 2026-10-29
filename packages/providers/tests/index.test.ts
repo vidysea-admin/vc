@@ -4,10 +4,12 @@ import { z } from "zod";
 import {
   ModelOutputSchemaError,
   MockProvider,
+  GEMINI_DEFAULT_TIMEOUT_MS,
   GeminiProvider,
   LiteLlmProvider,
   RulesProvider,
   createProvider,
+  geminiThinkingConfig,
   loadProviderConfig,
   providersStatus,
 } from "../src/index.js";
@@ -440,4 +442,327 @@ test("H6 F2: a spend that throws (async) rolls the reserved day and per-key coun
   await g.answer({ question: "q", systemPrompt: "s" });
   await assert.rejects(g.answer({ question: "q", systemPrompt: "s" }), GroundingBudgetError);
   assert.equal(inner.calls.length, 2, "both caps were fully intact after the refused spends");
+});
+
+// ---------------------------------------------------------------------------
+// T-057 (gemini-safety-extract): GeminiProvider is a real text provider (it was a stub that threw), so VC_LLM_PROVIDER=gemini can serve
+// the safety screen and fact extraction. Offline: every request goes to an injected fetch.
+// ---------------------------------------------------------------------------
+
+const geminiReply = (text: unknown, finishReason = "STOP") =>
+  new Response(JSON.stringify({ candidates: [{ finishReason, content: { parts: [{ text: typeof text === "string" ? text : JSON.stringify(text) }] } }] }), { status: 200 });
+
+test("T-057 G1: GeminiProvider.generate posts the skill prompt and input to generateContent in JSON mode, key in a header only, and returns the schema-parsed output", async () => {
+  const calls: { url: string; headers: Record<string, string>; body: any }[] = [];
+  const gemini = new GeminiProvider({
+    model: "gemini-synth-flash",
+    apiKey: "super-secret-value",
+    fetchImpl: (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), headers: init.headers as Record<string, string>, body: JSON.parse(String(init.body)) });
+      return geminiReply({ answer: "ok" });
+    }) as unknown as typeof fetch,
+  });
+  const out = await gemini.generate({ skillName: "demo", skillPrompt: "SKILL BODY", outputSchema: OutSchema, input: { q: "x" } });
+  assert.deepEqual(out, { answer: "ok" });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0]!.url, /^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-synth-flash:generateContent$/);
+  assert.doesNotMatch(calls[0]!.url, /super-secret-value/);
+  assert.equal(calls[0]!.headers["x-goog-api-key"], "super-secret-value");
+  assert.equal(calls[0]!.body.systemInstruction.parts[0].text, "SKILL BODY");
+  assert.equal(calls[0]!.body.generationConfig.responseMimeType, "application/json");
+  assert.deepEqual(JSON.parse(calls[0]!.body.contents[0].parts[0].text), { q: "x" });
+});
+
+// t057-gemini-thinking-config: gemini-3.5-flash-lite rejects thinkingBudget:0 (HTTP 400) and accepts thinkingLevel:"minimal"; the 2.5 family and
+// gemini-3.1-flash-lite / gemini-3.5-flash accept thinkingBudget:0 (probed live 2026-10-29). A model not proven here gets no thinkingConfig at all.
+test("t057 thinking config: each model family is sent the config it accepts, on the text path and the grounded path; an unknown model gets none", async () => {
+  const expected: [string, unknown][] = [
+    ["gemini-2.5-flash", { thinkingBudget: 0 }],
+    ["gemini-2.5-flash-lite", { thinkingBudget: 0 }],
+    ["gemini-3.1-flash-lite", { thinkingBudget: 0 }],
+    ["gemini-3.5-flash", { thinkingBudget: 0 }],
+    ["gemini-3.5-flash-lite", { thinkingLevel: "minimal" }],
+    ["gemini-2.5-pro", undefined],
+    ["gemini-9.9-flash-lite", undefined],
+    ["gemini-test", undefined],
+  ];
+  for (const [model, want] of expected) {
+    assert.deepEqual(geminiThinkingConfig(model), want, `helper: ${model}`);
+    const text: { init?: RequestInit } = {};
+    await new GeminiProvider({
+      model,
+      apiKey: "k",
+      fetchImpl: (async (_u: string, init: RequestInit) => { text.init = init; return geminiReply({ answer: "ok" }); }) as unknown as typeof fetch,
+    }).generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} });
+    assert.deepEqual(JSON.parse(String(text.init!.body)).generationConfig.thinkingConfig, want, `text path: ${model}`);
+    const grounded: { url?: string; init?: RequestInit } = {};
+    await new GeminiGroundedAnswerer({ model, apiKey: GKEY, fetchImpl: fakeFetch(okBody(), { capture: grounded }) }).answer({ question: "q", systemPrompt: "SYS" });
+    assert.deepEqual(JSON.parse(String(grounded.init!.body)).generationConfig.thinkingConfig, want, `grounded path: ${model}`);
+  }
+});
+
+test("T-057 G2: a Gemini failure is typed and key-free: HTTP status, cut-off reply, non-JSON, schema mismatch, timeout and caller abort", async () => {
+  const mk = (impl: (url: string, init: RequestInit) => Promise<Response>, timeoutMs?: number) =>
+    new GeminiProvider({ model: "m", apiKey: "super-secret-value", fetchImpl: impl as unknown as typeof fetch, ...(timeoutMs ? { timeoutMs } : {}) });
+  const req = { skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} };
+  const rejects = async (p: Promise<unknown>, name: string) =>
+    assert.rejects(p, (e: Error) => {
+      assert.equal(e.name, name);
+      assert.doesNotMatch(`${e.message} ${String(e)}`, /super-secret-value/);
+      return true;
+    });
+  await rejects(mk(async () => new Response("{}", { status: 503 })).generate(req), "GeminiHttpError");
+  await rejects(mk(async () => geminiReply('{"answer":"cut', "MAX_TOKENS")).generate(req), "GeminiMalformedResponseError");
+  await rejects(mk(async () => geminiReply("not json at all")).generate(req), "GeminiMalformedResponseError");
+  await rejects(mk(async () => new Response(JSON.stringify({ candidates: [] }), { status: 200 })).generate(req), "GeminiMalformedResponseError");
+  await rejects(mk(async () => geminiReply({ wrong: 1 })).generate(req), "ModelOutputSchemaError");
+  const hang = (_u: string, init: RequestInit) => new Promise<Response>((_res, rej) => init.signal!.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+  await rejects(mk(hang, 20).generate(req), "GeminiTimeoutError");
+  const ctl = new AbortController();
+  const aborted = mk(hang);
+  const pending = aborted.generate({ ...req, signal: ctl.signal });
+  ctl.abort();
+  await rejects(pending, "GeminiAbortedError");
+  let fetched = 0;
+  const pre = new AbortController();
+  pre.abort();
+  await rejects(mk(async () => { fetched++; return geminiReply({ answer: "x" }); }).generate({ ...req, signal: pre.signal }), "GeminiAbortedError");
+  assert.equal(fetched, 0, "an already-cancelled request never reaches the network");
+});
+
+test("T-057 G3: the Gemini default timeout is well under the 30 s demo budget, and a leaf preflight refusal stops before any request", async () => {
+  assert.ok(GEMINI_DEFAULT_TIMEOUT_MS > 0 && GEMINI_DEFAULT_TIMEOUT_MS <= 15_000);
+  let fetched = 0;
+  const gemini = new GeminiProvider({ model: "m", apiKey: "k", fetchImpl: (async () => { fetched++; return geminiReply({ answer: "x" }); }) as unknown as typeof fetch });
+  await assert.rejects(
+    gemini.generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {}, preflight: async () => { throw new Error("no"); } }),
+    (e: Error) => e.name === "ProviderAuthorizationRefusedError",
+  );
+  assert.equal(fetched, 0);
+});
+
+// ---------------------------------------------------------------------------
+// tool-first T3 (spec (f), S10; TF-13 + the grounding half of TF-14): per-role models and the thinking-config edge rows
+// ---------------------------------------------------------------------------
+
+import { loadRoleProviderConfig, resolveRoleModel, ROLE_MODEL_ENV, SUMMARY_DEFAULT_MODEL } from "../src/index.js";
+
+const GEM_ENV = { VC_LLM_PROVIDER: "gemini", VC_LLM_MODEL: "gemini-2.5-flash", GEMINI_API_KEY: GKEY };
+const LLM_ENV = { VC_LLM_PROVIDER: "litellm", VC_LLM_MODEL: "balanced", VC_LLM_BASE_URL: "http://127.0.0.1:4000/v1" };
+
+test("TF-13: the summary default is the probed gemini-3.5-flash-lite, and the role env names are fixed", () => {
+  assert.equal(SUMMARY_DEFAULT_MODEL, "gemini-3.5-flash-lite");
+  assert.deepEqual(ROLE_MODEL_ENV, { summary: "VC_MODEL_SUMMARY", answer: "VC_MODEL_ANSWER", router: "VC_MODEL_ROUTER" });
+  assert.notEqual(geminiThinkingConfig(SUMMARY_DEFAULT_MODEL), undefined, "the default must be an id the thinking helper has proven");
+});
+
+test("TF-13: per-role model env resolves, trimmed, and falls back to VC_LLM_MODEL when unset", () => {
+  assert.equal(resolveRoleModel({ ...GEM_ENV, VC_MODEL_SUMMARY: "  gemini-3.1-flash-lite " }, "summary"), "gemini-3.1-flash-lite");
+  assert.equal(resolveRoleModel({ ...GEM_ENV, VC_MODEL_ANSWER: "gemini-3.5-flash" }, "answer"), "gemini-3.5-flash");
+  assert.equal(resolveRoleModel({ ...GEM_ENV, VC_MODEL_ROUTER: "gemini-2.5-flash-lite" }, "router"), "gemini-2.5-flash-lite");
+  // unset: answer and router fall back to VC_LLM_MODEL; one role's override never leaks into another
+  assert.equal(resolveRoleModel({ ...GEM_ENV, VC_MODEL_SUMMARY: "gemini-3.5-flash" }, "answer"), "gemini-2.5-flash");
+  assert.equal(resolveRoleModel(GEM_ENV, "router"), "gemini-2.5-flash");
+  assert.equal(resolveRoleModel(LLM_ENV, "answer"), "balanced");
+  // summary: the gemini provider defaults to the probed fast model; any other provider keeps VC_LLM_MODEL
+  assert.equal(resolveRoleModel(GEM_ENV, "summary"), "gemini-3.5-flash-lite");
+  assert.equal(resolveRoleModel(LLM_ENV, "summary"), "balanced");
+  assert.equal(resolveRoleModel({ ...LLM_ENV, VC_MODEL_SUMMARY: "fast-cheap" }, "summary"), "fast-cheap");
+  // an empty value is "unset", the same as the other VC_* keys in .env files
+  assert.equal(resolveRoleModel({ ...LLM_ENV, VC_MODEL_SUMMARY: "" }, "summary"), "balanced");
+});
+
+test("TF-13: a bad per-role value is a config error that names the key, never the value", () => {
+  for (const bad of ["   ", "two words", "m;rm -rf", "m\nx", "$(whoami)", "-leading-dash", "a".repeat(129), "http://evil.example/x"]) {
+    assert.throws(
+      () => resolveRoleModel({ ...GEM_ENV, VC_MODEL_SUMMARY: bad }, "summary"),
+      (e: Error) => /VC_MODEL_SUMMARY/.test(e.message) && (bad.trim() === "" || !e.message.includes(bad.trim())),
+      `rejects ${JSON.stringify(bad.slice(0, 20))}`,
+    );
+  }
+  assert.throws(() => resolveRoleModel({ ...GEM_ENV, VC_MODEL_ROUTER: "bad value" }, "router"), /VC_MODEL_ROUTER/);
+  assert.throws(() => resolveRoleModel({ ...GEM_ENV, VC_MODEL_ANSWER: "bad value" }, "answer"), /VC_MODEL_ANSWER/);
+  assert.throws(() => loadRoleProviderConfig({ ...LLM_ENV, VC_MODEL_SUMMARY: "bad value" }, "summary"), /VC_MODEL_SUMMARY/);
+});
+
+test("TF-13: the role-model validator is ReDoS-safe on hostile input (300 repeats < 100 ms)", () => {
+  const hostile = "a".repeat(20_000) + "!";
+  const start = performance.now();
+  for (let i = 0; i < 300; i++) {
+    assert.throws(() => resolveRoleModel({ ...GEM_ENV, VC_MODEL_SUMMARY: hostile }, "summary"), /VC_MODEL_SUMMARY/);
+  }
+  assert.ok(performance.now() - start < 100, `took ${performance.now() - start} ms`);
+});
+
+test("TF-13: loadProviderConfig is byte-for-byte unchanged by the role keys (they are not part of the base config)", () => {
+  assert.deepEqual(loadProviderConfig({ ...GEM_ENV, VC_MODEL_SUMMARY: "gemini-3.5-flash-lite" }), { provider: "gemini", model: "gemini-2.5-flash", apiKey: GKEY });
+});
+
+test("TF-13: loadRoleProviderConfig swaps only the model; a litellm failover chain is dropped for an overridden role, kept otherwise", () => {
+  const chain = { ...LLM_ENV, VC_LLM_MODELS: "balanced,smart-coding" };
+  assert.deepEqual(loadRoleProviderConfig({ ...chain, VC_MODEL_SUMMARY: "fast-cheap" }, "summary"), { provider: "litellm", model: "fast-cheap", baseUrl: "http://127.0.0.1:4000/v1" });
+  assert.deepEqual(loadRoleProviderConfig(chain, "answer"), loadProviderConfig(chain));
+  assert.deepEqual(loadRoleProviderConfig(GEM_ENV, "summary"), { provider: "gemini", model: "gemini-3.5-flash-lite", apiKey: GKEY });
+  assert.deepEqual(loadRoleProviderConfig({ VC_LLM_PROVIDER: "mock" }, "summary"), { provider: "mock", model: "mock" });
+  assert.deepEqual(loadRoleProviderConfig({ VC_LLM_PROVIDER: "rules" }, "router"), { provider: "rules", model: "rules" });
+});
+
+test("TF-13: a role model built through the gemini provider is routed through geminiThinkingConfig", async () => {
+  const seen: Array<{ model: string; thinking: unknown }> = [];
+  const cases: Array<[("summary" | "answer" | "router"), Record<string, string>, string, unknown]> = [
+    ["summary", GEM_ENV, "gemini-3.5-flash-lite", { thinkingLevel: "minimal" }],
+    ["answer", { ...GEM_ENV, VC_MODEL_ANSWER: "gemini-3.5-flash" }, "gemini-3.5-flash", { thinkingBudget: 0 }],
+    ["router", { ...GEM_ENV, VC_MODEL_ROUTER: "gemini-9.9-flash-lite" }, "gemini-9.9-flash-lite", undefined],
+  ];
+  for (const [role, env, model, want] of cases) {
+    const provider = createProvider(loadRoleProviderConfig(env, role), {
+      fetchImpl: (async (url: string, init: RequestInit) => {
+        seen.push({ model: decodeURIComponent(String(url).split("/models/")[1]!.split(":")[0]!), thinking: JSON.parse(String(init.body)).generationConfig.thinkingConfig });
+        return geminiReply({ answer: "ok" });
+      }) as unknown as typeof fetch,
+    });
+    await provider.generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} });
+    const got = seen.pop()!;
+    assert.equal(got.model, model, `${role}: model on the wire`);
+    assert.deepEqual(got.thinking, want, `${role}: thinking config`);
+  }
+});
+
+test("TF-14 (grounding half): the grounded call carries only the general question and the fixed system prompt, never student fields", async () => {
+  const cap: { url?: string; init?: RequestInit } = {};
+  const answerer = new GeminiGroundedAnswerer({ model: "gemini-3.5-flash-lite", apiKey: GKEY, fetchImpl: fakeFetch(okBody(), { capture: cap }) });
+  // a caller that (wrongly) passes extra student-shaped fields at runtime: the seam must not forward them
+  const hostile = { question: "What is the IELTS test format?", systemPrompt: "SYS", studentId: "S-123", name: "Asha", rows: [{ university: "X" }], summary: "2 applications" } as unknown as Parameters<typeof answerer.answer>[0];
+  await answerer.answer(hostile);
+  const body = JSON.parse(String(cap.init!.body));
+  assert.deepEqual(Object.keys(body).sort(), ["contents", "generationConfig", "systemInstruction", "tools"]);
+  assert.deepEqual(body.contents, [{ role: "user", parts: [{ text: "What is the IELTS test format?" }] }]);
+  const wire = String(cap.init!.body) + String(cap.url);
+  for (const leak of ["S-123", "Asha", "2 applications", "university"]) assert.ok(!wire.includes(leak), `leaked ${leak}`);
+  assert.deepEqual(body.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
+});
+
+test("TF-14 (grounding half): VC_GROUNDING stays off by default; the grounded model does not follow the role keys", () => {
+  assert.equal(loadGroundedAnswerer({ GEMINI_API_KEY: GKEY, VC_MODEL_SUMMARY: "gemini-3.5-flash-lite" } as never), undefined);
+  assert.equal(loadGroundedAnswerer({ VC_GROUNDING: "off", GEMINI_API_KEY: GKEY }), undefined);
+  assert.equal(loadGroundedAnswerer({ VC_GROUNDING: "gemini", GEMINI_API_KEY: GKEY, VC_MODEL_SUMMARY: "gemini-3.5-flash", VC_MODEL_ANSWER: "gemini-3.1-flash-lite" } as never)?.model, "gemini-2.5-flash");
+});
+
+test("t057 thinking config edge rows: -preview suffix, flash2, 3.6, flash-latest, uppercase", () => {
+  // `(?![\w.])` ends the match at a hyphen, so a "-preview" suffix is read as the base id (same config); anything glued on with a digit, letter or dot is not.
+  assert.deepEqual(geminiThinkingConfig("gemini-3.5-flash-lite-preview"), { thinkingLevel: "minimal" });
+  assert.deepEqual(geminiThinkingConfig("gemini-3.5-flash-preview"), { thinkingBudget: 0 });
+  assert.equal(geminiThinkingConfig("gemini-3.5-flash2"), undefined);
+  assert.equal(geminiThinkingConfig("gemini-3.5-flash-lite2"), undefined);
+  assert.equal(geminiThinkingConfig("gemini-3.6-flash"), undefined);
+  assert.equal(geminiThinkingConfig("gemini-3.6-flash-lite"), undefined);
+  assert.equal(geminiThinkingConfig("gemini-flash-latest"), undefined);
+  assert.equal(geminiThinkingConfig("gemini-flash-lite-latest"), undefined);
+  assert.deepEqual(geminiThinkingConfig("GEMINI-3.5-FLASH-LITE"), { thinkingLevel: "minimal" });
+  assert.deepEqual(geminiThinkingConfig("Gemini-2.5-Flash"), { thinkingBudget: 0 });
+  assert.equal(geminiThinkingConfig(""), undefined);
+});
+
+// ---------------------------------------------------------------------------
+// S13 fix-b item 3: Gemini usage metering (usageMetadata -> the same onUsage path Ollama uses)
+// ---------------------------------------------------------------------------
+
+import { GeminiGroundedAnswerer as MeteredGrounded, GeminiProvider as MeteredGemini, loadGeminiPrice, loadGroundedAnswerer as loadMeteredGrounded, type OllamaActualUsage } from "../src/index.js";
+
+const usageBody = (usage: unknown, text: unknown = { answer: "ok" }) => new Response(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: typeof text === "string" ? text : JSON.stringify(text) }] } }], ...(usage === undefined ? {} : { usageMetadata: usage }) }), { status: 200 });
+
+test("S13 fix-b: GeminiProvider reports usageMetadata through onUsage (tokens, thoughts counted as output, usd only with a configured price)", async () => {
+  const seen: OllamaActualUsage[] = [];
+  const g = new MeteredGemini({
+    model: "gemini-synth-flash", apiKey: "k",
+    fetchImpl: (async () => usageBody({ promptTokenCount: 1000, candidatesTokenCount: 200, thoughtsTokenCount: 50 })) as unknown as typeof fetch,
+    onUsage: (u) => seen.push(u),
+    price: { inputUsdPerMTok: 0.5, outputUsdPerMTok: 2 },
+  });
+  assert.deepEqual(await g.generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: { q: 1 } }), { answer: "ok" });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0]!.actual, "reported"); assert.equal(seen[0]!.inputTokens, 1000); assert.equal(seen[0]!.outputTokens, 250);
+  assert.ok(Math.abs(seen[0]!.usd! - (1000 * 0.5 + 250 * 2) / 1e6) < 1e-12);
+  assert.equal(seen[0]!.model, "gemini-synth-flash");
+  // No price configured: tokens still reported, no invented dollar figure.
+  const free: OllamaActualUsage[] = [];
+  await new MeteredGemini({ model: "m", apiKey: "k", fetchImpl: (async () => usageBody({ promptTokenCount: 3, candidatesTokenCount: 4 })) as unknown as typeof fetch, onUsage: (u) => free.push(u) })
+    .generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} });
+  assert.equal(free[0]!.actual, "reported"); assert.equal(free[0]!.usd, undefined);
+});
+
+test("S13 fix-b: missing, malformed or half usageMetadata is 'unreported'; a throwing hook never fails the call; usage is reported even when the reply is unusable", async () => {
+  for (const bad of [undefined, {}, { promptTokenCount: 5 }, { promptTokenCount: -1, candidatesTokenCount: 2 }, { promptTokenCount: "5", candidatesTokenCount: 2 }, { promptTokenCount: 1.5, candidatesTokenCount: 2 }]) {
+    const seen: OllamaActualUsage[] = [];
+    await new MeteredGemini({ model: "m", apiKey: "k", fetchImpl: (async () => usageBody(bad)) as unknown as typeof fetch, onUsage: (u) => seen.push(u) })
+      .generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} });
+    assert.equal(seen.length, 1); assert.equal(seen[0]!.actual, "unreported"); assert.equal(seen[0]!.inputTokens, undefined);
+  }
+  const ok = await new MeteredGemini({ model: "m", apiKey: "k", fetchImpl: (async () => usageBody({ promptTokenCount: 1, candidatesTokenCount: 1 })) as unknown as typeof fetch, onUsage: () => { throw new Error("ledger down"); } })
+    .generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} });
+  assert.deepEqual(ok, { answer: "ok" });
+  const spent: OllamaActualUsage[] = [];
+  await assert.rejects(new MeteredGemini({ model: "m", apiKey: "k", fetchImpl: (async () => usageBody({ promptTokenCount: 9, candidatesTokenCount: 9 }, "not json")) as unknown as typeof fetch, onUsage: (u) => spent.push(u) })
+    .generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} }));
+  assert.equal(spent.length, 1, "tokens were spent even though the reply was unusable");
+});
+
+test("S13 fix-b: the grounded Gemini answerer reports usageMetadata through onUsage too", async () => {
+  const seen: OllamaActualUsage[] = [];
+  const a = new MeteredGrounded({
+    model: "gemini-test", apiKey: GKEY,
+    fetchImpl: fakeFetch({ ...okBody(), usageMetadata: { promptTokenCount: 700, candidatesTokenCount: 120 } }),
+    onUsage: (u) => seen.push(u), price: { inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
+  });
+  await a.answer({ question: "q", systemPrompt: "SYS" });
+  assert.equal(seen.length, 1);
+  assert.deepEqual([seen[0]!.actual, seen[0]!.inputTokens, seen[0]!.outputTokens], ["reported", 700, 120]);
+  assert.ok(Math.abs(seen[0]!.usd! - (700 + 480) / 1e6) < 1e-12);
+  const viaLoader: OllamaActualUsage[] = [];
+  const loaded = loadMeteredGrounded({ VC_GROUNDING: "gemini", GEMINI_API_KEY: GKEY }, { fetchImpl: fakeFetch({ ...okBody(), usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 2 } }), onUsage: (u) => viaLoader.push(u) })!;
+  await loaded.answer({ question: "q", systemPrompt: "SYS" });
+  assert.equal(viaLoader.length, 1);
+});
+
+test("S13 fix-b: createProvider hands deps.onUsage to a gemini provider; loadGeminiPrice parses an optional price and refuses a bad one", async () => {
+  const seen: OllamaActualUsage[] = [];
+  const p = createProvider({ provider: "gemini", model: "gemini-synth-flash", apiKey: "k" }, { onUsage: (u) => seen.push(u), fetchImpl: (async () => usageBody({ promptTokenCount: 2, candidatesTokenCount: 3 })) as unknown as typeof fetch });
+  await p.generate({ skillName: "d", skillPrompt: "P", outputSchema: OutSchema, input: {} });
+  assert.equal(seen.length, 1);
+  assert.equal(loadGeminiPrice({}), undefined);
+  assert.deepEqual(loadGeminiPrice({ GEMINI_PRICE_USD_PER_MTOK: "0.3, 2.5" }), { inputUsdPerMTok: 0.3, outputUsdPerMTok: 2.5 });
+  for (const bad of ["x", "1", "1,2,3", "0,1", "-1,2", "a,b"]) assert.throws(() => loadGeminiPrice({ GEMINI_PRICE_USD_PER_MTOK: bad }), /GEMINI_PRICE_USD_PER_MTOK/);
+});
+
+// ---------------------------------------------------------------------------
+// S13 fix-b item 3: per-role models are wired (withRoleModels / RoleRoutedProvider)
+// ---------------------------------------------------------------------------
+
+import { RoleRoutedProvider, ROLE_SKILLS, withRoleModels } from "../src/index.js";
+
+test("S13 fix-b: withRoleModels returns the base provider itself when no listed role key is set (behaviour unchanged, blank keys count as unset)", () => {
+  const base = new MockProvider({ model: "base-model", responses: {} });
+  const env = { VC_LLM_PROVIDER: "mock", VC_LLM_MODEL: "base-model" };
+  assert.equal(withRoleModels(env, base, ["summary", "answer", "router"]), base);
+  assert.equal(withRoleModels({ ...env, VC_MODEL_ANSWER: "" }, base, ["answer"]), base);
+  // a key for a role that is not listed does not switch anything
+  assert.equal(withRoleModels({ ...env, VC_MODEL_SUMMARY: "sum-model" }, base, ["answer", "router"]), base);
+});
+
+test("S13 fix-b: withRoleModels sends only the keyed role's skills to its own model; everything else stays on the base", async () => {
+  const base = new MockProvider({ model: "base-model", responses: { "lang-detect": { answer: "base" }, "kb-answer": { answer: "from-role" } } });
+  const env = { VC_LLM_PROVIDER: "mock", VC_LLM_MODEL: "base-model", VC_MODEL_ANSWER: "ans-model" };
+  const routed = withRoleModels(env, base, ["answer", "router"], { mockResponses: { "kb-answer": { answer: "from-role" } } });
+  assert.ok(routed instanceof RoleRoutedProvider);
+  for (const skill of ROLE_SKILLS.answer) assert.equal((routed as RoleRoutedProvider).providerFor(skill).model, "ans-model");
+  for (const skill of [...ROLE_SKILLS.router, ...ROLE_SKILLS.summary, "concern-classifier", "something-else"]) assert.equal((routed as RoleRoutedProvider).providerFor(skill), base);
+  assert.deepEqual(await routed.generate({ skillName: "kb-answer", skillPrompt: "P", outputSchema: OutSchema, input: {} }), { answer: "from-role" });
+  assert.deepEqual(await routed.generate({ skillName: "lang-detect", skillPrompt: "P", outputSchema: OutSchema, input: {} }), { answer: "base" });
+  assert.equal(routed.model, "base-model");
+});
+
+test("S13 fix-b: withRoleModels refuses a bad role model id naming the key, never the value", () => {
+  const base = new MockProvider({ model: "base-model", responses: {} });
+  assert.throws(() => withRoleModels({ VC_LLM_PROVIDER: "mock", VC_MODEL_ROUTER: "bad id//x" }, base, ["router"]), (e: unknown) => /VC_MODEL_ROUTER/.test(String(e)) && !/bad id/.test(String(e)));
+  assert.throws(() => withRoleModels({ VC_MODEL_ROUTER: "ok-model" }, base, ["router"]), /VC_LLM_PROVIDER/);
 });

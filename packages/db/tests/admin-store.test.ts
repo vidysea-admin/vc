@@ -154,8 +154,9 @@ test("VA2: setSecret stores only the encrypted triple; the fake Db holds no plai
     assert.equal(JSON.stringify(view).includes(raw.secretEnc!.ct), false);
   }
   assert.equal(await store.sources.readSecret("src-a"), DUMMY_SECRET);
-  // an upsert after the secret keeps it
-  await store.sources.upsert({ id: "src-a", siteId: "pathlynks", kind: "postgres", config: { host: "db2.example.invalid" } });
+  // S12: metadata updates keep the secret, but a destination change is refused.
+  await assert.rejects(store.sources.upsert({ id: "src-a", siteId: "pathlynks", kind: "postgres", config: { host: "db2.example.invalid" } }), AdminStoreError);
+  await store.sources.upsert({ id: "src-a", siteId: "pathlynks", kind: "postgres", config: { host: "db.example.invalid", port: 5432, enabled: false } });
   assert.equal((await store.sources.get("src-a"))?.hasSecret, true);
   assert.equal(await store.sources.readSecret("src-a"), DUMMY_SECRET);
 });
@@ -501,4 +502,36 @@ test("VA17: nearest-rank percentile edge cases (n=0, 1, 2, 20, 100, unsorted inp
   assert.equal(nearestRank(hundred, 95), 95);
   assert.equal(nearestRank(hundred, 50), 50);
   assert.equal(nearestRank([5, 1, 4, 2, 3], 50), 3);
+});
+
+
+test('S12 encrypted credentials cannot survive a kind/site/destination/ref retarget', async()=>{
+ const original={id:'bound-db',siteId:'vidysea',kind:'postgres' as const,config:{platform:'vidysea',host:'trusted.example',port:5432,database:'fixture',user:'reader',sslmode:'require',passwordRef:'VIDYSEA_DB_PASSWORD'}};
+ for(const patch of [{siteId:'other'}, {kind:'github' as const}, {config:{host:'attacker.example'}}, {config:{database:'other'}}, {config:{user:'other'}}, {config:{port:9999}}, {config:{sslmode:'verify-full'}}, {config:{platform:'pathlynks'}}, {config:{passwordRef:'VIDYSEA_DB_OTHER'}}]){
+  const {store}=newStore(); await store.sources.upsert(original); await store.sources.setSecret(original.id,DUMMY_SECRET);
+  await assert.rejects(store.sources.upsert({...original,...patch,config:{...original.config,...patch.config}}),AdminStoreError);
+  assert.equal(await store.sources.readSecret(original.id),DUMMY_SECRET); assert.equal((await store.sources.get(original.id))!.config.host,'trusted.example');
+ }
+ const {store}=newStore(); await store.sources.upsert(original); await store.sources.setSecret(original.id,DUMMY_SECRET);
+ await store.sources.upsert({...original,config:{...original.config,enabled:false}}); assert.equal((await store.sources.get(original.id))!.config.enabled,false);
+});
+
+
+test('S12 source retarget racing secret provisioning cannot attach old secret to new destination',async()=>{
+ for(const first of ['retarget','secret']){
+  const {store,db}=newStore();const original={id:'race-db',siteId:'vidysea',kind:'postgres' as const,config:{platform:'vidysea',host:'trusted.example',port:5432,database:'fixture',user:'reader',sslmode:'require',passwordRef:'VIDYSEA_DB_PASSWORD'}};
+  await store.sources.upsert(original);const collection=db.collection('sources');const update=collection.updateOne.bind(collection);let injected=false;
+  collection.updateOne=(async(...args:Parameters<typeof update>)=>{
+   if(!injected){injected=true;if(first==='retarget')await store.sources.setSecret(original.id,DUMMY_SECRET);else await store.sources.upsert({...original,config:{...original.config,host:'new.example'}});}
+   return update(...args);
+  }) as typeof collection.updateOne;
+  try {
+   if(first==='retarget'){
+    await assert.rejects(store.sources.upsert({...original,config:{...original.config,host:'new.example'}}),AdminStoreError);
+    assert.equal((await store.sources.get(original.id))!.config.host,'trusted.example');assert.equal(await store.sources.readSecret(original.id),DUMMY_SECRET);
+   }else{
+    await assert.rejects(store.sources.setSecret(original.id,DUMMY_SECRET),AdminStoreError);assert.equal((await store.sources.get(original.id))!.hasSecret,false);assert.equal((await store.sources.get(original.id))!.config.host,'new.example');
+   }
+  }finally{collection.updateOne=update;}
+ }
 });

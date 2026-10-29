@@ -1,0 +1,13 @@
+{
+  "synthetic": true,
+  "method": "TypeScript compiler host overlays only the two changed files with exact local git HEAD sources; all other current dependencies/config/include inputs retained",
+  "current": 93,
+  "baseline": 93,
+  "added": [],
+  "removed": [],
+  "baselineSources": [
+    "src/components/student/ChatWidget.tsx",
+    "src/app/student/(main)/ai-counsellor/page.tsx"
+  ],
+  "productionTypecheckStillFails": true
+}

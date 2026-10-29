@@ -205,3 +205,25 @@ test("VA19 nav: viewer and admin do not see Admins, super-admin does; every role
     assert.ok(html.includes(role), "the role is shown");
   }
 });
+
+
+test("Q13 memory policy: actual site detail exposes independent controls, hard caps and read-only viewer", () => {
+  const policy = {shortTermEnabled:true,longTermEnabled:false,learningEnabled:true,contextMessages:0,maxFacts:7};
+  for (const role of ["viewer","admin","super-admin"] as const) {
+    const html = renderToStaticMarkup(<SiteDetailView role={role} site={{...site,memoryPolicy:policy}} revealed={null} error={null} busy={false} onSave={noopAsync} onRotate={noopAsync} onRevoke={noopAsync} onUnrevoke={noopAsync} onDismissReveal={noop} />);
+    for (const id of ["shortTermEnabled","longTermEnabled","learningEnabled","contextMessages","maxFacts"]) assert.ok(html.includes('data-testid="memory-'+id+'"'),id);
+    assert.match(html, /max="12"/); assert.match(html,/max="20"/);
+    if(role==="viewer") assert.ok(!html.includes('data-testid="save-memory"'));
+    else assert.ok(html.includes('data-testid="save-memory"'));
+    for (const tag of html.match(/<input[^>]*data-testid="memory-[^"]+"[^>]*>/g)??[]) assert.equal(tag.includes('disabled=""'),role==="viewer");
+  }
+  const legacy=renderToStaticMarkup(<SiteDetailView role="admin" site={site} revealed={null} error={null} busy={false} onSave={noopAsync} onRotate={noopAsync} onRevoke={noopAsync} onUnrevoke={noopAsync} onDismissReveal={noop}/>);
+  assert.ok(legacy.includes("Memory is off until settings are saved"));
+});
+
+
+test('S12 Admin shows both platforms and disables unprovisioned source actions',()=>{
+ const props={role:'admin' as const,sources:[...sources,{id:'vidysea-db',siteId:'vidysea',kind:'postgres' as const,config:{platform:'vidysea',enabled:false,host:'fixture.example'},hasSecret:false}],results:{},error:null,busy:false,onCreate:noopAsync,onTest:noopAsync,onSync:noopAsync,onSetSecret:noopAsync};
+ const html=renderToStaticMarkup(<SourcesView {...props}/>);assert.ok(html.includes('value="vidysea"'));assert.ok(html.includes('value="pathlynks"'));assert.ok(html.includes('source-siteId'));assert.ok(html.includes('<dd>vidysea</dd>'));
+ const card=html.slice(html.indexOf('data-testid="source-card-vidysea-db"'));assert.match(card,/<button[^>]*disabled=""[^>]*data-testid="test-source"/);assert.ok(!card.includes('data-testid="sync-source"'));assert.ok(card.includes('<dd>false</dd>'));
+});

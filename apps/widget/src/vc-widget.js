@@ -2,7 +2,7 @@
  * One script tag, no dependencies, no build step. Renders a floating bubble inside a shadow DOM.
  *   <script src=".../widget/vc-widget.v1.js" data-vc-key="vck_..." defer></script>   key mode
  *   <script src=".../widget/vc-widget.v1.js" data-vc-proxy="/api/vc" defer></script> proxy mode
- * Options: data-vc-key, data-vc-api, data-vc-proxy, data-vc-title, data-vc-color, data-vc-voice ("on" adds a mic button and a Chat|Voice toggle; key mode only), data-vc-site (site id for the pop-out window).
+ * Options: data-vc-key, data-vc-api, data-vc-proxy, data-vc-title, data-vc-color, data-vc-voice ("on" adds a mic button and a Chat|Voice toggle), data-vc-voice-proxy (same-origin mint path), data-vc-site (site id for the pop-out window).
  * The panel floats: drag it by the header, resize it from the bottom-right corner, or pop it out into its own window.
  * Safety: model text is only ever written with textContent; links are limited to http/https; nothing is stored
  * (no localStorage, sessionStorage, cookies or IndexedDB); the conversation lives in memory only.
@@ -23,7 +23,7 @@
   var SITE_RE = /^[a-z0-9-]{2,32}$/; // the partner-id shape; the pop-out URL carries this id and never a key
   var POPOUT_PATH = "/vc-popout";
   var POPOUT_FEATURES = "popup=yes,width=420,height=680,noopener,noreferrer";
-  var VOICE_RENDERED = true; // pc-voice (V3): data-vc-voice="on" (key mode) loads the mic add-on, voice.js, from the folder this script came from.
+  var VOICE_RENDERED = true; // data-vc-voice="on" with a key or explicit voice proxy loads the mic add-on from this script's folder.
   var VOICE_MAJOR = "1"; // the add-on's file name carries its major version: vc-widget-voice.v1.js
 
   // ---- config -----------------------------------------------------------------------------------------------
@@ -47,7 +47,7 @@
     return p.href;
   }
 
-  // dataset: an object with camelCase keys (vcKey, vcApi, vcProxy, vcTitle, vcColor, vcVoice), like element.dataset.
+  // dataset: camelCase attribute keys, including vcVoiceProxy. Identity and thread attributes are never accepted.
   function parseConfig(dataset, scriptSrc) {
     var d = dataset || {};
     var errors = [];
@@ -57,6 +57,12 @@
     var color = str("vcColor");
     if (!/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) color = DEFAULT_COLOR;
     var voice = str("vcVoice").toLowerCase() === "on";
+    var voiceProxy = str("vcVoiceProxy");
+    // Root-relative paths only: browser origin, no credentials/query/fragment or slash normalization to a remote host.
+    if (voiceProxy && (voiceProxy.length > 2048 || !/^\/(?![\/\\])[^\\?#\s]*$/.test(voiceProxy) || /[\u0000-\u001f\u007f]/.test(d.vcVoiceProxy))) {
+      errors.push("data-vc-voice-proxy must be a same-origin path starting with a single /, without query or fragment");
+      voiceProxy = "";
+    }
     var site = str("vcSite");
     if (!SITE_RE.test(site)) site = "";
     var mode, turnUrl = "";
@@ -87,7 +93,7 @@
       var km = /^vck_pub_([a-z0-9-]{2,32})_/.exec(key);
       if (km) site = km[1];
     }
-    return { ok: errors.length === 0, errors: errors, mode: mode, key: key, turnUrl: turnUrl, title: title, color: color, voice: voice, site: site };
+    return { ok: errors.length === 0, errors: errors, mode: mode, key: key, turnUrl: turnUrl, title: title, color: color, voice: voice, voiceProxy: voiceProxy, site: site };
   }
 
   // ---- floater geometry (vc-admin-control S7) ---------------------------------------------------------------
@@ -130,9 +136,10 @@
 
   // ---- voice hook (pc-voice V3) -----------------------------------------------------------------------------
 
-  // The mic is offered only with data-vc-voice="on" AND a page key: the voice session is minted with the key (proxy and open modes have none).
+  // Proxy voice is an explicit opt-in to the host's authenticated same-origin mint; never derive it from the text endpoint.
   function voiceAvailable(cfg) {
-    return !!(cfg && cfg.voice && cfg.mode === "key" && cfg.key);
+    return !!(cfg && cfg.voice && ((cfg.mode === "key" && cfg.key) ||
+      (cfg.mode === "proxy" && typeof cfg.voiceProxy === "string" && cfg.voiceProxy.length <= 2048 && /^\/(?![\/\\])[^\\?#\s]*$/.test(cfg.voiceProxy) && !/[\u0000-\u001f\u007f]/.test(cfg.voiceProxy))));
   }
 
   // Where the add-on lives: next to the script that is running, under the versioned name. "" when the script URL is unusable.
@@ -255,12 +262,14 @@
   }
 
   // One chat turn. Never throws. kind: reply | unavailable | rate | error | network.
-  async function send(cfg, text, fetchImpl) {
+  async function send(cfg, text, fetchImpl, signal) {
     var req = buildRequest(cfg, text);
     var f = fetchImpl || (root.fetch && root.fetch.bind(root));
     var ctl = typeof AbortController === "function" ? new AbortController() : null;
     var timer = ctl ? setTimeout(function () { ctl.abort(); }, 130000) : null;
     if (ctl) req.init.signal = ctl.signal;
+    var cancel = function () { if (ctl) ctl.abort(); };
+    if (signal) { if (signal.aborted) cancel(); else signal.addEventListener("abort", cancel, {once:true}); }
     var res;
     try {
       res = await f(req.url, req.init);
@@ -268,6 +277,7 @@
       return { kind: "network" };
     } finally {
       if (timer) clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", cancel);
     }
     if (res.status === 401 || res.status === 403) return { kind: "unavailable" };
     if (res.status === 429) return { kind: "rate", wait: parseRetryAfter(res.headers && res.headers.get("retry-after")) };
@@ -331,7 +341,8 @@
       ".panel[data-mode=voice] .mic{flex:1}",
       ".grip{position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;touch-action:none;z-index:1;background:linear-gradient(135deg,transparent 52%,#8c96a3 52%,#8c96a3 60%,transparent 60%,transparent 72%,#8c96a3 72%,#8c96a3 80%,transparent 80%)}",
       ".foot{padding:6px 24px;font-size:.8rem;font-weight:600;text-align:center;background:#fff;border-top:1px solid #d9dde3}",
-      "button:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #f0a100;outline-offset:2px}",
+      "button:focus-visible,textarea:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #f0a100;outline-offset:2px}",
+      ".sessions{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid #d9dde3}.sessions select{min-width:0;flex:1}.sessions button,.memory button{min-height:36px;font:inherit;cursor:pointer}.memory{padding:8px 12px;max-height:170px;overflow:auto;border-bottom:1px solid #d9dde3;font-size:.85rem}.memory p{margin:4px 0}.memory button{margin:4px 8px 4px 0}.sessions[hidden],.memory[hidden]{display:none}",
       "@media (max-width:480px){.panel{left:8px;right:8px;width:auto;bottom:80px}.root{right:12px;bottom:12px}}"
     ].join("\n");
   }
@@ -358,9 +369,21 @@
   function mount(cfg, doc, fetchImpl, env) {
     doc = doc || root.document;
     var win = (env && env.win) || root;
+    var auth = cfg.authenticated || null, authBase = auth && auth.basePath;
+    var authValid = !!(auth && cfg.mode === "proxy" && typeof authBase === "string" &&
+      /^\/(?![\/\\])[^\\?#%\s]*$/.test(authBase) && !/[\u0000-\u001f\u007f]/.test(authBase) &&
+      !authBase.split("/").some(function (s) { return s === "." || s === ".."; }));
+    if (authValid) { authBase = authBase.replace(/\/+$/, ""); authValid = !!authBase; }
+    if (authValid) cfg = Object.assign({}, cfg, { key: "", voiceProxy: authBase + "/voice/session" });
+    var destroyed = false, listeners = [], memoryListeners = [], controllers = new Set(), observer = null;
+    var selectedThread = "", ownedThreads = [], pendingTurn = null, pendingChoice = null, profileEpoch = 0, threadEpoch = 0;
+    function listen(node, type, fn, list) {
+      node.addEventListener(type, fn);
+      (list || listeners).push(function () { node.removeEventListener(type, fn); });
+    }
     var pageOrigin = "";
     try { pageOrigin = (win.location && win.location.origin) || ""; } catch (e) { /* no location */ }
-    var popUrl = popoutUrl(cfg, pageOrigin);
+    var popUrl = auth ? null : popoutUrl(cfg, pageOrigin);
     var host = doc.createElement("div");
     host.setAttribute("data-vc-widget", VERSION);
     var shadow = host.attachShadow({ mode: "open" });
@@ -445,6 +468,13 @@
     var foot = el(doc, "div", "foot", FOOTER);
 
     panel.appendChild(head);
+    var sessions = el(doc, "div", "sessions"), threadSelect = el(doc, "select"), newChat = el(doc, "button", "", "New chat");
+    threadSelect.setAttribute("aria-label", "Chat history"); newChat.type = "button";
+    newChat.setAttribute("aria-label", "Start new chat");
+    sessions.appendChild(threadSelect); sessions.appendChild(newChat); sessions.hidden = !auth;
+    panel.appendChild(sessions);
+    var memory = el(doc, "div", "memory"); memory.setAttribute("aria-label", "Your memory"); memory.hidden = !auth;
+    panel.appendChild(memory);
     panel.appendChild(log);
     panel.appendChild(status);
     panel.appendChild(form);
@@ -457,10 +487,11 @@
     wrap.appendChild(bubble);
     shadow.appendChild(wrap);
 
-    var busy = false, dead = false, waitTimer = null, greeted = false;
+    var busy = false, dead = !!auth && !authValid, waitTimer = null, greeted = false;
     var hist = []; // the one in-memory history both modes share: {node, cls, text}; never stored, never sent to the pop-out window
 
     function add(cls, text) {
+      if (destroyed) return el(doc, "div");
       var d = el(doc, "div", "m " + cls);
       d.textContent = text; // never innerHTML
       log.insertBefore(d, typing);
@@ -479,9 +510,11 @@
       if (b) log.scrollTop = log.scrollHeight;
     }
     function refreshControls() {
-      var off = busy || dead || !!waitTimer;
+      var off = busy || dead || destroyed || !!waitTimer;
+      threadSelect.disabled = off; newChat.disabled = off;
       sendBtn.disabled = off;
-      input.disabled = dead;
+      if (auth) sendBtn.textContent = pendingTurn ? "Retry" : "Send";
+      input.disabled = dead || destroyed;
       if (!dead && !busy && !waitTimer) status.textContent = "";
     }
     function linksBlock(sources) {
@@ -544,7 +577,211 @@
       refreshControls();
     }
 
+
+    // Authenticated resources are rooted at an explicit host proxy. No browser identity is accepted.
+    async function hostFetch(url, init) {
+      if (destroyed || !authValid || !(url === authBase + '/profile' || url.indexOf(authBase + '/') === 0)) throw new Error('Unavailable');
+      var extra = auth.getHeaders ? await auth.getHeaders() : {};
+      if (destroyed || (init.signal && init.signal.aborted)) throw new Error('Cancelled');
+      var headers = {'content-type':'application/json'};
+      if (typeof Headers === 'function') new Headers(extra || {}).forEach(function (v,k) { headers[k] = v; });
+      else Object.assign(headers, extra || {});
+      var transport = auth.transport || fetchImpl || (root.fetch && root.fetch.bind(root));
+      return transport(url, Object.assign({}, init, {headers:headers, credentials:'same-origin', redirect:'error'}));
+    }
+    async function resource(path, method, body) {
+      if (!authValid || destroyed) return {ok:false,status:0};
+      var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 130000);
+      controllers.add(ctl);
+      try {
+        var res = await hostFetch(authBase + path, {method:method || 'GET', signal:ctl.signal, body:body === undefined ? undefined : JSON.stringify(body)});
+        var data = await res.json();
+        if (destroyed || ctl.signal.aborted) return {ok:false,status:0};
+        return {ok:res.ok, status:res.status, body:data};
+      } catch (e) { return {ok:false,status:0}; }
+      finally { clearTimeout(timer); controllers.delete(ctl); }
+    }
+    function validId(id) { return typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id); }
+    function clearHistory() {
+      hist.forEach(function (h) { if (h.node.parentNode) h.node.parentNode.removeChild(h.node); });
+      hist = []; liveLine = {user:null,assistant:null}; lastBot = null;
+    }
+    function drawThreads() {
+      threadSelect.textContent = '';
+      ownedThreads.forEach(function (t,i) {
+        var option = el(doc,'option','', 'Chat ' + (i+1) + (t.lastActivityAt ? ' · ' + String(t.lastActivityAt).slice(0,10) : ''));
+        option.value = t.threadId; threadSelect.appendChild(option);
+      });
+      threadSelect.value = selectedThread;
+    }
+    async function refreshThreads() {
+      var r = await resource('/threads');
+      if (destroyed || !r.ok || !r.body || !Array.isArray(r.body.threads)) return false;
+      ownedThreads = r.body.threads.slice(0,50).filter(function (t) { return t && validId(t.threadId); });
+      drawThreads(); return true;
+    }
+    function candidateFor(item) {
+      var p = item.pendingChange;
+      if (!item.readOnly && validId(item.factId) && p && validId(p.candidateId) && typeof p.version === 'string' && p.version.length > 0 && p.version.length <= 128 && typeof p.value === 'string' && p.value.length > 0 && p.value.length <= 1000) {
+        return {factId:item.factId,key:item.key,value:p.value,oldValue:item.status === 'confirmed' ? item.value : null,candidateId:p.candidateId,expectedVersion:p.version,threadId:selectedThread};
+      }
+      return null;
+    }
+    async function refreshProfile() {
+      var epoch = ++profileEpoch, thread = selectedThread;
+      var r = await resource('/profile');
+      if (destroyed || epoch !== profileEpoch || thread !== selectedThread) return false;
+      pendingChoice = null;
+      memoryListeners.splice(0).forEach(function (off) { off(); });
+      memory.textContent = '';
+      if (!r.ok || !r.body || !r.body.memory || !Array.isArray(r.body.memory.items)) {
+        memory.appendChild(el(doc,'p','','Memory unavailable. Please refresh before making a decision.')); return false;
+      }
+      var choices = [];
+      memory.appendChild(el(doc,'strong','','Your memory'));
+      r.body.memory.items.slice(0,20).forEach(function (item) {
+        if (!item || typeof item.key !== 'string' || typeof item.value !== 'string') return;
+        var row = el(doc,'div');
+        row.appendChild(el(doc,'p','',item.key.slice(0,128) + ': ' + item.value.slice(0,1000) + (item.readOnly ? ' (account)' : item.status === 'proposed' ? ' (awaiting confirmation)' : '')));
+        var choice = candidateFor(item);
+        function button(label, action, payload) {
+          var btn = el(doc,'button','',label); btn.type='button';
+          btn.setAttribute('aria-label',label + (choice ? ' change to ' : ' ') + item.key);
+          listen(btn,'click',function () { decideMemory(payload,action); },memoryListeners); row.appendChild(btn);
+        }
+        if (choice && selectedThread) {
+          row.appendChild(el(doc,'p','',(choice.oldValue === null ? 'Remember ' + choice.key + ' as "' + choice.value + '"?' : 'Change ' + choice.key + ' from "' + choice.oldValue + '" to "' + choice.value + '"?') + ' Reply yes or no, or choose below.'));
+          button('Confirm','confirm',choice); button('Reject','reject',choice); choices.push(choice);
+        } else if (!item.readOnly && item.status === 'proposed' && validId(item.factId)) {
+          button('Confirm','confirm',{factId:item.factId,value:item.value,threadId:selectedThread});
+        }
+        if (!item.readOnly && validId(item.factId)) {
+          var edit = el(doc,'input'); edit.type='text'; edit.maxLength=1000; edit.value=item.value;
+          edit.setAttribute('aria-label','Correct value for ' + item.key);
+          var correct = el(doc,'button','','Correct'); correct.type='button'; correct.setAttribute('aria-label','Correct ' + item.key);
+          listen(correct,'click',function () {
+            var value=edit.value.trim();
+            if (value && value.length <= 1000) decideMemory({factId:item.factId,value:value,threadId:selectedThread},'correct');
+          },memoryListeners);
+          row.appendChild(edit); row.appendChild(correct);
+          button('Forget','erase',{factId:item.factId,threadId:selectedThread});
+        }
+        memory.appendChild(row);
+      });
+      if (choices.length === 1) pendingChoice = choices[0];
+      return true;
+    }
+    async function decideMemory(choice, action) {
+      if (destroyed || busy || !choice || choice.threadId !== selectedThread || !selectedThread) return false;
+      var thread = selectedThread;
+      setBusy(true); if (voiceCtl) voiceCtl.stop();
+      var body = {action:action,threadId:thread};
+      if (action !== 'erase') body.value = choice.value;
+      if (choice.candidateId) { body.candidateId = choice.candidateId; body.expectedVersion = choice.expectedVersion; }
+      var r = await resource('/profile/facts/' + encodeURIComponent(choice.factId) + '/decision', 'POST', body);
+      if (destroyed || thread !== selectedThread) return false;
+      pendingChoice = null;
+      await refreshProfile();
+      if (destroyed) return false;
+      setBusy(false);
+      if (r.status === 409) {
+        status.textContent = 'Memory changed. Please review the current choice and try again.';
+      } else if (!r.ok) status.textContent = 'Memory could not be updated. Please review and try again.';
+      else add('note', action === 'reject' ? 'Change rejected; your confirmed preference is kept.' : action === 'erase' ? 'Preference forgotten.' : 'Memory updated.');
+      return r.ok;
+    }
+    async function selectThread(id) {
+      if (destroyed || busy || !ownedThreads.some(function (t) { return t.threadId === id; })) return false;
+      if (voiceCtl) voiceCtl.stop();
+      var epoch = ++threadEpoch; ++profileEpoch; pendingChoice = null;
+      selectedThread = id; threadSelect.value = id; pendingTurn = null; input.value = ''; clearHistory();
+      memoryListeners.splice(0).forEach(function (off) { off(); }); memory.textContent = '';
+      setBusy(true);
+      var r = await resource('/threads/' + encodeURIComponent(id));
+      if (destroyed || epoch !== threadEpoch) return false;
+      if (!r.ok || !r.body || r.body.threadId !== id || !Array.isArray(r.body.turns)) {
+        selectedThread = ''; setBusy(false); status.textContent = 'History unavailable. Select a chat to retry.'; return false;
+      }
+      r.body.turns.slice(0,200).filter(function (t) {
+        return t && (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string' && t.text &&
+          t.status !== 'pending' && t.publicationState !== 'pending' && t.published !== false;
+      }).sort(function (a,b) { return String(a.at).localeCompare(String(b.at)); }).forEach(function (t) {
+        if (t.role === 'user') add('me',t.text.slice(0,8000));
+        else showReply(normalizeReply({state:'ok',message:t.text,claims:t.claims,sources:t.sources}));
+      });
+      await refreshProfile();
+      if (destroyed || epoch !== threadEpoch) return false;
+      setBusy(false); return true;
+    }
+    async function newThread() {
+      if (destroyed || busy) return false;
+      if (voiceCtl) voiceCtl.stop();
+      var priorDraft = input.value;
+      input.value = '';
+      setBusy(true);
+      var r = await resource('/threads','POST',{});
+      if (destroyed) return false;
+      setBusy(false);
+      if (!r.ok || !r.body || !validId(r.body.threadId)) { if (!input.value) input.value = priorDraft; status.textContent = 'Could not start a chat. Please retry.'; return false; }
+      var meta = {threadId:r.body.threadId};
+      if (!ownedThreads.some(function (t) {return t.threadId===meta.threadId;})) ownedThreads.unshift(meta);
+      selectedThread = meta.threadId; ++threadEpoch; pendingTurn = null; pendingChoice = null; clearHistory(); drawThreads();
+      await refreshProfile(); return !destroyed;
+    }
+    async function submitAuthenticated() {
+      var text = input.value.trim();
+      if (!text || busy || dead || destroyed || !selectedThread) return;
+      if (pendingChoice && /^(yes|no|maybe|perhaps|not sure)[.!?]?$/i.test(text)) {
+        if (!/^(yes|no)[.!?]?$/i.test(text)) { add('note','Please reply yes or no to the exact change shown, or use its buttons.'); return; }
+        var decided = await decideMemory(pendingChoice,/^yes/i.test(text) ? 'confirm' : 'reject');
+        if (decided && input.value.trim() === text) input.value = '';
+        return;
+      }
+      // The same intentional transport Retry keeps its id and bubble; changing text starts a new attempt.
+      if (!pendingTurn || pendingTurn.text !== text || pendingTurn.threadId !== selectedThread) {
+        pendingTurn = {text:text,threadId:selectedThread,id:(root.crypto && root.crypto.randomUUID ? root.crypto.randomUUID() : 'turn-' + Date.now() + '-' + Math.random().toString(36).slice(2))};
+        add('me',text);
+      }
+      var turn = pendingTurn;
+      if (turn.freshOnRetry) { turn.id = (root.crypto && root.crypto.randomUUID ? root.crypto.randomUUID() : 'turn-' + Date.now() + '-' + Math.random().toString(36).slice(2)); delete turn.freshOnRetry; }
+      input.value = ''; setBusy(true);
+      var r = await resource('/threads/' + encodeURIComponent(selectedThread) + '/turns','POST',{text:text,clientTurnId:turn.id});
+      if (destroyed || turn.threadId !== selectedThread) return;
+      if (r.ok && r.body && typeof r.body === 'object') {
+        showReply(normalizeReply(r.body)); pendingTurn = null;
+      } else {
+        if (!input.value) input.value = text;
+        if (r.status === 409 && r.body && r.body.error === 'turn_in_progress') {
+          // The server is still running this same turn (e.g. the host proxy cut the wait early). Keep the SAME id: once it finishes, Retry is
+          // replayed idempotently by the API. A fresh id here would start a second concurrent turn.
+          add('err','Still working on your last question. Please wait a few seconds, then press Retry.');
+        } else if (r.status === 409) {
+          // A stale published answer must not be replayed or automatically regenerated.
+          // A deliberate subsequent Retry gets a new key only when server says the snapshot changed.
+          if (r.body && r.body.retryWithNewTurn === true && /^(memory_changed|policy_changed|stale_memory|stale_response)$/.test(r.body.error || '')) pendingTurn.freshOnRetry = true;
+          add('err','Memory or chat state changed. Review the current choice, then retry your message.');
+        } else add('err',r.status === 401 || r.status === 403 ? 'Please sign in again. Your question is kept for Retry.' : 'Could not get a reply. Your question is kept for Retry.');
+      }
+      await refreshProfile();
+      if (destroyed) return;
+      setBusy(false); input.focus();
+    }
+    function destroy() {
+      if (destroyed) return;
+      destroyed = true; ++threadEpoch; ++profileEpoch;
+      controllers.forEach(function (c) { c.abort(); }); controllers.clear();
+      if (voiceCtl) voiceCtl.stop(); voiceCtl = null;
+      if (waitTimer) clearInterval(waitTimer); waitTimer = null;
+      listeners.splice(0).concat(memoryListeners.splice(0)).forEach(function (off) { off(); });
+      if (observer) observer.disconnect();
+      clearHistory(); selectedThread = ''; ownedThreads = []; pendingTurn = null; pendingChoice = null;
+      input.value = ''; memory.textContent = ''; threadSelect.textContent = ''; status.textContent = '';
+      if (host.parentNode) host.parentNode.removeChild(host);
+      root.__vcWidgetMounted = false;
+    }
+
     async function submit() {
+      if (auth) return submitAuthenticated();
       var text = input.value.trim();
       if (!text || busy || dead || waitTimer) return;
       add("me", text);
@@ -552,7 +789,10 @@
       setBusy(true);
       status.textContent = "Waiting for a reply...";
       var r;
-      try { r = await send(cfg, text, fetchImpl); } finally { setBusy(false); }
+      var ctl = typeof AbortController === "function" ? new AbortController() : null;
+      if (ctl) controllers.add(ctl);
+      try { r = await send(cfg, text, fetchImpl, ctl && ctl.signal); } finally { if (ctl) controllers.delete(ctl); if (!destroyed) setBusy(false); }
+      if (destroyed) return;
       if (r.kind === "reply") showReply(r);
       else if (r.kind === "unavailable") {
         dead = true;
@@ -602,21 +842,21 @@
         cur = null;
         try { handle.releasePointerCapture(ev && ev.pointerId); } catch (e) { /* already released */ }
       }
-      handle.addEventListener("pointerdown", function (ev) {
+      listen(handle, "pointerdown", function (ev) {
         if (ev.button > 0 || ev.isPrimary === false || !accept(ev)) return;
         var g = pin();
         cur = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, g: { left: g.left, top: g.top, width: g.width, height: g.height } };
         try { handle.setPointerCapture(ev.pointerId); } catch (e) { /* capture unsupported: moves still arrive while over the handle */ }
       });
-      handle.addEventListener("pointermove", function (ev) {
+      listen(handle, "pointermove", function (ev) {
         if (!cur || ev.pointerId !== cur.id) return;
         if (ev.buttons === 0) { end(ev); return; } // the button was released where no pointerup reached us (outside the window)
         var v = vp();
         applyGeom(clampRect(onMove(ev.clientX - cur.x, ev.clientY - cur.y, cur.g, v), v.w, v.h));
       });
-      handle.addEventListener("pointerup", end);
-      handle.addEventListener("pointercancel", end);
-      handle.addEventListener("lostpointercapture", end);
+      listen(handle, "pointerup", end);
+      listen(handle, "pointercancel", end);
+      listen(handle, "lostpointercapture", end);
     }
     gesture(head, function (ev) { return !isControl(ev.target); }, function (dx, dy, g) {
       return { left: g.left + dx, top: g.top + dy, width: g.width, height: g.height };
@@ -626,7 +866,7 @@
       return { left: g.left, top: g.top, width: Math.max(Math.min(g.width + dx, v.w - g.left), MIN_W), height: Math.max(Math.min(g.height + dy, v.h - g.top), MIN_H) };
     });
     if (win.addEventListener) {
-      win.addEventListener("resize", function () {
+      listen(win, "resize", function () {
         if (!geom) return; // never dragged: the CSS placement already fits
         var v = vp();
         applyGeom(clampRect(geom, v.w, v.h));
@@ -635,8 +875,8 @@
 
     var mode = "chat", voiceOk = voiceAvailable(cfg);
     function setMode(m) {
-      if (m !== "chat" && m !== "voice") return;
-      if (m === "voice" && !voiceOk) return;
+      if (destroyed || (m !== "chat" && m !== "voice")) return;
+      if (m === "voice" && (!voiceOk || (auth && (!selectedThread || busy || dead)))) return;
       mode = m;
       panel.setAttribute("data-mode", m);
       modeChat.setAttribute("aria-pressed", m === "chat" ? "true" : "false");
@@ -649,25 +889,26 @@
       modes.hidden = true;
       setMode("chat");
     }
-    modeChat.addEventListener("click", function () { setMode("chat"); });
-    modeVoice.addEventListener("click", function () { setMode("voice"); });
-    pop.addEventListener("click", function () {
+    listen(modeChat, "click", function () { setMode("chat"); });
+    listen(modeVoice, "click", function () { setMode("voice"); });
+    listen(pop, "click", function () {
       // a new window with no opener: the chat so far is NOT handed over (no storage, no URL, no postMessage); the pop-out starts a fresh conversation.
       if (popUrl && typeof win.open === "function") win.open(popUrl, "_blank", POPOUT_FEATURES);
     });
 
     function open() {
+      if (destroyed) return;
       if (geom) { var v0 = vp(); applyGeom(clampRect(geom, v0.w, v0.h)); }
       panel.hidden = false;
       bubble.setAttribute("aria-expanded", "true");
       bubble.setAttribute("aria-label", "Close chat: " + cfg.title);
-      if (!greeted) { greeted = true; add("bot", GREETING); }
+      if (!greeted && !auth) { greeted = true; add("bot", GREETING); }
       if (!input.disabled) input.focus(); else close.focus();
     }
     // pc-voice V3: the mic button. Added only when the add-on has loaded (voice.js) and the config allows voice; the text chat works either way.
     var voiceCtl = null, micBtn = null, liveLine = { user: null, assistant: null }, lastBot = null;
     function attachVoice(lib, deps) {
-      if (micBtn || !lib || typeof lib.create !== "function" || !voiceAvailable(cfg)) return false;
+      if (destroyed || (auth && !authValid) || micBtn || !lib || typeof lib.create !== "function" || !voiceAvailable(cfg)) return false;
       micBtn = el(doc, "button", "mic");
       micBtn.type = "button";
       micBtn.setAttribute("aria-pressed", "false");
@@ -683,6 +924,7 @@
       form.insertBefore(micBtn, sendBtn);
       var on = {
         state: function (s) {
+          if (destroyed) return;
           var active = s !== "idle";
           micBtn.setAttribute("aria-pressed", active ? "true" : "false");
           micBtn.setAttribute("aria-label", active ? "Stop voice conversation" : "Start voice conversation");
@@ -691,6 +933,7 @@
           else if (!busy && !waitTimer && !dead) status.textContent = "";
         },
         transcript: function (t) {
+          if (destroyed) return;
           var line = liveLine[t.role];
           if (!line) {
             line = add(t.role === "user" ? "me" : "bot", t.text);
@@ -706,24 +949,48 @@
           var box = lastBot && list.length ? linksBlock(list) : null;
           if (box) lastBot.appendChild(box);
         },
+        confirm: function () { if (auth) refreshProfile(); },
         crisis: function (c) { add("crisis", c.help); },
-        error: function (e) { var n = voiceErrorNotice(e, pageLang(doc)); add(n.kind, n.text); },
+        error: function (e) {
+          if (auth && e && /^(memory_changed|policy_changed|stale_memory|stale_response)$/.test(e.code || '')) {
+            if (voiceCtl) voiceCtl.stop(); refreshProfile();
+          }
+          var n = voiceErrorNotice(e, pageLang(doc)); add(n.kind, n.text);
+        },
         fallback: function (d) {
           add("note", voiceFallbackText(d, pageLang(doc)));
+          setMode("chat");
           if (!input.disabled) input.focus();
         },
         ended: function () {
+          if (auth) { refreshProfile(); refreshThreads(); }
           liveLine.user = liveLine.assistant = null;
           if (!busy && !waitTimer && !dead) status.textContent = "Voice ended.";
         }
       };
-      voiceCtl = lib.create(Object.assign({ cfg: cfg, on: on }, deps || {}));
-      micBtn.addEventListener("click", function () {
+      Object.keys(on).forEach(function (name) {
+        var callback = on[name]; on[name] = function (arg) { if (!destroyed) callback(arg); };
+      });
+      var voiceDeps = Object.assign({ cfg: cfg, on: on }, deps || {});
+      if (auth) {
+        voiceDeps.cfg = cfg; voiceDeps.on = on;
+        voiceDeps.fetch = async function (url, init) {
+          if (!selectedThread || destroyed || url !== cfg.voiceProxy) throw new Error("Voice session unavailable");
+          var ctl = new AbortController(); controllers.add(ctl);
+          try {
+            return await hostFetch(url, Object.assign({}, init, {signal: ctl.signal, body: JSON.stringify({threadId: selectedThread})}));
+          } finally { controllers.delete(ctl); }
+        };
+      }
+      voiceCtl = lib.create(voiceDeps);
+      listen(micBtn, "click", function () {
+        if (destroyed || (auth && (!selectedThread || busy || dead))) return;
         if (voiceCtl.state() === "idle") voiceCtl.start(); else voiceCtl.stop();
       });
       return true;
     }
     function shut() {
+      if (destroyed) return;
       if (voiceCtl) voiceCtl.stop(); // closing the panel ends the call and releases the mic
       panel.hidden = true;
       bubble.setAttribute("aria-expanded", "false");
@@ -731,19 +998,36 @@
       bubble.focus();
     }
 
-    bubble.addEventListener("click", function () { if (panel.hidden) open(); else shut(); });
-    close.addEventListener("click", shut);
-    form.addEventListener("submit", function (ev) { ev.preventDefault(); submit(); });
-    input.addEventListener("keydown", function (ev) {
+    listen(bubble, "click", function () { if (panel.hidden) open(); else shut(); });
+    listen(close, "click", shut);
+    listen(form, "submit", function (ev) { ev.preventDefault(); submit(); });
+    listen(input, "keydown", function (ev) {
       if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); submit(); }
     });
-    shadow.addEventListener("keydown", function (ev) {
+    listen(shadow, "keydown", function (ev) {
       if (ev.key === "Escape" && !panel.hidden) { ev.stopPropagation(); shut(); }
     });
 
+    listen(threadSelect, 'change', function () { selectThread(threadSelect.value); });
+    listen(newChat, 'click', function () { newThread(); });
     (doc.body || doc.documentElement).appendChild(host);
+    if (typeof win.MutationObserver === 'function') {
+      observer = new win.MutationObserver(function () { if (!host.isConnected) destroy(); });
+      observer.observe(doc.documentElement, {childList:true,subtree:true});
+    }
+    refreshControls();
+    var ready = (async function () {
+      if (!auth || !authValid) return false;
+      setBusy(true);
+      var loaded = await refreshThreads();
+      if (destroyed) return false;
+      setBusy(false);
+      if (!loaded) { status.textContent = 'Could not load your chats. Please refresh or start a new chat.'; return false; }
+      return ownedThreads.length ? selectThread(ownedThreads[0].threadId) : newThread();
+    })();
     return {
       host: host, open: open, close: shut, attachVoice: attachVoice, setMode: setMode, voiceFailed: voiceFailed,
+      ready: ready, destroy: destroy, refreshProfile: refreshProfile, refreshThreads: refreshThreads, selectThread: selectThread, newThread: newThread,
       mode: function () { return mode; },
       history: function () { return hist.map(function (h) { return { kind: h.cls, text: h.text }; }); }
     };
@@ -789,6 +1073,6 @@
   if (typeof module === "object" && module && module.exports) module.exports = api;
   if (root && root.document) {
     root.VCWidget = api;
-    if (root.document.currentScript) init(root.document.currentScript);
+    if (root.document.currentScript && root.document.currentScript.getAttribute("data-vc-manual") !== "true") init(root.document.currentScript);
   }
 })(typeof window !== "undefined" ? window : globalThis);

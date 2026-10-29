@@ -1,0 +1,52 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "HARD RULES (non-negotiable):\n- Secrets: NEVER print, echo, log or paste any secret value (API keys, passwords, partner keys, JWTs); report env key NAMES only; never commit any env file.\n- Production DBs (Pathlynks Postgres, Vidysea Postgres, Vidysea Mongo Vanced_new) are READ-ONLY. Mongo writes only to the virtual_counsellor database, never drop it.\n- Real student rows never go into git, logs you write, or your report: counts and field names only.\n- Do not edit anything under .claude/**, docs/DECISIONS.md, qa/contracts, ARCHITECTURE.md. Do not commit, push, or delete worktrees. Do not remove qa/.paused.\n- Other agents are working in parallel: edit ONLY the files your brief assigns you. Do not restart services unless your brief says so.\n- The test lock is shared: long waits on it are normal, keep waiting (do not give up).\n- Edit in place, minimal diffs, TDD (failing test first) for code; report every file changed with file:line.",
+  "sources": [
+    {
+      "path": "qa/.delivery/briefs/t057-llm-routing.md",
+      "sha256": "698936f10a1d341bfa42621870a8b3cd395c6c25402d3db4e4d66116e7ac63c7",
+      "ranges": [
+        [
+          1,
+          11
+        ]
+      ]
+    },
+    {
+      "path": "docs/demo-contract.md",
+      "sha256": "231683b7459de1726ca1302b58d551ce8e2648a12c2e7ad8bf6ad93cd2602b9a",
+      "ranges": [
+        [
+          1,
+          55
+        ]
+      ]
+    },
+    {
+      "path": "apps/api/src/main.ts",
+      "sha256": "9a491a3030d82917c2facf89c919f03f9e14b5f01de0da738b7df5d4b8164f81",
+      "ranges": [
+        [
+          1,
+          281
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "t057-llm-routing",
+    "owner": "general-purpose",
+    "purpose": "Execute the brief in qa/.delivery/briefs/t057-llm-routing.md (source 1) exactly; it is the full task.",
+    "dependencies": [],
+    "acceptance": [
+      "safety screen + fact extraction + any aux LLM role run on Gemini locally; live chat turns give real replies <30s; a fact is proposed"
+    ],
+    "checks": [
+      "Return: root cause with file:line, files/env keys changed (names only), the restart command used, before/after evidence (timings, event names), blockers."
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 65536,
+    "max_prompt_bytes": 98304
+  }
+}

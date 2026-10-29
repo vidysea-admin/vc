@@ -187,3 +187,69 @@ test("LK6: a value written in non-ASCII digits is not English and is dropped", a
   const r = await run(provider([cand("budget_inr", "२००००००", "बजट बीस लाख"), cand("budget_usd", "20000", "बजट बीस लाख")]), HINDI.replace("बीस लाख रुपये", "बजट बीस लाख"));
   assert.deepEqual(r.facts.map((f) => f.key), ["budget_usd"]);
 });
+
+// t057-walk-run4-fixes (A): Gemini returns the skill's documented bare `Fact[]`; the schema must accept it as well as `{facts:[...]}`.
+test("t057 run4: a bare JSON array of facts parses into facts, the {facts:[...]} wrapper still does, an empty array is no facts, garbage is rejected", async () => {
+  const bare = new MockProvider({ responses: { "fact-extraction": [cand("target_country", "Canada", "computer science in Canada")] } });
+  const r = await run(bare, ENGLISH, "t-1", "en");
+  assert.equal(r.failedReason, undefined);
+  assert.deepEqual(r.facts.map((f) => [f.key, f.value]), [["target_country", "Canada"]]);
+  const wrapped = await run(provider([cand("target_country", "Canada", "computer science in Canada")]), ENGLISH, "t-1", "en");
+  assert.deepEqual(wrapped.facts.map((f) => f.key), ["target_country"]);
+  const empty = await run(new MockProvider({ responses: { "fact-extraction": [] } }), ENGLISH, "t-1", "en");
+  assert.deepEqual(empty.facts, []);
+  assert.equal(empty.failedReason, undefined, "an empty array is no facts, not an error");
+  for (const garbage of ["nope", 7, { notfacts: [] }, { facts: [], extra: 1 }]) {
+    const g = await run(new MockProvider({ responses: { "fact-extraction": garbage } }), ENGLISH, "t-1", "en");
+    assert.deepEqual(g.facts, []);
+    assert.match(g.failedReason ?? "", /schema-invalid/, `garbage ${JSON.stringify(garbage)} is still rejected`);
+  }
+});
+
+test("t057 run4: a schema-invalid extraction logs one text-free event (name, reason code, attempts) and still returns no facts", async () => {
+  const events: unknown[] = [];
+  const x = createStudentFactExtractor({
+    provider: new MockProvider({ responses: { "fact-extraction": "nope" } }),
+    skillsDir: SKILLS_DIR,
+    log: (e) => events.push(e),
+  });
+  assert.deepEqual(await x({ turnId: "t-1", text: ENGLISH }), []);
+  assert.deepEqual(events, [{ event: "fact_extraction_schema_invalid", reason: "schema_invalid", attempts: 2 }]);
+  assert.ok(!JSON.stringify(events).includes("Canada"), "no student text in the event");
+  const ok: unknown[] = [];
+  await createStudentFactExtractor({ provider: provider([]), skillsDir: SKILLS_DIR, log: (e) => ok.push(e) })({ turnId: "t-1", text: ENGLISH });
+  assert.deepEqual(ok, [], "a clean extraction logs nothing");
+});
+
+test("t057 c6: a candidate carrying a model-emitted validFrom is kept (validFrom ignored, the engine sets its own); other unknown keys are still rejected", async () => {
+  const withValidFrom = { ...cand("target_country", "Canada", "computer science in Canada"), validFrom: 1760870000000 };
+  const r = await run(provider([withValidFrom]), ENGLISH, "t-1", "en");
+  assert.deepEqual(r.dropped, [], "validFrom must not make the candidate malformed");
+  assert.deepEqual(r.facts.map((f) => [f.key, f.value]), [["target_country", "Canada"]]);
+  const bogus = { ...cand("target_country", "Canada", "computer science in Canada"), somethingElse: 1 };
+  const b = await run(provider([bogus]), ENGLISH, "t-1", "en");
+  assert.deepEqual(b.facts, []);
+  assert.match(b.dropped[0]?.reason ?? "", /malformed fact/, "any other unknown key is still rejected (.strict kept)");
+});
+
+test("t057 c6: when every candidate is dropped the extractor emits one text-free fact_extraction_all_dropped event with the count", async () => {
+  const events: unknown[] = [];
+  const bogus = { ...cand("target_country", "Canada", "computer science in Canada"), somethingElse: 1 };
+  const x = createStudentFactExtractor({ provider: provider([bogus, { ...bogus, key: "budget_inr" }]), skillsDir: SKILLS_DIR, log: (e) => events.push(e) });
+  assert.deepEqual(await x({ turnId: "t-1", text: ENGLISH }), []);
+  assert.deepEqual(events, [{ event: "fact_extraction_all_dropped", dropped: 2 }]);
+  assert.ok(!JSON.stringify(events).includes("Canada"), "no student text in the event");
+  const kept: unknown[] = [];
+  await createStudentFactExtractor({ provider: provider([cand("target_country", "Canada", "computer science in Canada")]), skillsDir: SKILLS_DIR, log: (e) => kept.push(e) })({ turnId: "t-1", text: ENGLISH });
+  assert.deepEqual(kept, [], "a turn that keeps a fact logs nothing");
+});
+
+// route-fix-1 item 7: the default failure logger ends its line with an escaped \n in a one-line template literal, never a raw line break inside the backticks
+// (a raw break makes the emitted bytes depend on the file's line endings and reads as a stray edit).
+test("RF1-7: the default fact-extraction logger writes one JSON line with an escaped newline, not a raw newline inside the template literal", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const src = readFileSync(join(import.meta.dirname, "..", "src", "scribe", "nodes.ts"), "utf8");
+  assert.doesNotMatch(src, /\$\{JSON\.stringify\(e\)\}\r?\n`/, "raw newline inside the template literal");
+  assert.match(src, /process\.stderr\.write\(`\$\{JSON\.stringify\(e\)\}\\n`\)/);
+});

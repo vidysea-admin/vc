@@ -406,28 +406,28 @@ test("C3: a frame over the size limit closes the socket (1009) and nothing buffe
   });
 });
 
-test("C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed", async () => {
+test("C3: every eligible speech preference is read back; legacy first-proposal confirmation remains compatible", async () => {
   await withWorld(
     async (w, threadId) => {
       const { client } = await w.open(adult(), threadId);
       speak(w, 0, "My GPA is 3.8 and I like Berlin");
-      await until(() => client.of("confirm").length === 1, "confirm event");
-      assert.deepEqual(client.of("confirm")[0].fact, { key: "gpa", value: "3.8" });
-      assert.equal(client.of("confirm").length, 1, "the non-numeric city fact needs no read-back");
+      await until(() => client.of("confirm").length === 2, "numeric and nonnumeric confirm events");
+      assert.deepEqual(client.of("confirm").map(p => [p.fact.key,p.fact.value]), [["gpa","3.8"],["city","Berlin"]]);
+      assert.ok(client.of("confirm").every(p => p.fact.candidateId && p.fact.expectedVersion && p.threadId === threadId && p.promptId && p.question));
       const token = await studentToken(adult());
       const proposed = async () => (await call(w.chat, "GET", profilePath("stu-1"), { token })).json;
       let profile = await proposed();
       assert.equal(profile.facts.length, 0, "nothing is used before the student accepts");
       assert.deepEqual(profile.proposed.map((p: any) => `${p.key}:${p.status}`).sort(), ["city:proposed", "gpa:proposed"]);
 
+      client.send({ type: "confirm", key: "never-asked", accepted: true });
+      await until(() => client.of("error").some(e => e.code === "unknown_confirm"), "unknown confirmation refused");
       client.send({ type: "confirm", key: "gpa", accepted: true });
       await until(() => w.fakeDb.collection<any>("profile_facts").all().some((f) => f.key === "gpa" && f.status === "confirmed"), "gpa confirmed");
       profile = await proposed();
       assert.ok(profile.facts.some((f: any) => f.key === "gpa" && f.value === "3.8"));
 
-      client.send({ type: "confirm", key: "gpa", accepted: true }); // already decided
-      client.send({ type: "confirm", key: "never-asked", accepted: true });
-      await until(() => client.of("error").filter((e) => e.code === "unknown_confirm").length === 2, "unknown_confirm x2");
+      await until(() => client.closed, "confirmation requires fresh provider context");
     },
     {
       deps: {

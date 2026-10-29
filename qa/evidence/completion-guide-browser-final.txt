@@ -1,0 +1,15 @@
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+✔ Q12 cycle2 mounted Guide confirms the displayed value, preserves stale refusal and explicitly refreshes (1964.4462ms)
+✔ S10 Guide browser: header-only drag, keyboard/pointer resize, viewport bounds and launcher reset (1786.5364ms)
+✔ S10 Guide browser: growing textarea, ShiftEnter/IME, Enter and mouse/keyboard-button send refocus (1397.2739ms)
+✔ S10 Guide browser: failure/retry and late response focus respects deliberate controls and scope (2182.943ms)
+✔ S10 Guide browser: opening restored owned chat focuses once, subsequent session switch cancels pending focus (1349.0487ms)
+✔ Q15 mounted Guide automatically restores current account island role and preserves explicit New chat (1552.2013ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10626.4464

@@ -195,6 +195,9 @@ export const INDEX_PLAN: IndexSpec[] = [
   { collection: COLLECTION_NAMES.chat_threads, keys: { studentId: 1 }, name: "chat_threads_studentId" },
   { collection: COLLECTION_NAMES.chat_turns, keys: { studentId: 1 }, name: "chat_turns_studentId" },
   { collection: COLLECTION_NAMES.chat_turns, keys: { tenantId: 1, studentId: 1, threadId: 1 }, name: "chat_turns_tenantId_studentId_threadId" },
+  // S13 fix A: invalidatePendingPublications finds a tenant's in-flight (publication "pending") turns on every partner memory-policy change. A
+  // partial index holds only those few rows, so the scan never walks the turn history.
+  { collection: COLLECTION_NAMES.chat_turns, keys: { tenantId: 1, publication: 1 }, name: "chat_turns_tenantId_publication_pending", partialFilterExpression: { publication: "pending" } },
   { collection: COLLECTION_NAMES.profile_facts, keys: { studentId: 1 }, name: "profile_facts_studentId" },
   { collection: COLLECTION_NAMES.student_usage, keys: { studentId: 1 }, name: "student_usage_studentId" },
   { collection: COLLECTION_NAMES.student_flags, keys: { studentId: 1 }, name: "student_flags_studentId" },

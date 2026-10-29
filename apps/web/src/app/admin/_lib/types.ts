@@ -6,7 +6,16 @@
 export type AdminRole = "super-admin" | "admin" | "viewer";
 export type KeyScope = "pub" | "srv";
 
+export interface MemoryPolicy {
+  shortTermEnabled: boolean;
+  longTermEnabled: boolean;
+  learningEnabled: boolean;
+  contextMessages: number;
+  maxFacts: number;
+}
+
 export interface SiteSummary {
+  memoryPolicy?: MemoryPolicy;
   partnerId: string;
   name: string;
   keys: Record<KeyScope, { prefix: string; rotatedAt: string | null }>;
@@ -31,6 +40,9 @@ export interface GithubSourceInput {
   branch: string;
   service: GithubService;
   tokenRef?: string;
+  siteId?: string;
+  platform?: "pathlynks" | "vidysea";
+  enabled?: boolean;
 }
 export interface PostgresSourceInput {
   kind: "postgres";
@@ -41,6 +53,9 @@ export interface PostgresSourceInput {
   user: string;
   sslmode: "require" | "verify-full";
   passwordRef: string;
+  siteId?: string;
+  platform?: "pathlynks" | "vidysea";
+  enabled?: boolean;
   tables: string[];
 }
 export type SourceInput = GithubSourceInput | PostgresSourceInput;

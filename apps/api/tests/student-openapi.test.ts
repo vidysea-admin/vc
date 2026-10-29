@@ -44,6 +44,7 @@ test("the draft covers chat, voice-session, anonymous, profile and fact-confirm 
     "POST /v1/students/{studentId}/chat/threads/{threadId}/turns": ["student"],
     "POST /v1/students/{studentId}/chat/threads/{threadId}/voice/sessions": ["student"],
     "GET /v1/students/{studentId}/chat/profile": ["student"],
+    "GET /v1/students/{studentId}/chat/threads": ["student"],
     "POST /v1/students/{studentId}/chat/profile/facts/{factId}/decision": ["student"],
     "POST /v1/public/chat/turns": [],
   };
@@ -93,6 +94,9 @@ test("component schemas match the Zod shapes (names, required, strictness)", () 
   parity("Source", S.SourceSchema);
   parity("ProfileFact", S.ProfileFactSchema);
   parity("ProposedFact", S.ProposedFactSchema);
+  parity("PendingProfileChange", S.PendingProfileChangeSchema);
+  parity("MemoryPrompt", S.MemoryPromptSchema);
+  parity("MemoryConfirmation", S.TurnRequestSchema.shape.memoryConfirmation.unwrap());
   parity("ProfileResponse", S.ProfileResponseSchema);
   parity("FactDecisionRequest", S.FactDecisionRequestSchema);
   parity("TurnRequest", S.TurnRequestSchema);
@@ -141,8 +145,8 @@ test("WebSocket events: every Zod event type is documented with matching fields,
       assert.deepEqual([...doc.required].sort(), required, `${docName}.${type} required`);
     }
   };
-  check("serverEvents", S.VoiceServerEventSchema.options, S.VOICE_SERVER_EVENT_TYPES);
-  check("clientEvents", S.VoiceClientEventSchema.options, S.VOICE_CLIENT_EVENT_TYPES);
+  check("serverEvents", S.VoiceServerEventSchema.innerType().options, S.VOICE_SERVER_EVENT_TYPES);
+  check("clientEvents", S.VoiceClientEventSchema.innerType().options, S.VOICE_CLIENT_EVENT_TYPES);
   assert.deepEqual(ws.audio, { format: "pcm16", inputSampleRateHz: 16000, outputSampleRateHz: 24000, framing: "binary" });
   assert.deepEqual(schemas.VoiceFlagReason.enum, [...S.VOICE_FLAG_REASONS]);
 });

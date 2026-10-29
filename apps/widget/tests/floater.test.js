@@ -137,6 +137,47 @@ async function sendText(q, text) {
 }
 const px = (v) => parseFloat(v);
 
+test("Q5: proxy Chat/Voice/Chat retains typed and voice history, releases the mic and makes fallback text usable", async () => {
+  const V = require("../src/voice.js");
+  const q = setup({ mode: "proxy", key: "", turnUrl: "/api/vc", voice: true, voiceProxy: "/api/voice/session" });
+  q.h.open();
+  await sendText(q, "Keep this typed message");
+  q.input.value = "Keep this unsent draft";
+  const before = q.log.textContent;
+  let socket, stopped = 0, capturedStopped = 0;
+  class Socket {
+    constructor() { socket = this; this.readyState = 0; }
+    send() {}
+    close() { this.readyState = 3; }
+  }
+  const deps = {
+    fetch: async () => resp(201, { token: "token.signature", wsUrl: "wss://vc.example.org/stream", expiresAt: "2030-01-01T00:00:00Z", threadId: "owned-thread" }),
+    WebSocket: Socket,
+    mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() { stopped++; } }] }) },
+    audio: { capture() { return () => { capturedStopped++; }; }, close() {} },
+  };
+  assert.equal(q.h.attachVoice(V, deps), true);
+  q.h.setMode("voice");
+  byLabel(q.shadow, "Start voice conversation").fire("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  socket.readyState = 1; socket.onopen();
+  socket.onmessage({ data: JSON.stringify({ type: "transcript.final", role: "assistant", text: "Keep this voice answer" }) });
+  q.h.setMode("chat");
+  assert.equal(stopped, 1);
+  assert.equal(capturedStopped, 1);
+  assert.ok(q.log.textContent.includes(before));
+  assert.match(q.log.textContent, /Keep this voice answer/);
+  assert.equal(q.input.value, "Keep this unsent draft");
+  q.h.setMode("voice");
+  deps.mediaDevices.getUserMedia = async () => { throw { name: "NotAllowedError" }; };
+  byLabel(q.shadow, "Start voice conversation").fire("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(q.h.mode(), "chat", "permission fallback restores text controls");
+  assert.match(q.log.textContent, /Microphone access is blocked/);
+  assert.match(q.log.textContent, /Keep this voice answer/);
+  assert.equal(q.input.value, "Keep this unsent draft");
+});
+
 // ---- version ----------------------------------------------------------------------------------------------
 
 test("VA18: VERSION is 1.1.0 and the hosted name keeps major 1", () => {
@@ -283,7 +324,7 @@ test("VA18 toggle: with voice available the header shows Chat | Voice and Chat i
   assert.equal(q.h.mode(), "chat");
 });
 
-test("VA18 toggle: Voice is hidden when voiceAvailable is false (no data-vc-voice, proxy mode, or no key)", () => {
+test("VA18 toggle: Voice is hidden without opt-in, key or explicit proxy mint path", () => {
   const cases = [
     KEY_CFG({ voice: false }),
     KEY_CFG({ voice: true, mode: "proxy", key: "" }),
@@ -515,4 +556,202 @@ test("VA18 phone width: the default placement (before any drag) is CSS-fit to th
   const raw = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "src", "vc-widget.js"), "utf8");
   assert.match(raw, /@media \(max-width:480px\)\{\.panel\{left:8px;right:8px;width:auto/, "the 480 px rule that fits 360 px is kept");
   assert.match(raw, /max-width:calc\(100vw/, "the panel is also capped to the viewport width");
+});
+
+// S12: authenticated host transport uses only server-owned sessions and exact displayed memory.
+const AUTH_BASE = '/api/v1/student/ai-counsellor/vc';
+const AUTH_CFG = (extra) => ({ mode: 'proxy', key: '', turnUrl: AUTH_BASE + '/threads', authenticated: {basePath: AUTH_BASE}, ...extra });
+const threadList = {threads:[{threadId:'owned-1',createdAt:'2026-10-27T10:00:00Z',lastActivityAt:'2026-10-27T10:00:00Z'}]};
+const pendingProfile = (version=2) => ({memory:{items:[{factId:'fact-1',key:'preferred_country',value:'India',status:'confirmed',source:'chat',readOnly:false,pendingChange:{candidateId:'candidate-'+version,version:'version-'+version,value:'Germany',proposedAt:'2026-10-27T10:00:00Z'}}]}});
+function authFetch(over) {
+  const calls=[];
+  const f=async (url,init) => {
+    calls.push({url,init});
+    const custom=over && await over(url,init,calls);
+    if(custom) return custom;
+    if(url===AUTH_BASE+'/profile') return resp(200,pendingProfile());
+    if(url===AUTH_BASE+'/threads' && init.method==='GET') return resp(200,threadList);
+    if(url===AUTH_BASE+'/threads' && init.method==='POST') return resp(201,{threadId:'owned-2'});
+    if(url===AUTH_BASE+'/threads/owned-1') return resp(200,{threadId:'owned-1',turns:[
+      {turnId:'b',role:'assistant',text:'Later',at:'2026-10-27T10:02:00Z'},
+      {turnId:'p',role:'assistant',text:'PRIVATE UNPUBLISHED',at:'2026-10-27T10:01:30Z',publicationState:'pending'},
+      {turnId:'a',role:'user',text:'Earlier',at:'2026-10-27T10:01:00Z'}]});
+    return okReply('Fresh answer');
+  };
+  f.calls=calls;return f;
+}
+test('S12 auth: loads owned ordered history, current memory and sends with fresh host headers',async()=>{
+  let token='first';const f=authFetch();
+  const q=setup(AUTH_CFG({authenticated:{basePath:AUTH_BASE,getHeaders:async()=>({Authorization:token})}}),{fetch:f});
+  await q.h.ready;q.h.open();
+  assert.match(q.log.textContent,/Earlier[\s\S]*Later/);
+  assert.doesNotMatch(q.log.textContent,/PRIVATE UNPUBLISHED/);
+  assert.match(q.shadow.textContent,/India[\s\S]*Germany/);
+  token='second';await sendText(q,'Which course?');
+  const call=f.calls.find(c=>c.url.endsWith('/owned-1/turns'));
+  assert.ok(call);assert.equal(call.init.headers.authorization,'second');
+  assert.equal(call.init.credentials,'same-origin');assert.equal(call.init.redirect,'error');
+  assert.equal(JSON.parse(call.init.body).text,'Which course?');
+  assert.ok(JSON.parse(call.init.body).clientTurnId);
+  assert.equal(q.doc.calls.cookieWrites,0);q.h.destroy();
+});
+test('S12 auth: manual transport Retry preserves clientTurnId, selected thread, draft and one user bubble',async()=>{
+  let fail=true;const f=authFetch((url)=>url.endsWith('/turns') ? (fail ? resp(503,{}) : okReply('Recovered')) : null);
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+  await sendText(q,'Keep my question');assert.equal(q.input.value,'Keep my question');
+  fail=false;await sendText(q,q.input.value);
+  const turns=f.calls.filter(c=>c.url.endsWith('/turns'));
+  assert.equal(turns.length,2);assert.equal(turns[0].init.body,turns[1].init.body);
+  assert.equal(q.h.history().filter(m=>m.kind==='me' && m.text==='Keep my question').length,1);
+  assert.match(q.log.textContent,/Recovered/);q.h.destroy();
+});
+test('S12 memory: reject carries exact candidate/version/value; stale409 refreshes without success or lost draft',async()=>{
+  let stale=true;const f=authFetch((url,init)=>{
+    if(url.endsWith('/decision')) return stale ? resp(409,{error:'memory_changed'}) : resp(200,{});
+    if(url.endsWith('/profile') && !stale) return resp(200,{memory:{items:[{factId:'fact-1',key:'preferred_country',value:'India',status:'confirmed',readOnly:false}]}});
+  });
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+  q.input.value='Unsent draft';byLabel(q.shadow,'Reject change to preferred_country').fire('click');
+  await new Promise(r=>setTimeout(r,10));
+  const decision=f.calls.find(c=>c.url.endsWith('/decision'));
+  assert.deepEqual(JSON.parse(decision.init.body),{action:'reject',value:'Germany',candidateId:'candidate-2',expectedVersion:'version-2',threadId:'owned-1'});
+  assert.equal(q.input.value,'Unsent draft');assert.match(q.shadow.textContent,/changed.*review/i);
+  assert.doesNotMatch(q.log.textContent,/Memory updated/);
+  stale=false;byLabel(q.shadow,'Reject change to preferred_country').fire('click');await new Promise(r=>setTimeout(r,10));
+  assert.match(q.shadow.textContent,/India/);assert.doesNotMatch(byClass(q.shadow,'memory').textContent,/Germany/);q.h.destroy();
+});
+test('S12 memory: only a fresh exact yes/no is a decision; ambiguous text asks again, historical yes is inert',async()=>{
+  const f=authFetch();const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+  assert.equal(f.calls.filter(c=>c.url.endsWith('/decision')).length,0);
+  await sendText(q,'maybe');assert.equal(f.calls.filter(c=>c.url.endsWith('/decision')).length,0);
+  assert.match(q.log.textContent,/yes or no/i);
+  await sendText(q,'no');const call=f.calls.find(c=>c.url.endsWith('/decision'));
+  assert.equal(JSON.parse(call.init.body).action,'reject');q.h.destroy();
+});
+test('S12 lifecycle: destroy cancels late requests, voice, listeners and private state; remount stays clean',async()=>{
+  let finish;const f=authFetch(url=>url.endsWith('/turns') ? new Promise(r=>{finish=r;}) : null);
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+  await sendText(q,'PRIVATE DRAFT');const turn=f.calls.find(c=>c.url.endsWith('/turns'));
+  q.h.destroy();assert.equal(turn.init.signal.aborted,true);assert.equal(q.h.host.parentNode,null);
+  assert.deepEqual(q.h.history(),[]);assert.equal(q.input.value,'');assert.equal(q.shadow.textContent.includes('India'),false);
+  finish(okReply('PRIVATE LATE REPLY'));await new Promise(r=>setTimeout(r,10));
+  assert.deepEqual(q.h.history(),[]);assert.doesNotMatch(q.shadow.textContent,/PRIVATE/);
+  const next=setup(AUTH_CFG(),{fetch:authFetch()});await next.h.ready;assert.doesNotMatch(next.log.textContent,/PRIVATE/);next.h.destroy();
+});
+test('S12 auth: unsafe proxy destination never receives credentials or requests',async()=>{
+  for(const basePath of ['https://evil.test/api','//evil.test/api','/api/../escape','/api/%2fescape','/api?token=secret','/api\\escape']) {
+    const f=authFetch();const q=setup(AUTH_CFG({authenticated:{basePath,getHeaders:()=>({Authorization:'secret'})}}),{fetch:f});
+    await q.h.ready;assert.equal(f.calls.length,0);q.h.destroy();
+  }
+});
+
+test('S12 lifecycle: replaced memory prompt listeners are released and anonymous request aborts on teardown',async()=>{
+  const q=setup(AUTH_CFG(),{fetch:authFetch()});await q.h.ready;
+  const old=byLabel(q.shadow,'Reject change to preferred_country');
+  await q.h.refreshProfile();assert.equal(old.handlers.click.length,0);q.h.destroy();
+  let finish,signal;const anon=setup({}, {fetch:async(url,init)=>{signal=init.signal;return new Promise(r=>{finish=r;});}});
+  await sendText(anon,'Private anonymous question');anon.h.destroy();assert.equal(signal.aborted,true);
+  finish(okReply('Late anonymous answer'));await new Promise(r=>setTimeout(r,10));assert.deepEqual(anon.h.history(),[]);
+});
+test('S12 voice: authenticated mint uses fresh host transport, selected server thread and destroy stops pending microphone start',async()=>{
+  const V=require('../src/voice.js');const f=authFetch();let mint,finish,stops=0;
+  const transport=async(url,init)=>{
+    if(!url.endsWith('/voice/session'))return f(url,init);
+    mint={url,init};return new Promise(r=>{finish=r;});
+  };
+  const q=setup(AUTH_CFG({voice:true,authenticated:{basePath:AUTH_BASE,getHeaders:()=>({Authorization:'host-current'}),transport}}),{fetch:()=>{throw Error('must use injected transport');}});
+  await q.h.ready;
+  q.h.attachVoice(V,{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){stops++;}}]})},audio:{close(){}}});
+  byLabel(q.shadow,'Start voice conversation').fire('click');await new Promise(r=>setImmediate(r));
+  assert.deepEqual(JSON.parse(mint.init.body),{threadId:'owned-1'});assert.equal(mint.init.headers.authorization,'host-current');
+  q.h.destroy();assert.equal(mint.init.signal.aborted,true);assert.equal(stops,1);
+  finish(resp(201,{token:'unused',wsUrl:'wss://vc.invalid/socket',threadId:'owned-1',expiresAt:'2030-01-01T00:00:00Z'}));
+  await new Promise(r=>setImmediate(r));assert.deepEqual(q.h.history(),[]);
+});
+
+test('S12 memory: explicit confirm/correct/forget preserve displayed binding and readonly account fields',async()=>{
+  let profile=pendingProfile();const f=authFetch((url,init)=>{
+    if(url.endsWith('/profile'))return resp(200,profile);
+    if(url.endsWith('/decision')){
+      const d=JSON.parse(init.body);
+      profile={memory:{items:d.action==='erase'?[]:[{factId:'fact-1',key:'preferred_country',value:d.value,status:'confirmed',readOnly:false}]}};
+      return resp(200,{});
+    }
+  });
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+  assert.match(byClass(q.shadow,'memory').textContent,/preferred_country: India/);
+  byLabel(q.shadow,'Confirm change to preferred_country').fire('click');await new Promise(r=>setTimeout(r,10));
+  assert.deepEqual(JSON.parse(f.calls.find(c=>c.url.endsWith('/decision')).init.body),{action:'confirm',value:'Germany',candidateId:'candidate-2',expectedVersion:'version-2',threadId:'owned-1'});
+  const edit=byLabel(q.shadow,'Correct value for preferred_country');assert.ok(edit);edit.value='Canada';
+  byLabel(q.shadow,'Correct preferred_country').fire('click');await new Promise(r=>setTimeout(r,10));
+  assert.match(byClass(q.shadow,'memory').textContent,/preferred_country: Canada/);
+  byLabel(q.shadow,'Forget preferred_country').fire('click');await new Promise(r=>setTimeout(r,10));
+  assert.doesNotMatch(byClass(q.shadow,'memory').textContent,/Canada|Germany|India/);
+  profile={memory:{items:[{key:'grade',value:'12',status:'confirmed',readOnly:true}]}};await q.h.refreshProfile();
+  assert.equal(byClass(q.shadow,'memory').findAll(n=>n.tagName==='BUTTON').length,0);q.h.destroy();
+});
+test('S12 auth: memory_changed requires a manual fresh Retry, ordinary errors keep id and new drafts survive',async()=>{
+  let first=true;const f=authFetch((url)=>url.endsWith('/turns')?(first?resp(409,{error:'memory_changed',retryWithNewTurn:true}):okReply('New snapshot')):null);
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;await sendText(q,'My question');
+  assert.equal(q.input.value,'My question');assert.equal(f.calls.filter(c=>c.url.endsWith('/turns')).length,1);
+  assert.equal(byClass(q.shadow,'send').textContent,'Retry');first=false;await sendText(q,q.input.value);
+  const sends=f.calls.filter(c=>c.url.endsWith('/turns'));assert.notEqual(JSON.parse(sends[0].init.body).clientTurnId,JSON.parse(sends[1].init.body).clientTurnId);
+  assert.equal(q.h.history().filter(m=>m.kind==='me'&&m.text==='My question').length,1);q.h.destroy();
+});
+
+test('S12 sessions: empty account creates a server thread; listed-thread failure preserves draft and foreign ids are refused',async()=>{
+  let failCreate=true;
+  const f=authFetch((url,init)=>{
+    if(url===AUTH_BASE+'/threads'&&init.method==='GET')return resp(200,{threads:[]});
+    if(url===AUTH_BASE+'/threads'&&init.method==='POST')return failCreate?resp(503,{}):resp(201,{threadId:'owned-new'});
+  });
+  const q=setup(AUTH_CFG(),{fetch:f});assert.equal(await q.h.ready,false);
+  q.input.value='Do not lose my draft';assert.equal(await q.h.newThread(),false);assert.equal(q.input.value,'Do not lose my draft');
+  failCreate=false;assert.equal(await q.h.newThread(),true);
+  await sendText(q,'New account question');assert.ok(f.calls.some(c=>c.url.endsWith('/threads/owned-new/turns')));
+  const before=f.calls.length;assert.equal(await q.h.selectThread('someone-else'),false);assert.equal(f.calls.length,before);q.h.destroy();
+});
+test('S12 lifecycle: external detach triggers destroy and removes owned window listeners',async()=>{
+  const doc=makeDoc(),win=makeWin(1280,800);let observe,disconnected=false;
+  win.removeEventListener=(type,fn)=>{win.handlers[type]=(win.handlers[type]||[]).filter(x=>x!==fn);};
+  win.MutationObserver=class {constructor(fn){observe=fn;}observe(){}disconnect(){disconnected=true;}};
+  const h=W.mount(KEY_CFG(AUTH_CFG()),doc,authFetch(),{win});await h.ready;
+  assert.equal(win.handlers.resize.length,1);h.host.isConnected=false;doc.body.removeChild(h.host);observe();
+  assert.equal(win.handlers.resize.length,0);assert.equal(disconnected,true);assert.deepEqual(h.history(),[]);
+});
+
+test('S12 auth: unpublished memory change retains id for deliberate Retry',async()=>{
+  let stale=true;const f=authFetch(url=>url.endsWith('/turns')?(stale?resp(409,{error:'memory_changed'}):okReply('Current answer')):null);
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;await sendText(q,'Keep this attempt');stale=false;await sendText(q,q.input.value);
+  const turns=f.calls.filter(c=>c.url.endsWith('/turns'));assert.equal(JSON.parse(turns[0].init.body).clientTurnId,JSON.parse(turns[1].init.body).clientTurnId);q.h.destroy();
+});
+
+test('t057 auth: gateway 500 then Retry reuses the id; turn_in_progress 409 says it is still working, not memory changed; then replay succeeds',async()=>{
+  let mode='cut';const f=authFetch(url=>url.endsWith('/turns')?(mode==='cut'?resp(500,{error:'proxy'}):mode==='busy'?resp(409,{error:'turn_in_progress'},{'retry-after':'2'}):okReply('Replayed answer')):null);
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;await sendText(q,'Journey map?');
+  assert.match(q.log.textContent,/Could not get a reply\. Your question is kept for Retry\./);
+  assert.equal(q.input.value,'Journey map?');
+  mode='busy';await sendText(q,q.input.value);
+  assert.match(q.log.textContent,/still working on your last question/i);
+  assert.doesNotMatch(q.log.textContent,/Memory or chat state changed/);
+  assert.equal(q.input.value,'Journey map?');assert.equal(byClass(q.shadow,'send').textContent,'Retry');
+  mode='ok';await sendText(q,q.input.value);
+  const ids=f.calls.filter(c=>c.url.endsWith('/turns')).map(c=>JSON.parse(c.init.body).clientTurnId);
+  assert.equal(ids.length,3);assert.equal(new Set(ids).size,1);
+  assert.match(q.log.textContent,/Replayed answer/);
+  assert.equal(q.h.history().filter(m=>m.kind==='me'&&m.text==='Journey map?').length,1);q.h.destroy();
+});
+test('t057 auth: a non-busy 409 keeps its own memory-changed text',async()=>{
+  const f=authFetch(url=>url.endsWith('/turns')?resp(409,{error:'memory_changed'}):null);
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;await sendText(q,'Q');
+  assert.match(q.log.textContent,/Memory or chat state changed/);assert.doesNotMatch(q.log.textContent,/still working/i);q.h.destroy();
+});
+
+for(const success of [true,false]) test('S13 typing while New chat is opening preserves the new draft; success='+success,async()=>{
+ let release,entered;const paused=new Promise(r=>entered=r);
+ const f=authFetch((url,init)=>url===AUTH_BASE+'/threads'&&init.method==='POST'?new Promise(r=>{release=r;entered();}):null);
+ const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;q.input.value='old draft';
+ const opening=q.h.newThread();await paused;q.input.value='new draft while opening';
+ release(success?resp(201,{threadId:'owned-2'}):resp(503,{}));assert.equal(await opening,success);
+ assert.equal(q.input.value,'new draft while opening');q.h.destroy();
 });

@@ -1,0 +1,303 @@
+
+> free-nextjs-admin-dashboard@2.0.2 build
+> next build
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of D:\vc\pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * D:\vc\.worktrees\quest-pathlynks-frontend\package-lock.json
+
+   ▲ Next.js 15.5.9
+   - Environments: .env
+
+   Creating an optimized production build ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Browserslist: browsers data (caniuse-lite) is 12 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ Compiled successfully in 54s
+   Linting and checking validity of types ...
+
+   We detected TypeScript in your project and reconfigured your tsconfig.json file for you. Strict-mode is set to false by default.
+   The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+   	- include was updated to add '.next-s13-qa/types/**/*.ts'
+
+
+./src/components/career/Career_category.js
+256:8  Warning: React Hook useEffect has missing dependencies: 'categoryWiseSubCategory', 'openOneCareerDetails', and 'subCategorywiseCareer'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/services/rateLimitService.js
+3:1  Warning: Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+   Collecting page data ...
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\calendar\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\(chart)\bar-chart\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\(tables)\basic-tables\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\blank\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\(chart)\line-chart\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\(forms)\form-elements\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\my-profile\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(ui-elements)\images\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(ui-elements)\badge\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(ui-elements)\avatars\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(full-width-pages)\(error-pages)\error-404\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(full-width-pages)\(auth)\signin\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+   Generating static pages (0/201) ...
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\my-profile\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(ui-elements)\avatars\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(others-pages)\calendar\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(full-width-pages)\(auth)\signup\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(admin)\(ui-elements)\alerts\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+ ⚠ "next" should not be imported directly, imported in D:\vc\.worktrees\quest-pathlynks-frontend\.next-s13-qa\server\app\(full-width-pages)\(error-pages)\error-404\page.js
+See more info here: https://nextjs.org/docs/messages/import-next
+   Generating static pages (50/201) 
+   Generating static pages (100/201) 
+   Generating static pages (150/201) 
+ ✓ Generating static pages (201/201)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                               Size  First Load JS
+┌ ○ /                                                  34.9 kB         361 kB
+├ ○ /_not-found                                          153 B         103 kB
+├ ○ /about-us                                          5.87 kB         213 kB
+├ ○ /academic-integration                                515 B         478 kB
+├ ○ /academic-integration/poc-academic-integration      6.6 kB         226 kB
+├ ○ /academic-integration/school-academic-integration    230 B         473 kB
+├ ○ /achieve-works                                     4.76 kB         235 kB
+├ ○ /achieve-works-assign                              8.64 kB         158 kB
+├ ○ /achieve-works-catalogue                           8.03 kB         155 kB
+├ ○ /achieve-works-monitor                             4.42 kB         143 kB
+├ ƒ /achieve-works/[attemptId]                         9.74 kB         236 kB
+├ ƒ /achieve-works/[attemptId]/report                  10.8 kB         171 kB
+├ ○ /activity-log                                      4.31 kB         156 kB
+├ ○ /add-paper                                         10.9 kB         368 kB
+├ ○ /add-paper-manual                                  10.6 kB         241 kB
+├ ○ /add-question                                        278 B         317 kB
+├ ○ /add-school                                        7.93 kB         232 kB
+├ ○ /add-section                                       2.08 kB         153 kB
+├ ○ /add-student                                         291 B         359 kB
+├ ○ /add-subsection                                    3.82 kB         152 kB
+├ ○ /add-user                                            294 B         348 kB
+├ ○ /alerts                                              492 B         107 kB
+├ ƒ /api/generate-pdf                                    153 B         103 kB
+├ ƒ /api/report-data/[id]                                153 B         103 kB
+├ ○ /approval                                          10.6 kB         153 kB
+├ ○ /assessment-configuration                          12.2 kB         227 kB
+├ ○ /assessment-listing                                8.31 kB         244 kB
+├ ○ /assessment-report                                 7.17 kB         201 kB
+├ ○ /assessment-scheduler                              13.1 kB         245 kB
+├ ○ /assign-assessment                                 11.5 kB         155 kB
+├ ○ /assign-permissions                                8.16 kB         213 kB
+├ ○ /assigned-tasks                                    5.25 kB         112 kB
+├ ○ /atlas-preview                                     6.77 kB         251 kB
+├ ○ /avatars                                             173 B         109 kB
+├ ○ /aw-translation-editor                             4.32 kB         145 kB
+├ ○ /badge                                               394 B         111 kB
+├ ○ /bar-chart                                         1.78 kB         105 kB
+├ ○ /basic-tables                                        173 B         109 kB
+├ ○ /blank                                               153 B         103 kB
+├ ○ /boards                                            3.71 kB         169 kB
+├ ○ /buttons                                             394 B         111 kB
+├ ○ /calendar                                          79.2 kB         182 kB
+├ ○ /canonical-validation                              18.3 kB         163 kB
+├ ○ /career-compare                                    36.6 kB         292 kB
+├ ○ /career-data-refresh                                 14 kB         335 kB
+├ ○ /career-library                                      437 B         410 kB
+├ ○ /career-quest                                         1 kB         379 kB
+├ ○ /career-quest/career-selection                     54.5 kB         498 kB
+├ ○ /career-quest/know-yourself                        50.5 kB         513 kB
+├ ○ /career-quest/people-like-me                       7.15 kB         221 kB
+├ ○ /career-quest/profile-building                     39.5 kB         470 kB
+├ ○ /career-quest/university-selection                 19.9 kB         310 kB
+├ ○ /career-repository                                   549 B         410 kB
+├ ○ /career-repository-v2                              6.53 kB         373 kB
+├ ƒ /career-repository-v2/career/[careerId]            10.1 kB         369 kB
+├ ƒ /career-repository-v2/category/[categoryId]        2.77 kB         374 kB
+├ ○ /career-repository-v2/search                       5.01 kB         370 kB
+├ ƒ /career-repository-v2/subcategory/[subcategoryId]  3.78 kB         376 kB
+├ ○ /channel-partners                                  3.55 kB         168 kB
+├ ○ /combine-list                                      17.8 kB         352 kB
+├ ○ /combine-template                                  4.84 kB         200 kB
+├ ○ /communications/academic-calendar                  7.44 kB         191 kB
+├ ○ /communications/auto-mailer                          16 kB         196 kB
+├ ○ /communications/creatives                            381 B         103 kB
+├ ○ /communications/designs                              381 B         103 kB
+├ ○ /communications/escalation                         6.49 kB         147 kB
+├ ○ /communications/history                            7.95 kB         184 kB
+├ ○ /communications/library                            6.57 kB         153 kB
+├ ƒ /communications/library/[id]                       6.95 kB         148 kB
+├ ○ /communications/newsletter                         12.3 kB         216 kB
+├ ○ /communications/school-journeys                    27.5 kB         251 kB
+├ ○ /communications/send                               8.62 kB         207 kB
+├ ○ /communications/suggested                          7.21 kB         158 kB
+├ ○ /configure-levels                                  4.79 kB         148 kB
+├ ○ /counsellor-requests                               4.16 kB         149 kB
+├ ○ /counselor-validation                              16.6 kB         363 kB
+├ ○ /coupon-code-management                            10.5 kB         302 kB
+├ ○ /create-interpretation                               282 B         198 kB
+├ ○ /custom-reports                                     321 kB         568 kB
+├ ○ /dashboard                                         25.2 kB         723 kB
+├ ○ /dashboard/counsellorPanel                          3.4 kB         421 kB
+├ ○ /dashboard/lePanel                                  5.6 kB         212 kB
+├ ○ /dashboard/parentPanel                             4.74 kB         165 kB
+├ ○ /dashboard/schoolPanel                              6.8 kB         424 kB
+├ ○ /dashboard/studentPanel                            9.24 kB         369 kB
+├ ○ /dashboard/vidyakshPanel                           4.73 kB         291 kB
+├ ○ /discover                                          4.99 kB         212 kB
+├ ○ /discover/results                                     7 kB         294 kB
+├ ○ /edit-paper                                        9.06 kB         240 kB
+├ ○ /edit-question                                       995 B         318 kB
+├ ○ /edit-school                                       6.01 kB         227 kB
+├ ○ /edit-section                                       2.4 kB         153 kB
+├ ○ /edit-student                                      1.33 kB         360 kB
+├ ○ /edit-subsection                                   3.67 kB         152 kB
+├ ○ /edit-user                                         1.07 kB         349 kB
+├ ○ /engagement-engine                                   11 kB         149 kB
+├ ○ /error-404                                           316 B         216 kB
+├ ○ /external-integration                                446 B         359 kB
+├ ○ /external-integration-comparison                   7.13 kB         175 kB
+├ ○ /external-integration-listing                        212 B         359 kB
+├ ○ /faq-category                                      8.56 kB         238 kB
+├ ○ /faq-list                                          8.68 kB         239 kB
+├ ○ /favorite                                          11.8 kB         222 kB
+├ ○ /forgot-password                                   6.31 kB         277 kB
+├ ○ /form-elements                                     24.9 kB         161 kB
+├ ○ /grades                                            5.01 kB         195 kB
+├ ○ /help-faq                                          7.53 kB         279 kB
+├ ○ /images                                              173 B         109 kB
+├ ○ /interpretation-list                               8.18 kB         175 kB
+├ ○ /judge-model                                       23.3 kB         314 kB
+├ ○ /ky-preview                                         1.6 kB         219 kB
+├ ○ /ky-redesign                                       12.2 kB         227 kB
+├ ○ /language-setup                                    3.37 kB         208 kB
+├ ○ /level-print                                       4.46 kB         145 kB
+├ ○ /line-chart                                        1.88 kB         105 kB
+├ ○ /list-grade-section                                3.67 kB         168 kB
+├ ○ /list-paper                                        10.2 kB         366 kB
+├ ○ /list-question                                     7.32 kB         172 kB
+├ ○ /list-school                                       10.1 kB         327 kB
+├ ○ /list-section                                       3.5 kB         177 kB
+├ ○ /list-student                                      17.5 kB         195 kB
+├ ○ /list-subsection                                   10.4 kB         315 kB
+├ ○ /login                                             3.78 kB         124 kB
+├ ○ /loginwithotp                                      2.33 kB         291 kB
+├ ○ /master-access                                     2.72 kB         141 kB
+├ ○ /media                                             3.31 kB         144 kB
+├ ○ /messages                                          5.45 kB         216 kB
+├ ○ /modals                                            5.19 kB         115 kB
+├ ○ /my-academics                                      9.41 kB         261 kB
+├ ○ /my-assessments                                    7.79 kB         235 kB
+├ ○ /my-matches                                        15.9 kB         372 kB
+├ ○ /my-profile                                        6.28 kB         226 kB
+├ ○ /my-report                                         9.74 kB         225 kB
+├ ○ /my-resources                                      7.65 kB         221 kB
+├ ○ /my-roadmap                                        14.7 kB         362 kB
+├ ○ /organization                                      27.5 kB         253 kB
+├ ○ /parent-careers                                    2.84 kB         420 kB
+├ ○ /parent-children                                   7.01 kB         251 kB
+├ ƒ /parent-consent/[token]                            5.17 kB         213 kB
+├ ○ /parent-insights                                   4.39 kB         150 kB
+├ ○ /parent-journey                                    4.15 kB         150 kB
+├ ○ /parent-link-requests                              3.71 kB         142 kB
+├ ○ /parent-subjects                                   5.18 kB         151 kB
+├ ○ /parent-universities                               5.09 kB         151 kB
+├ ○ /parent-validation                                 4.48 kB         113 kB
+├ ○ /payment-status                                    2.02 kB         209 kB
+├ ○ /pending-validations                               2.85 kB         212 kB
+├ ○ /permissions                                       3.16 kB         168 kB
+├ ○ /poc-external-integration                          7.26 kB         363 kB
+├ ○ /present-subjects-upload                           10.8 kB         149 kB
+├ ○ /preview-report                                    2.51 kB         282 kB
+├ ○ /profile                                             675 B         436 kB
+├ ƒ /profile-card/[shareToken]                         2.26 kB         218 kB
+├ ○ /profile/adminProfile                              6.17 kB         327 kB
+├ ○ /profile/studentProfile                              212 B         419 kB
+├ ○ /question-type                                     3.52 kB         168 kB
+├ ○ /rate-limits                                       3.82 kB         142 kB
+├ ○ /rejected-reports                                  14.1 kB         348 kB
+├ ○ /report-builder                                      15 kB         157 kB
+├ ○ /report-builder/ai-usage                           6.74 kB         145 kB
+├ ○ /report-builder/append-bulk                        35.8 kB         174 kB
+├ ƒ /report-builder/append-bulk/[batchId]              6.41 kB         145 kB
+├ ○ /report-builder/pdf-layout                          5.4 kB         148 kB
+├ ƒ /report-builder/pdf-layout/[id]/data               14.8 kB         153 kB
+├ ƒ /report-builder/pdf-layout/[id]/template           8.74 kB         147 kB
+├ ƒ /report-builder/template/[id]/edit                 27.6 kB         166 kB
+├ ƒ /report-builder/template/[id]/generate             14.6 kB         153 kB
+├ ƒ /report-builder/template/[id]/preview              4.35 kB         143 kB
+├ ○ /report-content                                      12 kB         290 kB
+├ ○ /report-generation                                  168 kB         351 kB
+├ ○ /reset-password                                    6.72 kB         208 kB
+├ ○ /resource-library                                  18.4 kB         226 kB
+├ ○ /retail-referrals                                  3.95 kB         142 kB
+├ ○ /roles                                             5.43 kB         188 kB
+├ ○ /school-access                                      3.7 kB         214 kB
+├ ○ /school-coupon                                     8.17 kB         205 kB
+├ ○ /school-external-integration                       9.18 kB         384 kB
+├ ○ /school-summary-reports                            14.4 kB         301 kB
+├ ○ /school-type                                       3.68 kB         169 kB
+├ ○ /set-password                                       6.1 kB         150 kB
+├ ○ /settings                                          1.86 kB         306 kB
+├ ○ /settings/ParentSettings                           1.66 kB         283 kB
+├ ○ /settings/SchoolSettings                            1.5 kB         283 kB
+├ ○ /settings/StudentSettings                            217 B         301 kB
+├ ○ /signin                                             2.2 kB         290 kB
+├ ○ /signup                                            4.33 kB         316 kB
+├ ○ /static-content                                    11.5 kB         180 kB
+├ ○ /student-localization                              4.13 kB         146 kB
+├ ○ /sub-section                                       6.43 kB         171 kB
+├ ○ /subject-approvals                                 6.04 kB         216 kB
+├ ○ /subject-selection                                 23.2 kB         413 kB
+├ ○ /subjects                                          8.31 kB         199 kB
+├ ƒ /thank-you                                           153 B         103 kB
+├ ○ /translate-document                                1.53 kB         105 kB
+├ ○ /update-interpretation                               313 B         198 kB
+├ ○ /update-school                                     5.85 kB         211 kB
+├ ○ /videos                                              153 B         103 kB
+├ ○ /vidysea-sso                                       5.96 kB         213 kB
+├ ○ /view-assessment                                   24.9 kB         317 kB
+├ ○ /view-assigned-questions                           9.99 kB         154 kB
+├ ƒ /view-assigned-report                                153 B         103 kB
+├ ○ /view-assigned-report-v2                           8.52 kB         151 kB
+├ ○ /view-attempted-assessment                         2.04 kB         142 kB
+├ ○ /view-question                                     3.35 kB         145 kB
+├ ○ /view-this-assessment-detailed-report              2.09 kB         458 kB
+├ ○ /view-this-assessment-report                         14 kB         476 kB
+├ ○ /view-this-combined-report                          7.6 kB         290 kB
+├ ○ /view-this-paper                                   6.01 kB         146 kB
+├ ○ /view-this-school                                  5.55 kB         167 kB
+├ ○ /view-this-student                                 7.85 kB         168 kB
+├ ○ /view-this-user                                    8.13 kB         295 kB
+├ ○ /view-user                                          5.9 kB         171 kB
+└ ○ /view-validated-report                             2.32 kB         343 kB
++ First Load JS shared by all                           103 kB
+  ├ chunks/1255-c3eac4a11d392a0d.js                    45.6 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js                54.2 kB
+  └ other shared chunks (total)                        3.18 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

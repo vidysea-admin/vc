@@ -2,6 +2,7 @@
  * pc-partner-keys (D-111; spec K1-K5): per-partner API keys. Outcome tests over the real registry, the real anonymous and chat handlers, the in-memory
  * fake Db (B8) and generated keys only (B13). Each test name states the real scenario that reaches the behaviour.
  */
+import * as memoryPolicyApi from "../src/partners.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
@@ -96,7 +97,7 @@ test("K1: ops adds Pathlynks: two keys come back once (vck_pub_ and vck_srv_ for
   assert.equal(stored.keys.pub.hash, createHmac("sha256", PEPPER).update(pub).digest("hex"), "HMAC-SHA256(key, pepper)");
   assert.equal(stored.keys.srv.hash, hashPartnerKey(srv, PEPPER));
   assert.notEqual(stored.keys.pub.hash, stored.keys.srv.hash);
-  assert.deepEqual(Object.keys(stored).sort(), ["_id", "allowedOrigins", "createdAt", "keys", "name", "partnerId", "status"]);
+  assert.deepEqual(Object.keys(stored).sort(), ["_id", "allowedOrigins", "createdAt", "keys", "memoryPolicy", "name", "partnerId", "status"]);
   assert.deepEqual(Object.keys(stored.keys).sort(), ["pub", "srv"]);
   assert.equal(stored.status, "active");
   assert.equal(stored.keys.pub.rotatedAt, null);
@@ -1047,7 +1048,7 @@ test("K1 (c1): two operators rotate the page key and the server key of one partn
   assert.equal(await fresh.authenticate(old.srv, "srv"), undefined, "the old server key is dead");
   const stored = (await w.store.get("race-co"))!;
   assert.deepEqual(Object.keys(stored.keys).sort(), ["pub", "srv"], "the keys object holds exactly the two scopes (no literal dotted field)");
-  assert.deepEqual(Object.keys(stored).sort(), ["_id", "allowedOrigins", "createdAt", "keys", "name", "partnerId", "status"]);
+  assert.deepEqual(Object.keys(stored).sort(), ["_id", "allowedOrigins", "createdAt", "keys", "memoryPolicy", "name", "partnerId", "status"]);
 });
 
 test("K1 (c1, J4): two overlapping rotates of the SAME scope leave exactly one printed key working (the first to commit; the other fails visibly and prints none), and never the old key", async () => {
@@ -1877,4 +1878,51 @@ test("K1 (pc-hardening-3): a student JWT whose tenant equals (or case-folds to) 
   const down = createPartnerRegistry({ store: { ...w.store, list: async () => { throw new Error("mongo down"); } }, pepper: PEPPER, nowMs: () => T0 });
   const closed = refuseTenantClaims(studentVerifier(), (tenantId) => down.isPartnerTenantClaim(tenantId));
   await assert.rejects(async () => closed.verify(await studentToken(adult("stu-1", "tenant-a"))), (e: unknown) => e instanceof AuthError);
+});
+
+
+test("Q13 memory policy: create persists enabled caps and update preserves keys/origins with independent zero flags", async () => {
+  const w = partnerWorld(); await w.add("Memory Site", ["https://memory.example"]);
+  const before = (await w.store.get("memory-site"))!;
+  const enabled = {shortTermEnabled:true,longTermEnabled:true,learningEnabled:true,contextMessages:12,maxFacts:20};
+  assert.deepEqual(before.memoryPolicy, enabled);
+  const policy = {shortTermEnabled:false,longTermEnabled:true,learningEnabled:false,contextMessages:0,maxFacts:7};
+  const out = await memoryPolicyApi.updatePartner(w.store,"memory-site",{memoryPolicy:policy});
+  assert.deepEqual(out.memoryPolicy,policy);
+  assert.deepEqual((await w.store.get("memory-site"))!.keys,before.keys);
+  assert.deepEqual(out.allowedOrigins,before.allowedOrigins);
+  assert.ok(!JSON.stringify(out).includes(before.keys.srv.hash));
+});
+
+test("Q13 memory policy: parser rejects coercion, partials, unknown fields and invalid bounds; retains zero", () => {
+  const enabled = {shortTermEnabled:true,longTermEnabled:true,learningEnabled:true,contextMessages:12,maxFacts:20};
+  for (const bad of [null,[],{}, {...enabled,shortTermEnabled:"true"}, {...enabled,longTermEnabled:1}, {...enabled,learningEnabled:null}, {...enabled,contextMessages:12.1}, {...enabled,contextMessages:-1}, {...enabled,contextMessages:13}, {...enabled,maxFacts:21}, {...enabled,maxFacts:NaN}, {...enabled,maxFacts:Infinity}, {...enabled,secret:"must-not-pass"}]) assert.equal(memoryPolicyApi.parseMemoryPolicy(bad),undefined);
+  assert.deepEqual(memoryPolicyApi.parseMemoryPolicy({...enabled,contextMessages:0,maxFacts:0}),{...enabled,contextMessages:0,maxFacts:0});
+});
+
+test("Q13 memory policy: a stalled store read is bounded and fails off", async () => {
+  const memoryPolicyApi=await import("../src/partners.js");
+  const result=await Promise.race([
+    memoryPolicyApi.resolveMemoryPolicy({get:async()=>new Promise<never>(()=>{})} as never,"stalled-site"),
+    new Promise<string>(resolve=>setTimeout(()=>resolve("unbounded"),1800)),
+  ]);
+  assert.deepEqual(result,memoryPolicyApi.NO_MEMORY_POLICY);
+});
+
+test("Q13 memory policy: fresh exact-partner resolution fails off for legacy, malformed, revoked, unknown and read error", async () => {
+  const w = partnerWorld(); await w.add("Site One"); await w.add("Site Two");
+  const enabled = memoryPolicyApi.DEFAULT_MEMORY_POLICY;
+  assert.deepEqual(await memoryPolicyApi.resolveMemoryPolicy(w.store,"site-one"),enabled);
+  await memoryPolicyApi.updatePartner(w.store,"site-one",{memoryPolicy:memoryPolicyApi.NO_MEMORY_POLICY});
+  assert.deepEqual(await memoryPolicyApi.resolveMemoryPolicy(w.store,"site-one"),memoryPolicyApi.NO_MEMORY_POLICY);
+  assert.deepEqual(await memoryPolicyApi.resolveMemoryPolicy(w.store,"site-two"),enabled);
+  const doc = (await w.store.get("site-two"))!; const {memoryPolicy: _policy,...legacy} = doc;
+  const store = {...w.store,get:async()=>legacy};
+  assert.deepEqual(await memoryPolicyApi.resolveMemoryPolicy(store,"site-two"),memoryPolicyApi.NO_MEMORY_POLICY);
+  assert.equal((await memoryPolicyApi.listPartners({...store,list:async()=>[legacy]}))[0]!.memoryPolicy,undefined);
+  for (const replacement of [{...doc,memoryPolicy:{...enabled,maxFacts:"20"}}, {...doc,status:"revoked"}, {...doc,partnerId:"another"}, null]) {
+    assert.deepEqual(await memoryPolicyApi.resolveMemoryPolicy({...w.store,get:async()=>replacement as never},"site-two"),memoryPolicyApi.NO_MEMORY_POLICY);
+  }
+  assert.deepEqual(await memoryPolicyApi.resolveMemoryPolicy({...w.store,get:async()=>{throw Error("private-db-url")}},"site-two"),memoryPolicyApi.NO_MEMORY_POLICY);
+  assert.deepEqual(await memoryPolicyApi.resolveMemoryPolicy(w.store,"unknown"),memoryPolicyApi.NO_MEMORY_POLICY);
 });

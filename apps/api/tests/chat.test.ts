@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { COLLECTION_NAMES, claimChatTurn, tenantScopedDb } from "@vc/db";
+import { COLLECTION_NAMES, claimChatTurn, invalidatePendingPublications, tenantScopedDb } from "@vc/db";
 import { createFakeDb } from "@vc/db/testing";
 import { STUDENT_API_DRAFT } from "../src/openapi.js";
 import { GATE_FILES, GoLiveRefusedError } from "../src/go-live-gate.js";
@@ -18,7 +18,7 @@ import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { APPROVER, GERMANY_QUESTION, NOW, adult, call, chatRequest, chatWorld, cleanupGates, everythingStored, gatesFixture, kbAnswerProvider, minor, newThread, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath } from "./chat-fixtures.js";
 import { SKILLS_DIR, SPEAKERS, realGatesWithB13Pending } from "./anonymous-fixtures.js";
 import { GroundingBudget, MockGroundedAnswerer, MockProvider } from "@vc/providers";
-import { TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
+import { STUDENT_CRISIS_MESSAGE, TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
 import { createHash, generateKeyPairSync } from "node:crypto";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
@@ -29,6 +29,41 @@ const baseDeps = () => ({
   provider: kbAnswerProvider(),
   skillsDir: SKILLS_DIR,
   speakers: SPEAKERS,
+});
+
+
+/** No search hits and an /ask that answers "insufficient coverage" (a content gap). A THROWN /ask is a KB outage and, since T-057 r2, never counts as a gap. */
+function noCoverageKb(): ReturnType<typeof recordingKb> {
+  const kb = recordingKb({ status: "ok", hits: [], dropped: 0 });
+  kb.askKnowledgeBase = (async (...args: unknown[]) => {
+    kb.calls.push({ tool: "ask_knowledge_base", arg: args });
+    return { status: "answered", answer: "", citations: { internal: [], web: [] }, verdict: "insufficient", insufficient_coverage: true, reason: "no coverage", sourceKind: "unknown" };
+  }) as never;
+  return kb;
+}
+
+test("Q3: owned Quest turn carries validated role/island context to the graph and retries without another answer call", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const quest = { role: "coach", island: "career-selection" };
+    const opts = { token, body: { text: GERMANY_QUESTION, clientTurnId: "quest-retry-1", quest } };
+    const first = await call(w, "POST", turnsPath("stu-1", threadId), opts);
+    assert.equal(first.status, 200, first.body);
+    const answers = () => w.provider.calls.filter((c) => c.skillName === "kb-answer");
+    assert.equal(answers().length, 1);
+    assert.deepEqual((answers()[0]!.input as Record<string, unknown>).quest, quest);
+    const again = await call(w, "POST", turnsPath("stu-1", threadId), opts);
+    assert.equal(again.status, 200);
+    assert.equal(again.json.turnId, first.json.turnId);
+    assert.equal(answers().length, 1, "same client turn must not trigger another model answer");
+    const invalid = await call(w, "POST", turnsPath("stu-1", threadId), {
+      token, body: { text: GERMANY_QUESTION, quest: { ...quest, studentId: "another-student" } },
+    });
+    assert.equal(invalid.status, 400);
+    assert.equal(answers().length, 1);
+  } finally { w.cleanup(); }
 });
 
 // ---------------------------------------------------------------------------
@@ -239,7 +274,8 @@ test("a student whose phone retries the same clientTurnId after a dropped respon
     assert.deepEqual(second.json, first.json);
     assert.equal(w.provider.calls.length, callsAfterFirst, "the replay did not call the model again");
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 2);
-    const usage = w.fakeDb.collection<{ textTurns: number }>(COLLECTION_NAMES.student_usage).all();
+    // student_usage also holds the "memory:<studentId>" revision marker; count only monthly counters.
+    const usage = w.fakeDb.collection<{ textTurns: number; month?: string }>(COLLECTION_NAMES.student_usage).all().filter((u) => typeof u.month === "string");
     assert.equal(usage.length, 1);
     assert.equal(usage[0]!.textTurns, 1);
   } finally {
@@ -312,6 +348,83 @@ test("a model outage gives the apology answer, keeps nothing, and the student's 
     const retry = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
     assert.equal(retry.json.state, "ok");
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 2);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("T-057: a KB search that never answers is cut by the overall turn deadline: 200 with the apology, nothing kept, no 500, and a retry runs again", async () => {
+  const kb = recordingKb();
+  kb.searchKb = () => new Promise(() => undefined);
+  const w = chatWorld({ kb, deps: { turnDeadlineMs: 80 } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const started = Date.now();
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "dl-1" } });
+    assert.equal(res.status, 200, res.body);
+    assert.ok(Date.now() - started < 3000, "answered near the deadline, not after the node caps");
+    assert.match(res.json.message, /try again/i);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0, "no half-finished exchange is kept");
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_usage).all().length, 0, "a deadline turn is not counted against the student");
+    const again = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "dl-1" } });
+    assert.equal(again.status, 200, "the same clientTurnId is not stuck as turn_in_progress");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("T-057 r2: the deadline fires while the model safety screen says 'possible' -> the crisis/helpline reply, never the try-again apology; one escalation, a text-free turn_deadline_hit log", async () => {
+  const kb = recordingKb();
+  kb.searchKb = () => new Promise(() => undefined);
+  const screen = new MockProvider({ responses: { "concern-classifier": { severity: "high", likelyBenign: false, rationale: "synthetic" } as never } });
+  const w = chatWorld({ kb, deps: { turnDeadlineMs: 80, graph: { safetyScreen: { provider: screen } } } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "dl-scr-1" } });
+    assert.equal(res.status, 200, res.body);
+    assert.equal(res.json.state, "escalated");
+    assert.equal(res.json.message, STUDENT_CRISIS_MESSAGE);
+    assert.doesNotMatch(String(res.json.message), /try again/i);
+    assert.equal(w.escalations.length, 1, "the screened distress turn is escalated once");
+    const hit = (w.logs as { event: string }[]).filter((l) => l.event === "turn_deadline_hit");
+    assert.equal(hit.length, 1);
+    assert.doesNotMatch(JSON.stringify(w.logs), /Germany|tuition/i, "the log line carries no student text");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("T-057 r2: the deadline fires with a clear screen verdict -> still the retryable apology (nothing kept), and the turn_deadline_hit log is written", async () => {
+  const kb = recordingKb();
+  kb.searchKb = () => new Promise(() => undefined);
+  const screen = new MockProvider({ responses: { "concern-classifier": { severity: "none", likelyBenign: true, rationale: "synthetic" } as never } });
+  const w = chatWorld({ kb, deps: { turnDeadlineMs: 80, graph: { safetyScreen: { provider: screen } } } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "dl-scr-2" } });
+    assert.equal(res.status, 200, res.body);
+    assert.match(res.json.message, /try again/i);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);
+    assert.equal(w.escalations.length, 0);
+    assert.equal((w.logs as { event: string }[]).filter((l) => l.event === "turn_deadline_hit").length, 1);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("T-057: the turn deadline never applies to a crisis turn -- even a 1 ms deadline still gets the helpline", async () => {
+  const w = chatWorld({ deps: { turnDeadlineMs: 1 } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "I want to kill myself", clientTurnId: "dl-cr-1" } });
+    assert.equal(res.status, 200, res.body);
+    assert.equal(res.json.state, "escalated");
+    assert.doesNotMatch(String(res.json.message), /try again/i, "not the deadline apology");
+    assert.equal(w.provider.calls.filter((c) => c.skillName === "kb-answer").length, 0, "the crisis path makes no answer-model call");
   } finally {
     w.cleanup();
   }
@@ -669,7 +782,7 @@ test("D-110: a signed-in student's question with no servable source gets the dis
   const GUIDANCE = "Hostels in Lisbon usually cost about 400 to 700 euros a month, and student residences near the university are often cheaper.";
   const provider = kbAnswerProvider();
   provider.setResponse("kb-general-guidance", { answer: GUIDANCE });
-  const w = chatWorld({ kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), provider });
+  const w = chatWorld({ kb: noCoverageKb(), provider });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -692,7 +805,7 @@ test("D-110: a signed-in student's question with no servable source gets the dis
 // ---------------------------------------------------------------------------
 
 test("a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text)", async () => {
-  const w = chatWorld({ kb: recordingKb({ status: "ok", hits: [], dropped: 0 }) });
+  const w = chatWorld({ kb: noCoverageKb() });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -716,7 +829,7 @@ test("a question the knowledge base cannot answer says so, and adds one text-fre
 test("G1 (API): a signed-in student's no-source question with grounding on gets the disclaimer plus the grounded answer; web sources are structured; the gap is still counted; only the redacted question reaches the web", async () => {
   const GROUNDED = "Student hostels in Lisbon commonly cost 400 to 700 euros a month, and residences run by the university are usually cheaper.";
   const grounding = new MockGroundedAnswerer({ text: GROUNDED, sources: [{ title: "Lisbon housing", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/CCC" }] });
-  const w = chatWorld({ kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), deps: { graph: { grounding } } });
+  const w = chatWorld({ kb: noCoverageKb(), deps: { graph: { grounding } } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -754,6 +867,126 @@ test("H6 (API): the grounded-call cap is per chat thread; the next turn in the s
     assert.ok(third.json.message.includes(GROUNDED));
     assert.equal(grounding.calls.length, 2);
   } finally {
+    w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// S13 fix A item 1 (security review, medium): a crisis turn always returns its helpline reply
+// ---------------------------------------------------------------------------------------------------------
+test("S13 fixA-1: a partner policy change between stage and release cannot cost a crisis turn its helpline: 200 with the helpline text, exactly one escalation, nothing published", async () => {
+  const w = chatWorld();
+  let release!: () => void, entered!: () => void;
+  const paused = new Promise<void>((r) => { entered = r; }), resume = new Promise<void>((r) => { release = r; });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const turns = w.fakeDb.collection(COLLECTION_NAMES.chat_turns), original = turns.updateOne.bind(turns);
+    let armed = true;
+    turns.updateOne = (async (filter: never, update: never, options: never) => {
+      if (armed && (update as { $set?: { publication?: string } }).$set?.publication === "published") { armed = false; entered(); await resume; }
+      return original(filter, update, options);
+    }) as typeof turns.updateOne;
+    const answering = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "I want to kill myself", clientTurnId: "fa1-crisis" } });
+    await paused;
+    // The partner changes its memory policy now: every prepared (pending) answer of the tenant is invalidated before it can publish.
+    await invalidatePendingPublications(w.fakeDb as never, "tenant-a");
+    release();
+    const res = await answering;
+    assert.equal(res.status, 200, res.body);
+    assert.equal(res.json.state, "escalated");
+    assert.equal(res.json.message, STUDENT_CRISIS_MESSAGE);
+    assert.equal(w.escalations.length, 1, "exactly one escalation");
+    assert.ok(!(w.logs as { event: string }[]).some((l) => /Germany|kill/i.test(JSON.stringify(l))), "any log line is text-free");
+    // The unpublished pair was withdrawn: nothing from the invalidated attempt is left to replay.
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().filter((t: { publication?: string }) => t.publication === "published").length, 0);
+  } finally {
+    release?.();
+    w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// S13 fix A item 3 (data review, medium): usage and gap counts are not double-counted on a retry
+// ---------------------------------------------------------------------------------------------------------
+const gapTotal = (w: ReturnType<typeof chatWorld>): number => w.fakeDb.collection<{ count: number }>(COLLECTION_NAMES.chat_gap_counts).all().reduce((n, g) => n + g.count, 0);
+const monthlyTextTurns = (w: ReturnType<typeof chatWorld>): number =>
+  w.fakeDb.collection<{ textTurns: number; month?: string }>(COLLECTION_NAMES.student_usage).all().filter((u) => typeof u.month === "string").reduce((n, u) => n + u.textTurns, 0);
+
+test("S13 fixA-3: a 409 memory_changed followed by a retry counts the student's usage, the usage sink row and the gap once; a replay counts zero", async () => {
+  const sinkRows: unknown[] = [];
+  const usage = { record: async (row: unknown) => { sinkRows.push(row); }, scope: async <T>(run: (m: { inputTokens: number; outputTokens: number; costUsd: number }) => Promise<T>) => run({ inputTokens: 0, outputTokens: 0, costUsd: 0 }) };
+  const w = chatWorld({ kb: noCoverageKb(), deps: { usage: usage as never } });
+  let release!: () => void, entered!: () => void;
+  const paused = new Promise<void>((r) => { entered = r; }), resume = new Promise<void>((r) => { release = r; });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const turns = w.fakeDb.collection(COLLECTION_NAMES.chat_turns), original = turns.updateOne.bind(turns);
+    let armed = true;
+    turns.updateOne = (async (filter: never, update: never, options: never) => {
+      if (armed && (update as { $set?: { publication?: string } }).$set?.publication === "published") { armed = false; entered(); await resume; }
+      return original(filter, update, options);
+    }) as typeof turns.updateOne;
+    const body = { text: GERMANY_QUESTION, clientTurnId: "fa3-turn" };
+    const first = call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    await paused;
+    await invalidatePendingPublications(w.fakeDb as never, "tenant-a");
+    release();
+    const refused = await first;
+    assert.equal(refused.status, 409, refused.body);
+    assert.equal(refused.json.error, "memory_changed");
+    assert.equal(monthlyTextTurns(w), 0, "a refused turn is not counted");
+    assert.equal(sinkRows.length, 0, "a refused turn writes no usage row");
+    const gapsAfterRefusal = gapTotal(w);
+    assert.equal(gapsAfterRefusal, 0, "a refused turn counts no gap");
+    const retried = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    assert.equal(retried.status, 200, retried.body);
+    assert.equal(monthlyTextTurns(w), 1);
+    assert.equal(sinkRows.length, 1);
+    const gaps = gapTotal(w);
+    assert.equal(gaps, 1, "the content gap is counted once");
+    const replay = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    assert.equal(replay.status, 200);
+    assert.equal(monthlyTextTurns(w), 1, "a replay counts zero");
+    assert.equal(sinkRows.length, 1);
+    assert.equal(gapTotal(w), 1);
+  } finally {
+    release?.();
+    w.cleanup();
+  }
+});
+
+test("S13 fixA-1b: guardian consent withdrawn mid-turn (thread becomes no-text) cannot cost a crisis turn its helpline: 200, one escalation, no text stored", async () => {
+  const { markChatThreadTextNotStored } = await import("@vc/db");
+  const w = chatWorld();
+  let release!: () => void, entered!: () => void;
+  const paused = new Promise<void>((r) => { entered = r; }), resume = new Promise<void>((r) => { release = r; });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const turns = w.fakeDb.collection(COLLECTION_NAMES.chat_turns), original = turns.updateOne.bind(turns);
+    let armed = true;
+    turns.updateOne = (async (filter: never, update: never, options: never) => {
+      // Pause after the pair is staged, at the user-row flip to "done".
+      if (armed && (update as { $set?: { status?: string } }).$set?.status === "done") { armed = false; entered(); await resume; }
+      return original(filter, update, options);
+    }) as typeof turns.updateOne;
+    const answering = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "I want to kill myself", clientTurnId: "fa1b-crisis" } });
+    await paused;
+    await markChatThreadTextNotStored(w.deps.dbForTenant("tenant-a"), { studentId: "stu-1", threadId });
+    release();
+    const res = await answering;
+    assert.equal(res.status, 200, res.body);
+    assert.equal(res.json.state, "escalated");
+    assert.equal(res.json.message, STUDENT_CRISIS_MESSAGE);
+    assert.equal(w.escalations.length, 1, "the escalation is kept, once");
+    // Consent is gone: no turn text of this exchange survives anywhere in the store.
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().filter((t: { threadId?: string }) => t.threadId !== undefined).length, 0);
+    assert.ok(!everythingStored(w.fakeDb).includes("kill myself"), "no student text stored");
+    assert.ok(!JSON.stringify(w.logs).includes("kill"), "log lines are text-free");
+  } finally {
+    release?.();
     w.cleanup();
   }
 });

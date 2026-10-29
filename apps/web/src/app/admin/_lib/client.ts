@@ -3,7 +3,7 @@
  * (api/admin-session/proxy/* -> /admin/api/*). The JWT is held in memory by the caller and sent ONLY in the Authorization header.
  * Failures become AdminApiError with a fixed sentence: raw server text is never shown.
  */
-import type { AdminRole, AdminSummary, AuditEntry, KeyScope, Metrics, MetricsQuery, SiteSummary, SourceActionResult, SourceInput, SourceSummary } from "./types";
+import type { AdminRole, AdminSummary, AuditEntry, KeyScope, Metrics, MetricsQuery, MemoryPolicy, SiteSummary, SourceActionResult, SourceInput, SourceSummary } from "./types";
 
 export const PROXY_BASE = "/api/admin-session/proxy";
 
@@ -47,6 +47,13 @@ const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v)
 function readSite(v: unknown): SiteSummary {
   const o = asObj(v);
   const keys = asObj(o.keys);
+  const p = asObj(o.memoryPolicy);
+  const policyKeys = ["shortTermEnabled", "longTermEnabled", "learningEnabled", "contextMessages", "maxFacts"];
+  const memoryPolicy: MemoryPolicy | undefined = Object.keys(p).length === 5 && Object.keys(p).every(k => policyKeys.includes(k)) &&
+    typeof p.shortTermEnabled === "boolean" && typeof p.longTermEnabled === "boolean" && typeof p.learningEnabled === "boolean" &&
+    typeof p.contextMessages === "number" && Number.isInteger(p.contextMessages) && p.contextMessages >= 0 && p.contextMessages <= 12 &&
+    typeof p.maxFacts === "number" && Number.isInteger(p.maxFacts) && p.maxFacts >= 0 && p.maxFacts <= 20
+    ? { shortTermEnabled: p.shortTermEnabled, longTermEnabled: p.longTermEnabled, learningEnabled: p.learningEnabled, contextMessages: p.contextMessages, maxFacts: p.maxFacts } : undefined;
   const k = (s: KeyScope) => {
     const r = asObj(keys[s]);
     return { prefix: str(r.prefix), rotatedAt: typeof r.rotatedAt === "string" ? r.rotatedAt : null };
@@ -58,6 +65,7 @@ function readSite(v: unknown): SiteSummary {
     allowedOrigins: asArr(o.allowedOrigins ?? o.origins).filter((x): x is string => typeof x === "string"),
     status: o.status === "revoked" ? "revoked" : "active",
     createdAt: str(o.createdAt),
+    ...(memoryPolicy ? { memoryPolicy } : {}),
   };
 }
 
@@ -146,7 +154,7 @@ export function createAdminClient(deps: AdminClientDeps) {
       const o = await call("POST", "/sites", input);
       return { site: readSite(o.partner ?? o.site), keys: readKeys(o.keys) };
     },
-    async updateSite(siteId: string, patch: { name?: string; origins?: string[] }): Promise<SiteSummary> {
+    async updateSite(siteId: string, patch: { name?: string; origins?: string[]; memoryPolicy?: MemoryPolicy }): Promise<SiteSummary> {
       const o = await call("PATCH", `/sites/${id(siteId)}`, patch);
       return readSite(o.partner ?? o.site ?? o);
     },

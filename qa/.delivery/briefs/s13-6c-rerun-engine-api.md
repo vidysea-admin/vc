@@ -1,0 +1,3 @@
+# s13-6c-rerun-engine-api
+
+Post-fix-C re-run of the two packages touched after qa/verdicts/s13-6c.md (4321 pass/0 fail/46 skip). From D:/vc/.worktrees/vc-completion, sequentially, no -x, each via bash scripts/vc-testlock.sh pnpm test run from the package dir: packages/engine, apps/api. Then pnpm run typecheck in both, and python contracts/verify_contracts.py. Long lock waits are normal: wait. Save raw logs to qa/evidence/s13-6c-2-<pkg>.log and write qa/verdicts/s13-6c-2.md with HEAD sha, git status --short count, table (tests/pass/fail/skip) and delta vs s13-6c (engine 2274/2229/0/45, api 880/880/0/0). If anything fails, re-run that file once alone to separate flake from defect and report both. Do not touch qa/.6c-green.

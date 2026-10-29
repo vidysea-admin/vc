@@ -33,7 +33,7 @@ Examples (the original is shown first):
 ## Output shape
 
 `Fact[]` (see `FactSchema`): `{key, value, source: {type:"transcript", quote, turnId}, confidence,
-validFrom, purposeTags, sensitivity}[]`. Every fact's `source.quote` must be a real substring of the
+purposeTags, sensitivity}[]` (do not emit `validFrom`; the engine sets it). Every fact's `source.quote` must be a real substring of the
 turn it's drawn from — never a paraphrase presented as a quote.
 
 `kind` (optional, default "value"): set it to `"reasoning"` when the student states WHY a value

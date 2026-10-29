@@ -332,7 +332,25 @@ export function createAdminStore(db: Db, options: AdminStoreOptions = {}): Admin
         const config = plainObject(input.config, "config");
         const secretPaths = findSecretLikeFields(config);
         if (secretPaths.length > 0) invalid(`config holds secret-like value(s) at: ${secretPaths.join(", ")}`);
-        await sourcesC().updateOne({ _id: id } as never, { $set: { siteId, kind, config } } as never, { upsert: true });
+        // Bind secrets to the destination they were provisioned for. No retarget/clear API exists:
+        // a new destination must use a new source and explicitly provision its own secret.
+        const current = await sourcesC().findOne({ _id: id } as never);
+        const keys = ['platform', 'siteId', 'host', 'port', 'database', 'user', 'sslmode', 'passwordRef', 'caFileRef', 'owner', 'repo', 'branch', 'tokenRef'];
+        if (current?.secretEnc && (current.siteId !== siteId || current.kind !== kind || keys.some(k => (current.config[k] ?? (k === 'platform' ? 'pathlynks' : undefined)) !== (config[k] ?? (k === 'platform' ? 'pathlynks' : undefined))))) invalid('credential destination cannot be changed');
+        if (!current) {
+          await sourcesC().insertOne({ _id: id, siteId, kind, config } as never);
+        } else {
+          // CAS also closes the race with setSecret and a concurrent config writer.
+          const filter: Record<string, unknown> = { _id: id, siteId: current.siteId, kind: current.kind };
+          for (const k of keys) filter['config.' + k] = current.config[k] === undefined ? { $exists: false } : current.config[k];
+          if (current.secretEnc) {
+            filter['secretEnc.iv'] = current.secretEnc.iv;
+            filter['secretEnc.ct'] = current.secretEnc.ct;
+            filter['secretEnc.tag'] = current.secretEnc.tag;
+          } else filter.secretEnc = { $exists: false };
+          const changed = await sourcesC().updateOne(filter as never, { $set: { siteId, kind, config } } as never);
+          if (changed.matchedCount !== 1) invalid('source changed concurrently');
+        }
         const stored = await sourcesC().findOne({ _id: id } as never);
         return summaryOfSource(stored!);
       },
@@ -349,7 +367,11 @@ export function createAdminStore(db: Db, options: AdminStoreOptions = {}): Admin
         const sourceId = pattern(id, SOURCE_ID, "source id");
         if (typeof plain !== "string" || plain.length === 0 || plain.length > MAX_SECRET_CHARS) invalid(`secret must be 1-${MAX_SECRET_CHARS} characters`);
         const secretEnc = encryptSecret(plain, requireMasterKey());
-        const res = await sourcesC().updateOne({ _id: sourceId } as never, { $set: { secretEnc } } as never);
+        const current = await sourcesC().findOne({ _id: sourceId } as never);
+        if (!current) throw new AdminStoreError('not_found', 'no such source');
+        const filter: Record<string, unknown> = { _id: sourceId, siteId: current.siteId, kind: current.kind };
+        for (const k of ['platform', 'siteId', 'host', 'port', 'database', 'user', 'sslmode', 'passwordRef', 'caFileRef', 'owner', 'repo', 'branch', 'tokenRef']) filter['config.' + k] = current.config[k] === undefined ? { $exists: false } : current.config[k];
+        const res = await sourcesC().updateOne(filter as never, { $set: { secretEnc } } as never);
         if (res.matchedCount !== 1) throw new AdminStoreError("not_found", "no such source");
       },
       async readSecret(id) {

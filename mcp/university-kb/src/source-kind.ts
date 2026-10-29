@@ -176,10 +176,15 @@ export function mapSessionTurns(
 /** What a KB client must offer to back a port: search always; ask / getSession / sources when present. */
 export interface StudentKbPortClient {
   search(query: string, k?: number): Promise<KbSearchResult>;
+  /** Optional vectorless `GET /route?q=&k=`, same hit shape as `search`. Only tried when the port's route flag is on. */
+  route?(query: string, k?: number): Promise<KbSearchResult>;
   sources?(): Promise<KbSourcesResult>;
   ask?(query: string): Promise<KbAskResult>;
   getSession?(sessionId: string): Promise<KbSessionResult>;
 }
+
+/** T-057: the student graph keeps at most 5 hits, so `/search` is asked for 5 (the default k returned 240-290 KB bodies). */
+export const STUDENT_SEARCH_K = 5;
 
 /**
  * Builds the in-process `StudentKbPort` from a KB client. `searchKb` is always there; `askKnowledgeBase` only when the
@@ -188,14 +193,28 @@ export interface StudentKbPortClient {
  * `insufficient_coverage: false` because the serve rule has just proven it (the engine's `isServedAsk` requires the
  * field to be explicitly false). An outage is `status: "unavailable"`, never a thrown error.
  */
-export function createStudentKbPort(deps: { client: StudentKbPortClient; sourceKinds?: SourceKindConfig }): StudentKbPort {
+export function createStudentKbPort(deps: {
+  client: StudentKbPortClient;
+  sourceKinds?: SourceKindConfig;
+  /** Route-first retrieval; default is env `VC_KB_ROUTE === "1"` (OFF when unset). */
+  routeEnabled?: boolean;
+}): StudentKbPort {
   const { client } = deps;
+  const routeEnabled = deps.routeEnabled ?? (typeof process !== "undefined" && process.env.VC_KB_ROUTE?.trim() === "1");
   const read = client.sources?.bind(client);
   const resolver = read ? createSourceKindResolver({ client: { sources: read }, config: deps.sourceKinds }) : null;
   const kindOf: SourceKindOf = async (subject) => (resolver ? resolver.tag(subject) : "unknown");
   const port: StudentKbPort = {
     async searchKb(query) {
-      const result = await client.search(query);
+      // Route-first (flag on): the vectorless /route returns the same hit shape, parsed and validated by the same hit parser as
+      // /search inside the client. Any route failure (404/405/501, timeout, breaker open, bad body) or an empty route result
+      // (design 5.7: lexical /search stays the fallback on empty routing) falls back to /search.
+      let result: KbSearchResult | undefined;
+      if (routeEnabled && client.route) {
+        const routed = await client.route(query, STUDENT_SEARCH_K);
+        if (routed.status === "ok" && routed.hits.length > 0) result = routed;
+      }
+      result ??= await client.search(query, STUDENT_SEARCH_K);
       if (result.status !== "ok") return { status: "unavailable", unavailableReason: result.reason, detail: result.detail };
       return { status: "ok", hits: await mapSearchHits(result.hits, kindOf), dropped: result.dropped };
     },

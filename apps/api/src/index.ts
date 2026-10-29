@@ -21,21 +21,27 @@ import {
   createAdminStore,
   erasureConfigFromEnv,
   errorLabel,
+  listStudentFlags,
+  openReadOnlyDb,
+  READ_ONLY_DB_ALLOW_LIST,
   startErasureFenceSweep,
   tenantScopedDb,
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { createModelLanguageDetector, createStudentFactExtractor, escalateTurns, initScribeCheckpointer, parseReplyLangs, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type KnowledgeAsker, type SpeakersFile, type StudentGraphDeps, type StudentKbPort } from "@vc/engine";
+import { createModelLanguageDetector, createStudentFactExtractor, escalateTurns, initScribeCheckpointer, parseReplyLangs, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, navigateSteps, runStudentTurn, PATHLYNKS_UNAVAILABLE_TEXT, type EscalationDeps, type KnowledgeAsker, type SpeakersFile, type StudentGraphDeps, type StudentKbPort } from "@vc/engine";
 import {
   createProvider,
   emitEngineeringAlert,
   emitFailoverAlert,
   GroundingConfigError,
+  loadGeminiPrice,
   loadGroundedAnswerer,
   loadGroundingBudget,
   loadProviderConfig,
   loadTextChainConfig,
+  withRoleModels,
+  type CreateProviderDeps,
   type EngineeringAlert,
   type FailoverExhaustedInfo,
   type LiveProvider,
@@ -45,11 +51,13 @@ import {
 } from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, refuseTenantClaims, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
-import { loadSourcesFile, type SourcesFile } from "@vc/schemas";
+import { loadSourcesFile, mongoSourceForTenant, postgresSourceForTenant, type SourcesFile, type ProfileFact } from "@vc/schemas";
+import type { QuestDbLike } from "@vc/mcp-pathlynks";
 import { adminJwtSecretFromEnv } from "./admin-auth.js";
 import {
   createGithubPort,
   createLivePathlynksPort,
+  createLiveVidyseaPort,
   createNavCatalogueLoader,
   createPostgresTestPort,
   createUsageSink,
@@ -78,6 +86,8 @@ import {
   RESERVED_TENANT_IDS_ENV,
   createMongoPartnerStore,
   createPartnerRegistry,
+  resolveMemoryPolicy,
+  NO_MEMORY_POLICY,
   partnerKeyRequiredFromEnv,
   partnerOwnTenantsFromEnv,
   partnerPepperFromEnv,
@@ -103,7 +113,64 @@ import {
   withVoiceRoutes,
   type VoiceApi,
   type VoiceApiDeps,
+  type VoiceTools,
 } from "./voice.js";
+
+/**
+ * wire-fix-1 (D-134, contract B12, qa/gates/mongo-host.md): the Career Quest opener for one site, or undefined (quest tools stay unwired, generic asks fall back to the KB).
+ * It exists only when config/sources.json holds exactly one enabled "mongo" source for the verified site AND its database is on the read-only allow-list in @vc/db
+ * (today only `pathlynks_journey`). The handle it opens exposes find / aggregate / countDocuments only, each forced to readPreference secondaryPreferred, limited to the
+ * source collection list; the port adds the owner filter. Nothing connects here (opening a handle is local; the shared client connects once in startApi).
+ */
+export function questDbOpenerFor(client: ReturnType<typeof connectFromEnv>["client"], sources: SourcesFile | undefined, siteId: string): (() => Promise<QuestDbLike>) | undefined {
+  const source = sources ? mongoSourceForTenant(sources, siteId) : undefined;
+  if (!source || (source.platform ?? "pathlynks") !== "pathlynks" || !READ_ONLY_DB_ALLOW_LIST.includes(source.database)) return undefined;
+  const { database, collections } = source;
+  return async () => openReadOnlyDb(client, database, collections);
+}
+
+/** Shared authenticated graph filters; identity comes only from the voice session, never tool arguments. */
+export function createQuestVoiceTools(tenantId: string | ((verifiedTenant: string) => StudentGraphDeps | undefined), graph: StudentGraphDeps, existing?: VoiceTools): VoiceTools {
+  const prompts: Record<string, string> = {
+    vidysea_profile: "show my Vidysea profile", vidysea_shortlisted_programmes: "show my shortlisted programmes",
+    vidysea_profile_assessment: "show my Vidysea profile assessment",
+    pathlynks_profile: "show my Pathlynks profile", pathlynks_saved_careers: "show my saved careers",
+    pathlynks_compare: "what is in my compare list", pathlynks_assessment: "what is my assessment status",
+    pathlynks_career_fit: "which careers suit me and why", pathlynks_report: "summarise my combined report",
+    vidysea_pathlynks_snapshot: "which careers suit me and why",
+    // wire-fix-1 (D-134): the tracking tools and the Career Quest tools. Each phrase is one the student classifier routes to exactly that tool
+    // (classify.ts OWN_PROGRESS_RULES), so voice runs the same graph node, the same owner binding and the same allow-listed columns as chat.
+    vidysea_journey_maps: "show my journey maps", vidysea_applications: "show my applications", vidysea_visa: "show my visa applications",
+    vidysea_favourites: "show my favourites", vidysea_saved_scholarships: "show my saved scholarships", vidysea_progress: "what is my progress",
+    pathlynks_quest_progress: "show my career quest", pathlynks_goals: "show my goals", pathlynks_year_plan: "show my year plan",
+  };
+  const owned = new Set([...Object.keys(prompts), "navigate_steps"]);
+  const unavailable = () => ({ result: { message: PATHLYNKS_UNAVAILABLE_TEXT } });
+  return {
+    declarations: [
+      ...(existing?.declarations.filter((d) => !owned.has(d.name)) ?? []),
+      ...Object.keys(prompts).map((name) => ({ name, description: "Read the signed-in student own configured platform data. Never accepts an identity.", parameters: { type: "object", properties: {}, additionalProperties: false } })),
+      { name: "navigate_steps", description: "Verified host task steps for a navigation intent.", parameters: { type: "object", required: ["intent"], properties: { intent: { type: "string", minLength: 1, maxLength: 500 } }, additionalProperties: false } },
+    ],
+    async run(call, who) {
+      if (!owned.has(call.name)) return existing ? existing.run(call, who) : unavailable();
+      const selected = typeof tenantId === "function" ? tenantId(who.tenantId) : who.tenantId === tenantId ? graph : undefined;
+      if (!selected || !call.args || typeof call.args !== "object" || Array.isArray(call.args)) return unavailable();
+      const keys = Object.keys(call.args);
+      if (call.name === "navigate_steps" ? (keys.length !== 1 || keys[0] !== "intent" || typeof call.args.intent !== "string" || !call.args.intent.trim() || call.args.intent.length > 500) : keys.length !== 0) return unavailable();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const work = async () => {
+          if (call.name === "navigate_steps") return { result: navigateSteps(await selected.navCatalogue?.(), call.args.intent as string) };
+          const out = await runStudentTurn(selected, { mode: "authenticated", auth: { role: "student", tenantId: who.tenantId, studentId: who.studentId }, threadId: who.threadId, turnId: "voice-tool", text: prompts[call.name] });
+          return { result: { message: out.response.message } };
+        };
+        return await Promise.race([work(), new Promise<ReturnType<typeof unavailable>>((resolve) => { timer = setTimeout(() => resolve(unavailable()), 5000); })]);
+      } catch { return unavailable(); }
+      finally { if (timer) clearTimeout(timer); }
+    },
+  };
+}
 
 export * from "./auth.js";
 export * from "./admin-auth.js";
@@ -429,6 +496,7 @@ export interface StartApiChatOptions {
   verifier?: StudentJwtVerifier;
   profile?: ChatApiDeps["profile"];
   extractFacts?: ChatApiDeps["extractFacts"];
+  memoryPolicyForTenant?: ChatApiDeps["memoryPolicyForTenant"];
   /** Default: the engine's escalateTurns over the tenant's EscalationDeps (the same factory the scribe uses). */
   escalateForTenant?: ChatApiDeps["escalateForTenant"];
   sandboxTenantId?: ChatApiDeps["sandboxTenantId"];
@@ -461,6 +529,8 @@ export interface StartApiAdminOptions {
   sources?: SourcesFile | string;
   /** Replaces the live Pathlynks port (tests). */
   pathlynks?: ChatApiDeps["pathlynks"];
+  /** Native synthetic seam; production resolves the exact configured tenant source. */
+  vidysea?: StudentGraphDeps["vidysea"];
   nowMs?: () => number;
   log?: (line: Record<string, unknown>) => void;
 }
@@ -564,28 +634,42 @@ export async function startApi(
   options: StartApiOptions = {},
 ): Promise<Api> {
   const { clientFactory, onError, http, ...sweepOptions } = options;
+  const usageRef: { sink?: ReturnType<typeof createUsageSink> } = {};
+  // S13 fix-b: Gemini (text and grounded) reports usageMetadata through onUsage; it reaches the per-turn meter (and so the student and tenant caps) exactly as the
+  // Ollama chain's usage does. A malformed GEMINI_PRICE_USD_PER_MTOK is a startup error here; unset, tokens are metered and no dollar figure is invented.
+  const geminiPrice = http ? loadGeminiPrice(env) : undefined;
+  const geminiMeter: CreateProviderDeps = { onUsage: (u) => usageRef.sink?.addUsage(u), ...(geminiPrice ? { geminiPrice } : {}) };
+  // Metering is only added for a Gemini deployment: any other provider is built exactly as before.
+  const meterDeps: CreateProviderDeps = env.VC_LLM_PROVIDER === "gemini" ? geminiMeter : {};
   // T-025: every configuration error (JWT, provider, port) surfaces BEFORE anything connects.
   const httpBase = http
     ? {
         port: resolvePort(env, http.port),
         host: http.host ?? "127.0.0.1",
         verifier: http.verifier ?? createJwtVerifier(jwtConfigFromEnv(env)),
-        provider: http.provider ?? createProvider(loadProviderConfig(env)),
+        // S13 fix-b: VC_MODEL_SUMMARY puts the scribe's session summary on its own model; unset, this is the plain provider.
+        provider: withRoleModels(env, http.provider ?? createProvider(loadProviderConfig(env), meterDeps), ["summary"], meterDeps),
         skillsDir: http.skillsDir ?? DEFAULT_SKILLS_DIR,
       }
     : undefined;
   // P1 LK1w (D-105): `provider` stays the scribe's and the concern classifier's base (a task moves to the text chain only after its own eval, Q4).
   // `studentProvider` serves the student surfaces (chat turn, anonymous route): the VC_TEXT_CHAIN chain when set, else that same current provider.
   // A bad chain (no OLLAMA_API_KEY, unknown price) throws here, before anything connects.
-  const textChain = httpBase ? loadTextChainConfig(env) : undefined;
+  // T-057: VC_LLM_PROVIDER=gemini is an explicit choice of ONE model vendor for every student-facing role (answer, safety screen, fact extraction, language
+  // detection). A VC_TEXT_CHAIN left in the environment is then not read at all, so no role can silently fall back to Ollama (the chain needs OLLAMA_API_KEY
+  // and a spend cap too, neither of which a gemini deployment is asked for). One text-free note says so. Any other VC_LLM_PROVIDER: unchanged.
+  const geminiOnly = httpBase !== undefined && env.VC_LLM_PROVIDER === "gemini";
+  if (geminiOnly && (env.VC_TEXT_CHAIN ?? "").trim() !== "") console.error(JSON.stringify({ level: "warn", event: "text_chain_ignored", reason: "VC_LLM_PROVIDER=gemini", ts: new Date().toISOString() }));
+  const textChain = httpBase && !geminiOnly ? loadTextChainConfig(env) : undefined;
   // P1 LK7: a chain spends real money, so it never starts without a valid monthly cap (fail closed, before anything connects). Every hop of the
   // chain is charged through this one guard; a refused request is the existing degraded reply, never a crash.
   const chainGuard = textChain ? createChainSpendGuard({ capUsd: parseChainMonthlyCap(env), ...(http?.chainSpend ?? {}) }) : undefined;
-  const usageRef: { sink?: ReturnType<typeof createUsageSink> } = {};
   const httpSetup = httpBase
     ? {
         ...httpBase,
-        studentProvider: textChain
+        // S13 fix-b: VC_MODEL_ANSWER / VC_MODEL_ROUTER move the answer skills / the language, rewrite and follow-up skills of the STUDENT surfaces onto their own
+        // models. Unset keys return the same provider object, so nothing changes; the safety screen and the fact extractor keep the base model.
+        studentProvider: withRoleModels(env, textChain
           ? createProvider(textChain, {
               beforeRequest: chainGuard!.beforeRequest,
               // vc-admin-control VA17: the same usage report also feeds the per-turn meter (a no-op outside a metered turn or before the sink exists).
@@ -595,7 +679,7 @@ export async function startApi(
               },
               onExhausted: chainGuard!.onExhausted,
             })
-          : httpBase.provider,
+          : httpBase.provider, ["answer", "router"], meterDeps),
       }
     : undefined;
   // pc-partner-keys: the pepper and the required flag are checked BEFORE anything connects. The store is bound to the Db only after connect (the registry reads
@@ -649,8 +733,12 @@ export async function startApi(
       ? createPartnerRegistry({ store: partnerStore, pepper: partnerPepper, reservedIds: partnerReservedIds, ownTenants: partnerOwnTenants, ...(http?.partners?.nowMs ? { nowMs: http.partners.nowMs } : {}) })
       : undefined;
   const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
+  // T-057: the classifier tier name defaults to "flash-lite" (a gateway class name); the Gemini API has no such model id. With gemini, an unset VC_CONCERN_MODEL
+  // means the deployment's own VC_LLM_MODEL; an explicit VC_CONCERN_MODEL still wins.
+  const classifierModel = (base: ReturnType<typeof loadProviderConfig>): Pick<NonNullable<typeof classifierConfig>, "model"> =>
+    base.provider === "gemini" && (env.VC_CONCERN_MODEL ?? "").trim() === "" ? { model: base.model } : classifierConfig!;
   const classifierProvider = httpSetup && !http?.escalationForTenant
-    ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
+    ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierModel(loadProviderConfig(env))), meterDeps)) : undefined;
   const classifierPrompt = httpSetup ? loadSkill(httpSetup.skillsDir, CONCERN_CLASSIFIER_SKILL) : undefined;
   const escalationForTenant = httpSetup ? (http?.escalationForTenant ?? (() => ({
     recipients: async () => ({ adminIds: [], counsellorIds: [] }),
@@ -666,7 +754,8 @@ export async function startApi(
   const anonymousScreen = anonymousFlag ? anonymousSafetyScreenFromEnv(env) : false;
   // p1-nosource-grounded G1: Gemini with Google Search grounding for a no-source question. VC_GROUNDING is off unless exactly "gemini"; "gemini" without
   // GEMINI_API_KEY, or any other value, is a startup error before anything connects. The key is read from the environment only (B11).
-  const grounding = httpSetup ? loadGroundedAnswerer(env) : undefined;
+  // S13 fix-b: a grounded call's usageMetadata reaches the same per-turn meter (the notional chain reservation below stays as it was).
+  const grounding = httpSetup ? loadGroundedAnswerer(env, { onUsage: geminiMeter.onUsage!, ...(geminiPrice ? { price: geminiPrice } : {}) }) : undefined;
   // p1-grounding-hardening H6: grounded calls are capped per caller (an anonymous client, a chat thread) and per UTC day (VC_GROUNDING_MAX_PER_SESSION, default
   // 5; VC_GROUNDING_MAX_PER_DAY, default 500). With a text chain each allowed call also reserves a notional per-call cost against the same monthly USD cap
   // (no refund: a conservative figure, since the grounded request has no usage report). Over any cap the turn falls back to the model-only guidance.
@@ -797,15 +886,62 @@ export async function startApi(
   // VA17: usage rows need the HMAC key derived from the master key; without it none are written (the console says nothing about students it cannot key).
   const usageSink = adminStore && adminMasterKey ? createUsageSink(adminStore, adminMasterKey) : undefined;
   if (usageSink) usageRef.sink = usageSink;
-  // S5/S6: the live Pathlynks port and the stored navigation catalogue, handed ONLY to the Pathlynks tenant (the config file's siteId).
-  const livePathlynks =
-    chatSetup && adminStore && pathlynksSiteId
-      ? (options.admin?.pathlynks ??
-        createLivePathlynksPort(adminStore, { env, ...(sourcesFile ? { seeded: sourcesFile.sources } : {}), onEvent: (e) => adminLog({ level: e.type === "privileged_role_override" ? "warn" : "error", event: `pathlynks_${e.type}` }) }))
-      : undefined;
-  if (livePathlynks && env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE === "1") adminLog({ level: "warn", event: "pathlynks_privileged_role_override", message: "PATHLYNKS_ALLOW_PRIVILEGED_ROLE=1: the connect-time write-privilege refusal is skipped; SELECT-only SQL in a read-only transaction still applies" });
+  // One exact source per verified tenant; bootstrap is never another tenant's fallback.
+  type PlatformRuntime = Pick<StudentGraphDeps, "pathlynks" | "vidysea" | "navCatalogue" | "pathlynksTimeoutMs">;
+  const platformRuntimes = new Map<string, PlatformRuntime>();
   const pathlynksTimeoutMs = env.VC_PATHLYNKS_TIMEOUT_MS !== undefined && /^[0-9]+$/.test(env.VC_PATHLYNKS_TIMEOUT_MS) ? Number(env.VC_PATHLYNKS_TIMEOUT_MS) : undefined;
-  const navCatalogue = chatSetup && adminStore && pathlynksSiteId ? createNavCatalogueLoader(adminStore, pathlynksSiteId) : undefined;
+  if ((chatSetup || voiceSetup) && adminStore && sourcesFile) {
+    const sites = new Set(sourcesFile.sources.filter(s=>s.kind === "postgres").map(s=>s.siteId ?? sourcesFile.siteId));
+    if (options.admin?.pathlynks) sites.add(sourcesFile.siteId);
+    for (const siteId of sites) {
+      const source = postgresSourceForTenant(sourcesFile,siteId);
+      const legacyInjected = !source && siteId === sourcesFile.siteId && options.admin?.pathlynks && !sourcesFile.sources.some(s=>s.kind==="postgres" && (s.siteId??sourcesFile!.siteId)===siteId);
+      if (!source && !legacyInjected) continue;
+      const platform = source?.platform ?? "pathlynks";
+      const navCatalogue = createNavCatalogueLoader(adminStore,siteId) as NonNullable<StudentGraphDeps["navCatalogue"]>;
+      const shared = {navCatalogue,...(pathlynksTimeoutMs !== undefined ? {pathlynksTimeoutMs} : {})};
+      if (platform === "vidysea") platformRuntimes.set(siteId,{...shared,vidysea:options.admin?.vidysea ?? createLiveVidyseaPort(adminStore,{env,seeded:sourcesFile.sources,siteId})});
+      else {
+        // wire-fix-1: the same read-only Career Quest opener serves chat and voice (one port per site); absent = the quest tools are not wired for this site.
+        const questDb = questDbOpenerFor(client, sourcesFile, siteId);
+        platformRuntimes.set(siteId,{...shared,pathlynks:options.admin?.pathlynks ?? createLivePathlynksPort(adminStore,{env,seeded:sourcesFile.sources,siteId,...(source?{sourceId:source.id}:{}),...(questDb?{questDb}:{}),onEvent:e=>adminLog({level:e.type === "privileged_role_override" ? "warn" : "error",event:"pathlynks_"+e.type})})});
+      }
+    }
+  }
+  const platformForTenant = (tenantId: string) => platformRuntimes.get(tenantId);
+  // T-057 r3: a site with an enabled GitHub source but no enabled postgres source (Vidysea while vidysea-db is disabled, D-123) still gets the stored navigation
+  // catalogue, which needs no database credential. This map feeds ONLY the chat wiring below; liveProfile.facts and the voice tools keep `platformForTenant`.
+  const navOnly = new Map<string, PlatformRuntime>();
+  if ((chatSetup || voiceSetup) && adminStore && sourcesFile) {
+    for (const s of sourcesFile.sources) {
+      const siteId = s.siteId ?? sourcesFile.siteId;
+      if (s.kind === "github" && s.enabled !== false && !platformRuntimes.has(siteId) && !navOnly.has(siteId)) navOnly.set(siteId,{navCatalogue:createNavCatalogueLoader(adminStore,siteId) as NonNullable<StudentGraphDeps["navCatalogue"]>});
+    }
+  }
+  if ([...platformRuntimes.values()].some(p=>p.pathlynks) && env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE === "1") adminLog({level:"warn",event:"pathlynks_privileged_role_override",message:"PATHLYNKS_ALLOW_PRIVILEGED_ROLE=1: connect-time privilege refusal skipped; SELECT-only read-only transactions remain"});
+  if ([...platformRuntimes.values()].some(p=>p.vidysea) && env.VIDYSEA_ALLOW_PRIVILEGED_ROLE === "1") adminLog({level:"warn",event:"vidysea_privileged_role_override",message:"VIDYSEA_ALLOW_PRIVILEGED_ROLE=1 (D-123): connect-time privilege refusal skipped; SELECT-only read-only transactions remain"});
+  const liveProfile: ChatApiDeps["profile"] = platformRuntimes.size ? {
+    async facts(who) {
+      const runtime = platformForTenant(who.tenantId);
+      if (!runtime) return [];
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const read = runtime.vidysea ? runtime.vidysea.getStudentProfile(who.studentId).then(result=>({status:result.ok && Array.isArray(result.rows)?"ok":"unavailable",data:result.rows?.[0]??null})) : runtime.pathlynks!.getStudentProfile(who.studentId);
+        const result = await Promise.race([read,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error("profile unavailable")),Math.min(Math.max(pathlynksTimeoutMs??5000,1),5000));})]);
+        if(result.status!=="ok")throw new Error("profile unavailable");
+        if(!result.data)return [];
+        const facts:ProfileFact[]=[];
+        const source = runtime.vidysea ? "vidysea" as const : "pathlynks" as const;
+        const fields = runtime.vidysea ? {name:"name",academic_level:"academic_level",field_of_interest:"interest",target_intake:"target_intake",budget_range_text:"budget",preferred_countries:"target_country"} : {name:"name",grade:"grade"};
+        for(const [field,key] of Object.entries(fields)) {
+          const raw = result.data[field];
+          const value = field === "preferred_countries" && Array.isArray(raw) ? raw.filter((v):v is string=>typeof v === "string").slice(0,20).join(", ") : raw;
+          if((typeof value === "string" && value.trim()) || (typeof value === "number" && Number.isFinite(value)))facts.push({key,value:String(value).slice(0,1000),source});
+        }
+        return facts;
+      }finally{if(timer)clearTimeout(timer);}
+    },
+  } : undefined;
   // Built before connecting so every voice configuration error (secret length, base URL) is a startup error with nothing connected.
   let voice: VoiceApi | undefined;
   if (voiceSetup) {
@@ -834,6 +970,19 @@ export async function startApi(
     voice = createVoiceApi(
       {
         ...passThrough,
+        ...(liveProfile ? {
+          profileFacts: passThrough.profileFacts ?? ((who) => liveProfile.facts(who)),
+          profileNames: passThrough.profileNames ?? (async (who) => (await liveProfile.facts(who)).filter(f => f.key === "name").map(f => f.value)),
+        } : {}),
+        memoryPolicyForTenant: passThrough.memoryPolicyForTenant ?? (async (tenantId) => {
+          const store = http?.partners?.store ?? partnerStoreRef.store;
+          return store ? resolveMemoryPolicy(store, tenantId) : NO_MEMORY_POLICY;
+        }),
+        ...(platformRuntimes.size && chatSetup && httpSetup ? { tools: createQuestVoiceTools((tenantId)=>{
+          const platform = platformForTenant(tenantId);
+          return platform ? {kb:chatSetup.kb,provider:httpSetup.studentProvider,skillsDir:httpSetup.skillsDir,speakers:chatSetup.speakers,...platform,
+            hasPriorFlag:async(who)=>(await listStudentFlags(tenantScopedDb(db,who.tenantId),{studentId:who.studentId,threadId:who.threadId})).length>0} : undefined;
+        }, {kb:chatSetup.kb,provider:httpSetup.studentProvider,skillsDir:httpSetup.skillsDir,speakers:chatSetup.speakers,hasPriorFlag:async()=>false},passThrough.tools) } : {}),
         ...(partnerRegistry ? { partners: partnerRegistry } : {}),
         ...(anonymousVoice ? { anonymous: anonymousVoice } : { anonymous: undefined }),
         ...(passThrough.extractFacts === undefined && defaultExtractFacts ? { extractFacts: defaultExtractFacts } : {}),
@@ -907,10 +1056,14 @@ export async function startApi(
               dbForTenant: wiring.dbForTenant,
               kb: chatSetup.kb,
               provider: httpSetup.studentProvider,
+              memoryPolicyForTenant: chatSetup.chat.memoryPolicyForTenant ?? (async (tenantId) => {
+                const store = http?.partners?.store ?? partnerStoreRef.store;
+                return store ? resolveMemoryPolicy(store, tenantId) : NO_MEMORY_POLICY;
+              }),
               skillsDir: httpSetup.skillsDir,
               speakers: chatSetup.speakers,
               escalateForTenant: sharedEscalateForTenant,
-              ...(chatSetup.chat.profile ? { profile: chatSetup.chat.profile } : {}),
+              ...((chatSetup.chat.profile ?? liveProfile) ? { profile: chatSetup.chat.profile ?? liveProfile } : {}),
               ...(chatExtractFacts ? { extractFacts: chatExtractFacts } : {}),
               ...(chatGraph ? { graph: chatGraph } : {}),
               ...(chatGraph?.grounding && groundingBudget ? { groundingBudget } : {}),
@@ -922,8 +1075,7 @@ export async function startApi(
               ...(chatSetup.chat.log ? { log: chatSetup.chat.log } : {}),
               ...(chatSetup.chat.alert ? { alert: chatSetup.chat.alert } : {}),
               ...(usageSink ? { usage: usageSink } : {}),
-              ...(livePathlynks && pathlynksSiteId ? { pathlynks: livePathlynks, pathlynksTenantId: pathlynksSiteId } : {}),
-              ...(navCatalogue ? { navCatalogue: navCatalogue as NonNullable<ChatApiDeps["navCatalogue"]> } : {}),
+              platformForTenant: (tenantId: string) => platformForTenant(tenantId) ?? navOnly.get(tenantId),
               ...(pathlynksTimeoutMs !== undefined ? { pathlynksTimeoutMs } : {}),
             },
             { enabled: true, gatesDir: chatSetup.chat.gatesDir ?? DEFAULT_GATES_DIR, env },

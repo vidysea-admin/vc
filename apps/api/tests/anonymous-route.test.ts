@@ -46,6 +46,37 @@ const baseDeps = () => ({
   counter: { increment: async () => {} },
 });
 
+test("Q9: public greetings answer without sign-in, knowledge retrieval or any model call", async () => {
+  const w = anonWorld();
+  try {
+    for (const text of ["hi", "hello!", "नमस्ते", "what can you do?"]) {
+      const r = await ask(w, text);
+      assert.equal(r.status, 200);
+      assert.equal(r.json.state, "ok", text);
+      assert.ok(r.json.message.length > 0, text);
+      assert.doesNotMatch(r.json.message, /please sign in through Pathlynks/i);
+    }
+    assert.equal(w.provider.calls.length, 0, "small-talk must not reach an answer, safety or language model");
+    assert.equal(w.kb.calls.length, 0, "small-talk makes no factual retrieval");
+  } finally { w.cleanup(); }
+});
+
+test("Q9: service-directed general questions retrieve public knowledge, while private account requests require sign-in", async () => {
+  const w = anonWorld();
+  try {
+    for (const text of ["Tell me about studying in Germany", "What can you tell me about studying in Germany?"]) {
+      const r = await ask(w, text);
+      assert.equal(r.status, 200);
+      assert.notEqual(r.json.state, "sign_in_required", text);
+    }
+    const before = w.kb.calls.length;
+    assert.ok(before >= 2, "both general questions reach the knowledge boundary");
+    const privateReply = await ask(w, "show my saved careers");
+    assert.equal(privateReply.json.state, "sign_in_required");
+    assert.equal(w.kb.calls.length, before, "private requests do not reach public knowledge/model");
+  } finally { w.cleanup(); }
+});
+
 // ---------------------------------------------------------------------------
 // The flag
 // ---------------------------------------------------------------------------

@@ -49,17 +49,33 @@ function withFile(content: unknown, fn: (path: string) => void): void {
 const rejects = (content: unknown, match?: RegExp) =>
   withFile(content, (p) => assert.throws(() => loadSourcesFile(p), (e: unknown) => e instanceof SourcesConfigError && (match ? match.test(String((e as Error).message)) : true)));
 
-test("VA3: the real config/sources.json parses: four Pathlynks GitHub branches + the Pathlynks Postgres", () => {
+test("VA3: the real config/sources.json parses: four Pathlynks GitHub branches + separate Pathlynks/Vidysea Postgres", () => {
   const f = loadSourcesFile(REAL);
   assert.equal(f.version, 1);
   const github = f.sources.filter((s) => s.kind === "github");
   const postgres = f.sources.filter((s) => s.kind === "postgres");
-  assert.equal(github.length, 4);
-  assert.deepEqual(new Set(github.map((s) => (s.kind === "github" ? s.service : ""))), new Set(["frontend", "auth", "school", "career"]));
-  assert.equal(postgres.length, 1);
+  assert.equal(github.length, 6); // four Pathlynks branches + vidysea-frontend (T-057) + vidysea-backend (tool-first T8)
+  assert.deepEqual(new Set(github.map((s) => (s.kind === "github" ? s.service : ""))), new Set(["frontend", "auth", "school", "career", "other"]));
+  assert.equal(postgres.length, 2);
+  // wire-fix-1 (D-134): pin the exact set, not a count, so an added or dropped source fails by name.
+  assert.deepEqual(f.sources.map((s) => `${s.kind}:${s.id}`).sort(), [
+    "github:pathlynks-auth", "github:pathlynks-career", "github:pathlynks-frontend", "github:pathlynks-school", "github:vidysea-backend", "github:vidysea-frontend",
+    "mongo:pathlynks-journey", "postgres:pathlynks-db", "postgres:vidysea-db",
+  ]);
+  assert.equal(postgres.find(s => s.platform === "vidysea")?.enabled, true); // t057-vidysea-db-enable: read-only Vidysea source on (D-122/D-123)
   const p = postgres[0]!;
   assert.ok(p.kind === "postgres" && p.tables.length > 0 && ["require", "verify-full"].includes(p.sslmode));
   assert.equal(new Set(f.sources.map((s) => s.id)).size, f.sources.length, "ids unique");
+});
+
+test("TF-T2: vidysea-db allow-lists exactly the tool-first read tables (no more) beside the original native set", () => {
+  const f = loadSourcesFile(REAL);
+  const vidysea = f.sources.find((s) => s.kind === "postgres" && s.platform === "vidysea");
+  assert.ok(vidysea && vidysea.kind === "postgres");
+  assert.deepEqual([...vidysea.tables].sort(), [
+    "ai_profile_assessments", "applications", "journey_phases", "milestones", "pathlynks_student_snapshot", "saved_scholarships",
+    "student_shortlisted_courses", "students", "user_course_journey_map", "user_favourites", "users", "visa_applications",
+  ]);
 });
 
 test("VA3: the real config/sources.json holds env NAMES only (no secret-like field or value)", () => {
@@ -171,4 +187,96 @@ test("fix2 F1: a github source naming PATHLYNKS_DB_PASSWORD as its tokenRef (the
   assert.equal(credentialRefPatternFor("postgres").test("GITHUB_TOKEN"), false);
   assert.equal(credentialRefPatternFor("github").test("GITHUB_TOKEN"), true);
   assert.equal(credentialRefPatternFor("postgres").test("PATHLYNKS_DB_PASSWORD"), true);
+});
+
+// S12: paired explicit platform/site metadata extends version1 without changing legacy meaning.
+test("S12 sources: legacy version1 and both-site metadata remain compatible and separated", () => {
+  const vidysea = { ...pg, id: "vidysea-db", platform: "vidysea", siteId: "vidysea", passwordRef: "VIDYSEA_DB_PASSWORD", enabled: false };
+  assert.equal(parseSourcesFile(file([pg])).siteId, "pathlynks");
+  const mixed = parseSourcesFile(file([pg, vidysea]));
+  assert.equal(mixed.sources.length, 2);
+  assert.equal(mixed.sources[1]!.siteId, "vidysea");
+  assert.equal(mixed.sources[1]!.platform, "vidysea");
+  for (const bad of [{ ...vidysea, passwordRef: "PATHLYNKS_DB_PASSWORD" }, { ...pg, passwordRef: "VIDYSEA_DB_PASSWORD" }, { ...vidysea, siteId: undefined }, { ...vidysea, platform: undefined }]) assert.equal(SourceConfig.safeParse(bad).success, false);
+  assert.equal(credentialRefPatternFor("postgres", "vidysea").test("VIDYSEA_DB_PASSWORD"), true);
+  assert.equal(credentialRefPatternFor("postgres", "vidysea").test("VIDYSEA_ADMIN_SECRET"), false);
+});
+
+test("S12 source env binding requires exact site/kind/id/destination and never crosses platforms", async () => {
+  const { boundSourceCredentialRef } = await import("../src/sources.js");
+  const seed = SourceConfig.parse({ ...pg, id: "vidysea-db", siteId: "vidysea", platform: "vidysea", passwordRef: "VIDYSEA_DB_PASSWORD" });
+  const { id, kind, siteId, ...config } = seed;
+  const stored = { id, kind, siteId: siteId!, config };
+  assert.equal(boundSourceCredentialRef(stored, [seed], "pathlynks"), "VIDYSEA_DB_PASSWORD");
+  for (const changed of [{ ...stored, siteId: "pathlynks" }, { ...stored, id: "other-db" }, { ...stored, kind: "github" }, { ...stored, config: { ...config, host: "attacker.invalid" } }, { ...stored, config: { ...config, platform: "pathlynks" } }, { ...stored, config: { ...config, passwordRef: "PATHLYNKS_DB_PASSWORD" } }]) assert.equal(boundSourceCredentialRef(changed, [seed], "pathlynks"), undefined);
+  assert.equal(boundSourceCredentialRef(stored, undefined, "pathlynks"), undefined);
+  assert.equal(boundSourceCredentialRef(stored, [{ ...seed, enabled: false }], "pathlynks"), undefined);
+  assert.equal(boundSourceCredentialRef({ ...stored, config: { ...config, enabled: false } }, [seed], "pathlynks"), undefined);
+});
+
+
+test("S12 tenant selector refuses unknown/ambiguous/disabled without bootstrap fallback", async () => {
+  const { postgresSourceForTenant } = await import("../src/sources.js");
+  const vidysea = { ...pg, id: "vidysea-db", siteId: "vidysea", platform: "vidysea", passwordRef: "VIDYSEA_DB_PASSWORD" };
+  const mixed = parseSourcesFile(file([pg, vidysea]));
+  assert.equal(postgresSourceForTenant(mixed, "pathlynks")?.id, "pl-db");
+  assert.equal(postgresSourceForTenant(mixed, "vidysea")?.id, "vidysea-db");
+  assert.equal(postgresSourceForTenant(mixed, "unknown"), undefined);
+  assert.equal(postgresSourceForTenant(mixed, ""), undefined);
+  assert.equal(postgresSourceForTenant(parseSourcesFile(file([pg, { ...vidysea, enabled: false }])), "vidysea"), undefined);
+  assert.equal(postgresSourceForTenant(parseSourcesFile(file([pg, vidysea, { ...vidysea, id: "vidysea-other" }])), "vidysea"), undefined);
+});
+
+
+// ---------------------------------------------------------------------------------------------------------------- wire-fix-1 (D-134): the "mongo" source kind
+const mongo = { kind: "mongo", id: "pathlynks-journey", siteId: "pathlynks", platform: "pathlynks", enabled: true, database: "pathlynks_journey", collections: ["pathlynks_quest_profiles", "pathlynks_goals"], urlRef: "MONGODB_URL" };
+
+test("wire-fix-1: the real config holds the pathlynks-journey mongo source with exactly the four quest collections", () => {
+  const f = loadSourcesFile(REAL);
+  const m = f.sources.find((s) => s.kind === "mongo");
+  assert.ok(m && m.kind === "mongo");
+  assert.equal(m.id, "pathlynks-journey");
+  assert.equal(m.enabled, true);
+  assert.equal(m.database, "pathlynks_journey");
+  assert.deepEqual([...m.collections].sort(), ["pathlynks_activities", "pathlynks_goals", "pathlynks_quest_profiles", "pathlynks_skill_activities"]);
+  assert.equal(f.sources.filter((s) => s.kind === "mongo").length, 1);
+});
+
+test("wire-fix-1: a mongo source parses with an allow-list and an env NAME; secrets, unknown keys, odd collection names and a foreign env ref are refused", () => {
+  assert.equal(SourceConfig.safeParse(mongo).success, true);
+  assert.equal(SourceConfig.safeParse({ ...mongo, urlRef: undefined }).success, true, "urlRef is optional");
+  for (const bad of [
+    { ...mongo, collections: [] },
+    { ...mongo, collections: ["$cmd"] },
+    { ...mongo, collections: ["system.users"] },
+    { ...mongo, collections: ["a/b"] },
+    { ...mongo, database: "a b" },
+    { ...mongo, database: undefined },
+    { ...mongo, urlRef: "VC_ADMIN_MASTER_KEY" },
+    { ...mongo, urlRef: "mongodb://u:p@h/db" },
+    { ...mongo, url: "mongodb://h/db" },
+    { ...mongo, host: "h" },
+    { ...mongo, siteId: undefined },
+  ]) assert.equal(SourceConfig.safeParse(bad).success, false, JSON.stringify(bad));
+  rejects(file([{ ...mongo, uri: "mongodb://user:dummy-pass@host.invalid/db" }]), /secret-like/);
+  assert.deepEqual(findSecretLikeFields(mongo), []);
+  assert.equal(parseSourcesFile(file([gh, pg, mongo])).sources.length, 3);
+});
+
+test("wire-fix-1: no env credential is ever bound to a mongo source (boundSourceCredentialRef) and postgresSourceForTenant ignores it", async () => {
+  const { boundSourceCredentialRef, postgresSourceForTenant } = await import("../src/sources.js");
+  const seed = SourceConfig.parse(mongo);
+  const { id, kind, siteId, ...config } = seed;
+  assert.equal(boundSourceCredentialRef({ id, kind, siteId: siteId!, config }, [seed], "pathlynks"), undefined);
+  assert.equal(postgresSourceForTenant(parseSourcesFile(file([mongo])), "pathlynks"), undefined);
+});
+
+test("wire-fix-1: mongoSourceForTenant picks the one enabled mongo source of the verified tenant, never a fallback", async () => {
+  const { mongoSourceForTenant } = await import("../src/sources.js");
+  const f = parseSourcesFile(file([pg, mongo]));
+  assert.equal(mongoSourceForTenant(f, "pathlynks")?.id, "pathlynks-journey");
+  assert.equal(mongoSourceForTenant(f, "vidysea"), undefined);
+  assert.equal(mongoSourceForTenant(f, ""), undefined);
+  assert.equal(mongoSourceForTenant(parseSourcesFile(file([{ ...mongo, enabled: false }])), "pathlynks"), undefined);
+  assert.equal(mongoSourceForTenant(parseSourcesFile(file([mongo, { ...mongo, id: "second" }])), "pathlynks"), undefined, "ambiguous = none");
 });

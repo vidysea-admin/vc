@@ -1,0 +1,9 @@
+✔ S12: a completed memory decision during turn completion or usage never releases or replays the obsolete answer (226.6548ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2514.23

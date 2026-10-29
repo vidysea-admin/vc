@@ -1,0 +1,81 @@
+✔ VA12 port exposes exactly the four read methods (1.9311ms)
+✔ VA12 getStudentProfile binds the verified student id as $1 and sets statement_timeout (1.405ms)
+✔ VA12 getSavedCareers binds the verified student id as $1 and sets statement_timeout (0.4015ms)
+✔ VA12 getCompareList binds the verified student id as $1 and sets statement_timeout (0.29ms)
+✔ VA12 getAssessmentStatus binds the verified student id as $1 and sets statement_timeout (0.286ms)
+✔ VA12 each method queries its own configured table (0.5985ms)
+✔ VA12 a hostile student id is refused before any connection (0.2136ms)
+✔ VA12 row cap: 500 rows -> 50 truncated; 50 -> not truncated; 51 -> truncated (0.6241ms)
+✔ VA12 fail closed when INSERT is true on users (0.6057ms)
+✔ VA12 fail closed when INSERT is true on user_grade (0.4579ms)
+✔ VA12 fail closed when INSERT is true on grade (0.328ms)
+✔ VA12 fail closed when INSERT is true on student_saved_careers (0.2347ms)
+✔ VA12 fail closed when INSERT is true on student_career_compare (0.2717ms)
+✔ VA12 fail closed when INSERT is true on career_option (0.3676ms)
+✔ VA12 fail closed when INSERT is true on assessment_response (0.3645ms)
+✔ VA12 fail closed when UPDATE is true on users (0.182ms)
+✔ VA12 fail closed when UPDATE is true on user_grade (0.2613ms)
+✔ VA12 fail closed when UPDATE is true on grade (0.2664ms)
+✔ VA12 fail closed when UPDATE is true on student_saved_careers (0.192ms)
+✔ VA12 fail closed when UPDATE is true on student_career_compare (0.19ms)
+✔ VA12 fail closed when UPDATE is true on career_option (0.6228ms)
+✔ VA12 fail closed when UPDATE is true on assessment_response (0.3036ms)
+✔ VA12 fail closed when DELETE is true on users (0.308ms)
+✔ VA12 fail closed when DELETE is true on user_grade (0.2986ms)
+✔ VA12 fail closed when DELETE is true on grade (0.3317ms)
+✔ VA12 fail closed when DELETE is true on student_saved_careers (0.4318ms)
+✔ VA12 fail closed when DELETE is true on student_career_compare (0.2294ms)
+✔ VA12 fail closed when DELETE is true on career_option (0.2613ms)
+✔ VA12 fail closed when DELETE is true on assessment_response (0.2029ms)
+✔ VA12 a privilege-check error fails closed and is recorded (0.3413ms)
+✔ VA12 an empty privilege result fails closed (0.1473ms)
+✔ VA12 connect error -> typed unavailable, nothing thrown, no secret leaked (0.2055ms)
+✔ VA12 query error and SET error -> typed unavailable, no leak, connection closed (0.3695ms)
+✔ VA12 a hung query times out into unavailable (cause timeout) (51.8395ms)
+✔ VA12 every statement issued is SELECT or a SET/privilege probe; never INSERT/UPDATE/DELETE/DDL (1.2536ms)
+✔ VA12 table names must be in the allow-list and be plain identifiers (0.5123ms)
+✔ VA12 buildPgConfig reads the password from the env NAME and never holds a connection string (0.3729ms)
+✔ VA12 missing password env -> unavailable (not_configured) without connecting (0.2319ms)
+✔ Q1 R4: explicit owner-rooted projections and every joined table are guarded (1.3012ms)
+✔ Q7 TLS: configured CA file is loaded, missing CA fails closed, verification always stays on (7.7645ms)
+✔ Q7 populated relational fixture: NULL legacy student_id, latest active grade, labelled joins and latest mixed/draft responses (11.7787ms)
+✔ Q7 assessment aggregation stays untruncated beyond list cap; late connections are closed after timeout (86.1592ms)
+✔ Q7 TLS certificate rejection is unavailable without driver details (0.549ms)
+✖ S12 Vidysea finite owner joins, labelled native data and SQL/row bounds (6.1797ms)
+✔ S12 Vidysea rejects invalid owners, wrong tables and Pathlynks privileged-role override (1.2739ms)
+✔ S12 Vidysea driver refuses unbound/cross-platform/destination/CA refs before lookup (0.2305ms)
+✔ S12 Vidysea connection never reads Pathlynks or generic environment credentials (0.8416ms)
+✔ S12 same external owner id stays in its separately constructed platform adapter (1.2604ms)
+ℹ tests 48
+ℹ suites 0
+ℹ pass 47
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1222.8196
+
+✖ failing tests:
+
+test at mcp\pathlynks\tests\port.test.ts:1:15230
+✖ S12 Vidysea finite owner joins, labelled native data and SQL/row bounds (6.1797ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /q.deleted_at IS NULL[\s\S]*ORDER BY q.created_at DESC, q.id DESC LIMIT 51$/. Input:
+  
+  `SELECT 'vidysea' AS source, 'student_shortlisted_courses' AS "sourceTable",\n` +
+    'q.id AS item_id, q.programme_id, q.university_id, q.programme_name, q.university_name,\n' +
+    'q.verification_status, q.is_verified, q.added_by, q.programme_priority,\n' +
+    'q.student_decision AS stored_student_decision, q.is_finalized, q.application_started, q.created_at, q.updated_at\n' +
+    'FROM "student_shortlisted_courses" q JOIN "students" s ON s.id = q.student_id\n' +
+    'JOIN "users" u ON u.id = s.id WHERE u.id = $1 AND s.deleted_at IS NULL AND u.is_active IS TRUE AND u.disabled_at IS NULL AND q.deleted_at IS NULL\n' +
+    'ORDER BY q.created_at DESC, q.id DESC LIMIT 21'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\mcp\pathlynks\tests\port.test.ts:338:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `SELECT 'vidysea' AS source, 'student_shortlisted_courses' AS "sourceTable",\nq.id AS item_id, q.programme_id, q.university_id, q.programme_name, q.university_name,\nq.verification_status, q.is_verified, q.added_by, q.programme_priority,\nq.student_decision AS stored_student_decision, q.is_finalized, q.application_started, q.created_at, q.updated_at\nFROM "student_shortlisted_courses" q JOIN "students" s ON s.id = q.student_id\nJOIN "users" u ON u.id = s.id WHERE u.id = $1 AND s.deleted_at IS NULL AND u.is_active IS TRUE AND u.disabled_at IS NULL AND q.deleted_at IS NULL\nORDER BY q.created_at DESC, q.id DESC LIMIT 21`,
+    expected: /q.deleted_at IS NULL[\s\S]*ORDER BY q.created_at DESC, q.id DESC LIMIT 51$/,
+    operator: 'match',
+    diff: 'simple'
+  }

@@ -1,0 +1,7 @@
+# t057-walk-run4-diagnosis
+
+Read-only diagnosis of the T-057 Vidysea headed walk run 4 (qa/evidence/t057/walk-vidysea-run4.log, screenshots qa/evidence/t057/vidysea-*.png, walk script qa/.delivery/requests/t057-walk.mjs, VC API log C:/Users/Lenovo/AppData/Local/Temp/claude/D--vc/3729a82a-387f-4051-a933-dfde6424d2aa/scratchpad/logs/vc-api.log).
+Results: step04 c3-careers OK but reply only 41 chars (suspicious); step05 c5-kb-university, step06 c6-propose, step08 c6-new-thread-recall FAIL "no stable reply within 60000ms" although the log shows e.g. POST .../turns 200 in 14087 ms; step07 c6-confirm FAIL "no proposed fact appeared in the widget memory panel".
+Determine for each failing step, with evidence (log lines, screenshot contents, file:line): did the API return a real reply (what text kind: answer / apology / deadline / provider error), did the widget render it, and why the walk's stable-reply detector missed it (selector, bubble count, streaming state, a stuck 'thinking' state, 409 turn_in_progress retry text, an error bubble). For c6, check whether the propose-fact path (profile-facts proposal + widget memory panel) fired server-side. Check what the 41-char c3 reply was.
+Classify each failure: walk-script detector bug vs widget render bug vs API/engine reply problem, and give the smallest fix with file:line. Do NOT edit code, restart services, or open a browser. Write qa/evidence/t057/walk-run4-diagnosis.md; return <= 25 lines.
+

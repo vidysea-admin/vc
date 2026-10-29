@@ -1,0 +1,8 @@
+# t057-r2-restart-sync-probe
+
+Ops lane. You MAY restart ONLY the VC API on 8787 (now pid 50512; capture its command line first via Get-CimInstance Win32_Process; launch cwd D:/vc/.worktrees/vc-completion/apps/api, node_modules.bin	sx --env-file=../../.env src/main.ts; rotate vc-api.log to vc-api.prev.log in C:/Users/Lenovo/AppData/Local/Temp/claude/D--vc/3729a82a-387f-4051-a933-dfde6424d2aa/scratchpad/logs/; relaunch detached with Start-Process and redirected output so it survives your exit). The worktree .env now has GITHUB_TOKEN (the company gh account, approved by Umesh; never print it).
+1. Confirm the API is up.
+2. Sync source 'vidysea-frontend'. Use the admin route POST /admin/api/sources/:id/sync if you can authenticate without creating a new admin user. Otherwise call the same sync function in-process from a one-off script under qa/.delivery/requests/ (import syncGithubSource or the admin-routes internals with the same deps main.ts builds; Mongo writes go ONLY to virtual_counsellor). Do NOT create admin users.
+3. Read back from virtual_counsellor: route count and the 7 /services/* entries with label and summary (public marketing copy, OK to show).
+4. Live probe as the Vidysea TEST student via the gateway :8000 exactly as qa/evidence/t057/fix-round-live.md did (reuse that scratchpad probe script). Turns: 'do you help with education loans?', 'what services do you offer?', 'can you help me understand visa requirements for Germany?', 'give me the best universities in Canada', 'what is the average cost of living in Toronto for students?'. Record HTTP status, ms, selected path if visible, and the bot reply.
+Append the results to qa/evidence/t057/fix-round-live.md under an 'R2' heading.

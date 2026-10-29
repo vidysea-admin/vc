@@ -4,6 +4,8 @@
 
 | ID | Status | Task | Notes |
 |---|---|---|---|
+| T-058 | open — later (D-135) | Admin rights as per-right checkboxes per admin group (default special-service rights for the admin group); until then every admin may sync and accept a shrink | D-135 |
+| T-057 | blocked — S13 local evidence retained; final review and live inputs pending | Pathlynks+Vidysea connected VC through live browser verification | D121 explicit recovery; retained3code defects plus voice/build/deploy proof. Plan APPROVED; root repairs/local builds verified; managed makers not launched (lineage collision). Original cycle2/S12 retained; independent release acceptance, push/deploy/live pending. |
 | T-056 | in_progress - B1 maker feature-ready:67/67 affected tests PASS, staged policy4targets drift0; fresh independent B1 source review running. Original overall source/B2/bootstrap histories retained unresolved; actual aggregate10percent UNKNOWN, shared .12 unchanged, no push. | Complete State/Claim/Record actor/native joins, phase budgets and ownership; final affected +independent acceptance, actual native pilot and10percent/adoption proof remain open. | Global .12 unchanged; no install/push. Current hashes and original costs in lifecycle-build-checkpoint.json/actual-managed-checking.json. |
 | T-000 | open | Backfill interview: capture the 4–6 biggest past decisions and REJECTED approaches (run /grill or /init-lab resume) | deferred by AUTO mode |
 | T-001 | done | Unit 1: the 7-section plan doc (`docs/plan.md`) per goal.md, covering CEO/team/AI-tool zoom levels, 3 Mermaid diagrams, the tech map extended with D-002..D-005, milestones and FAQ | checker PASS cycle 1, verdict `748e4e4` |

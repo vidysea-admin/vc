@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ClaimSchema, SourceSchema } from "@vc/schemas";
-import { guardClaims, supports, type DraftClaim } from "../src/student/claims.js";
+import { guardClaims, isServedAsk, supports, type DraftClaim } from "../src/student/claims.js";
 import { ASK_ANSWERED, HIT_SEMINAR, HIT_TOC_OLD, HIT_UNLISTED_RECORDING, HIT_WHATSAPP, NOW, SESSION_SEM_2, fakeKb } from "./student-fixtures.js";
 
 const hits = [HIT_SEMINAR, HIT_WHATSAPP, HIT_UNLISTED_RECORDING, HIT_TOC_OLD];
@@ -413,4 +413,16 @@ test("P1 W3 U6h leftover 5 (H2a): temporal and partial qualifiers dropped by the
   }
   // A date that is not a restriction stays harmless: the same sentence with the same date verifies.
   assert.equal(verifies("Applications close in July.", "Applications close in July."), true);
+});
+
+test("S13 fix-b: isServedAsk treats a malformed ask (missing citations, internal or web) as not served instead of throwing", () => {
+  assert.equal(isServedAsk(ASK_ANSWERED), true);
+  for (const bad of [
+    { ...ASK_ANSWERED, citations: undefined },
+    { ...ASK_ANSWERED, citations: {} },
+    { ...ASK_ANSWERED, citations: { internal: ASK_ANSWERED.citations.internal } },
+    { ...ASK_ANSWERED, citations: { web: [] } },
+    { ...ASK_ANSWERED, citations: { internal: "node", web: [] } },
+    { ...ASK_ANSWERED, citations: { internal: ASK_ANSWERED.citations.internal, web: null } },
+  ]) assert.equal(isServedAsk(bad as never), false);
 });

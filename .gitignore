@@ -35,3 +35,14 @@ qa/evidence/t038-cycle1-b-runtime/copy/
 qa/evidence/t052-checker-cycle1/isolation/
 qa/evidence/vc-release-t052-primary-20261013/isolation/
 qa/evidence/vc-release-t052-2026-10-13.b/isolated/
+# Owned synthetic PostgreSQL runtime, credentials and binaries; test results live in qa/evidence.
+qa/.delivery/s13-postgres/
+
+# T-057 headed-walk screenshots hold real student data: never commit
+qa/evidence/t057/
+
+# D-136 S13 review: local-only artefacts, never committed
+qa/.delivery/completion-mongo-data/
+qa/.delivery/s13-host-build-temp/
+qa/.delivery/completion-host-link.json
+qa/evidence/s13-real-*

@@ -1,0 +1,12 @@
+[
+  {
+    "config": "packages/db/tsconfig.json",
+    "status": 0,
+    "out": ""
+  },
+  {
+    "config": "packages/schemas/tsconfig.json",
+    "status": 0,
+    "out": ""
+  }
+]

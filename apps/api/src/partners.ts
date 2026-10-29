@@ -26,7 +26,7 @@
  *  - The store is the only thing this module writes, and only from the CLI. The request path only reads.
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import type { anonymousCountersCollection } from "@vc/db";
+import { invalidatePendingPublications, type anonymousCountersCollection } from "@vc/db";
 import { PATH_ID_PATTERN, respond, type ApiHandler, type ApiRequest, type ApiResponse } from "./server.js";
 import { PARTNER_OPENAPI } from "./openapi.js";
 
@@ -205,6 +205,46 @@ export interface PartnerKeyRecord {
   rotatedAt: string | null;
 }
 
+/** Per-platform memory eligibility, independent of consent and erasure. */
+export interface MemoryPolicy {
+  shortTermEnabled: boolean;
+  longTermEnabled: boolean;
+  learningEnabled: boolean;
+  contextMessages: number;
+  maxFacts: number;
+}
+
+export const DEFAULT_MEMORY_POLICY: Readonly<MemoryPolicy> = Object.freeze({ shortTermEnabled: true, longTermEnabled: true, learningEnabled: true, contextMessages: 12, maxFacts: 20 });
+export const NO_MEMORY_POLICY: Readonly<MemoryPolicy> = Object.freeze({ shortTermEnabled: false, longTermEnabled: false, learningEnabled: false, contextMessages: 0, maxFacts: 0 });
+
+/** Full strict object only: no coercion, partial policy or unknown fields. */
+export function parseMemoryPolicy(value: unknown): MemoryPolicy | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const p = value as Record<string, unknown>;
+  const keys = ["shortTermEnabled", "longTermEnabled", "learningEnabled", "contextMessages", "maxFacts"];
+  if (Object.keys(p).length !== keys.length || keys.some(k => !Object.prototype.hasOwnProperty.call(p, k)) || Object.keys(p).some(k => !keys.includes(k))) return undefined;
+  if (typeof p.shortTermEnabled !== "boolean" || typeof p.longTermEnabled !== "boolean" || typeof p.learningEnabled !== "boolean") return undefined;
+  if (typeof p.contextMessages !== "number" || !Number.isInteger(p.contextMessages) || p.contextMessages < 0 || p.contextMessages > 12) return undefined;
+  if (typeof p.maxFacts !== "number" || !Number.isInteger(p.maxFacts) || p.maxFacts < 0 || p.maxFacts > 20) return undefined;
+  return { shortTermEnabled: p.shortTermEnabled, longTermEnabled: p.longTermEnabled, learningEnabled: p.learningEnabled, contextMessages: p.contextMessages, maxFacts: p.maxFacts };
+}
+
+/** Fresh exact-id read on every call; never use the key-auth registry cache for memory. */
+export async function resolveMemoryPolicy(store: PartnerStore, tenantId: string): Promise<MemoryPolicy> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    if (typeof tenantId !== "string" || !PARTNER_ID_PATTERN.test(tenantId)) return { ...NO_MEMORY_POLICY };
+    const doc = await Promise.race([
+      store.get(tenantId),
+      new Promise<undefined>(resolve => { timer = setTimeout(() => resolve(undefined), 1500); }),
+    ]);
+    if (!doc || doc._id !== tenantId || doc.partnerId !== tenantId || doc.status !== "active" || (doc.memoryPolicyPending !== undefined && doc.memoryPolicyPending !== 0)) return { ...NO_MEMORY_POLICY };
+    return parseMemoryPolicy(doc.memoryPolicy) ?? { ...NO_MEMORY_POLICY };
+  } catch {
+    return { ...NO_MEMORY_POLICY };
+  } finally { if (timer) clearTimeout(timer); }
+}
+
 export interface PartnerDoc {
   _id: string;
   partnerId: string;
@@ -213,10 +253,14 @@ export interface PartnerDoc {
   allowedOrigins: string[];
   status: "active" | "revoked";
   createdAt: string;
+  memoryPolicy?: MemoryPolicy;
+  /** Durable barrier while a policy change invalidates prepared answers. */
+  memoryPolicyPending?: number;
 }
 
 /** What a listing and a command result show: a partner without its hashes. */
 export interface PartnerSummary {
+  memoryPolicy?: MemoryPolicy;
   partnerId: string;
   name: string;
   keys: Record<KeyScope, { prefix: string; rotatedAt: string | null }>;
@@ -251,7 +295,7 @@ interface PartnerCollection {
   findOne(filter: { _id: string }): Promise<PartnerDoc | null>;
   find(filter: Record<string, never>): { toArray(): Promise<PartnerDoc[]> };
   insertOne(doc: PartnerDoc): Promise<unknown>;
-  updateOne(filter: Record<string, unknown>, update: { $set: Record<string, unknown> }): Promise<{ matchedCount: number }>;
+  updateOne(filter: Record<string, unknown>, update: { $set?: Record<string, unknown>; $inc?: Record<string, number> }): Promise<{ matchedCount: number }>;
 }
 
 /** The Mongo-backed store over the `partners` collection of the virtual_counsellor Db (the one database this repo may write, B12). */
@@ -271,6 +315,14 @@ export function createMongoPartnerStore(db: VcDb): PartnerStore {
     update: async (partnerId, patch, expect) => {
       const filter: Record<string, unknown> = { _id: partnerId };
       for (const [path, hash] of Object.entries(expect ?? {})) filter[path] = hash === null ? { $exists: false } : hash;
+      if (patch.memoryPolicy !== undefined) {
+        const begun = await partners.updateOne(filter, { $inc: { memoryPolicyPending: 1 } });
+        if (begun.matchedCount === 0) return false;
+        // Explicit tenant selector: this store owns the unscoped VC database.
+        // An error leaves the policy barrier closed; it cannot reopen old context.
+        await invalidatePendingPublications(db as never, partnerId);
+        return (await partners.updateOne({ _id: partnerId, memoryPolicyPending: { $gte: 1 } }, { $set: patch, $inc: { memoryPolicyPending: -1 } })).matchedCount > 0;
+      }
       return (await partners.updateOne(filter, { $set: patch })).matchedCount > 0;
     },
   };
@@ -328,6 +380,7 @@ const summaryOf = (doc: PartnerDoc): PartnerSummary => ({
   allowedOrigins: [...doc.allowedOrigins],
   status: doc.status,
   createdAt: doc.createdAt,
+  ...(parseMemoryPolicy(doc.memoryPolicy) ? { memoryPolicy: parseMemoryPolicy(doc.memoryPolicy)! } : {}),
 });
 
 /**
@@ -409,6 +462,7 @@ export async function addPartner(
     allowedOrigins,
     status: "active",
     createdAt: (ctx.now?.() ?? new Date()).toISOString(),
+    memoryPolicy: { ...DEFAULT_MEMORY_POLICY },
   };
   await store.insert(doc);
   return { partner: summaryOf(doc), keys: { pub: pub.key, srv: srv.key } };
@@ -459,7 +513,7 @@ export async function revokePartner(store: PartnerStore, partnerId: string): Pro
  * vc-admin-control S3: edits a partner's name and/or allowed origins (the admin console's "PATCH sites/:id"). The id and both keys are never touched, so no key
  * changes and no new key path exists. Origins go through the same `normalizeOrigin` as `addPartner`. A revoked partner can still be renamed (its keys stay dead).
  */
-export async function updatePartner(store: PartnerStore, partnerId: string, input: { name?: string; origins?: readonly string[] }): Promise<PartnerSummary> {
+export async function updatePartner(store: PartnerStore, partnerId: string, input: { name?: string; origins?: readonly string[]; memoryPolicy?: MemoryPolicy }): Promise<PartnerSummary> {
   const existing = await store.get(partnerId);
   if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
   const patch: PartnerPatch = {};
@@ -469,7 +523,12 @@ export async function updatePartner(store: PartnerStore, partnerId: string, inpu
     patch.name = name;
   }
   if (input.origins !== undefined) patch.allowedOrigins = normalizeOrigins(input.origins);
-  if (Object.keys(patch).length === 0) throw new PartnerError("usage", "nothing to update (give a name or origins)");
+  if (Object.prototype.hasOwnProperty.call(input, "memoryPolicy")) {
+    const policy = parseMemoryPolicy(input.memoryPolicy);
+    if (!policy) throw new PartnerError("usage", "invalid memory policy");
+    patch.memoryPolicy = policy;
+  }
+  if (Object.keys(patch).length === 0) throw new PartnerError("usage", "nothing to update (give a name, origins or memory policy)");
   if (!(await store.update(partnerId, patch))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
   return summaryOf({ ...existing, ...patch });
 }

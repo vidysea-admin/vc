@@ -1,0 +1,87 @@
+✔ S12: a completed memory decision during turn completion or usage never releases or replays the obsolete answer (392.7319ms)
+✔ Q12/Q14 repair2: delayed ranking discards facts after correction erase or policy disable (94.7019ms)
+✔ U6w item 1 ISS-163: facts the student confirmed in chat (db label source 'chat') change the ranking, and two students with different facts get different orders (158.0592ms)
+✔ U6w item 1: a fact the student has NOT confirmed (still proposed) never changes the ranking: every option is insufficient_data and no profile fact is reported as used (34.6126ms)
+✔ U6w item 1: the one mapping turns exactly {source 'chat', status 'confirmed'} into student-confirmed; a proposed row, a 'chat-extracted' label or an unknown label stay unmapped and the ranker ignores them (0.5088ms)
+✔ U6w item 2 ISS-167: every number the student is shown carries a visible NOT PROVEN label, in the reply, in each number claim, and in the stored thread (40.5695ms)
+✔ U6w item 3 tenancy: the same student id in tenant B with other facts never moves tenant A's ranking, and only tenant A's id reaches the profile and option-list ports (88.0112ms)
+✔ U6w item 4: a throwing option port, option-list callback or weights callback still returns the reply (200), names the failure in the server log, and logs no profile text (95.5263ms)
+✔ U6w item 4: an ordinary (non-ranking) question never touches the ranking port, and a rank question with no ranking wired behaves as before (74.3977ms)
+✔ U6w item 5: an anonymous visitor asking to rank gets sign_in_required with no ranking, and the option-data port is never asked (28.4351ms)
+✔ U6w cycle 1 C6 (senior review MEDIUM): a NOT PROVEN number never carries an attributed status: every ranked claim is unverified, live and stored, and keeps the label (51.4687ms)
+✔ U6w cycle 1 C7 (checker A P1): a turn that stores no text (an unconsented minor) never reaches the ranking port, the option list or the weights callback (57.6067ms)
+✔ U6w cycle 1 C8 (checker A P4): a profile fact value holding a phone number never reaches the stored thread through profileFactsUsed (26.7862ms)
+✔ U6w cycle 1 C10 (checker B P2): weightsForTenant receives the asking tenant's id, and tenant A's weights never apply to tenant B (110.4953ms)
+✔ U6w cycle 1 C11 (checker B P3 / A note): non-vacuous C5: an anonymous route handed live ranking, profile and Db spies never calls them, and the same spy wiring is called by the authenticated route (52.8583ms)
+✔ S12 runtime ranking: confirmed canonical preference supersedes supplied alias without two countries (30.8956ms)
+✔ S13 DB writers refuse new text and voice on a permanently no-text thread (5.412ms)
+✔ S13 DB completion refuses a claim after the thread becomes no-text; earlier completed history survives (13.3249ms)
+✔ S12: an obsolete unpublished answer is not history and an explicit retry can reclaim its exact turn (1.4643ms)
+✔ S12: an assistant staged while its final guard is pending cannot be read as a completed exchange (1.2915ms)
+✔ a student opening the chat gets a thread owned by them; another student cannot read it (0.5256ms)
+✔ a chat-store call on an unscoped Db is refused (tenant isolation fails closed) (0.4972ms)
+✔ a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim (1.1176ms)
+✔ a retry that arrives while the first attempt is still running is told it is in progress, not run twice (0.4261ms)
+✔ a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete (1.1329ms)
+✔ the same turn id sent again with different text is a conflict, not a silent replay of the old answer (0.681ms)
+✔ when the model call fails the claim is abandoned so the student's retry runs again (0.5379ms)
+✔ a voice turn and a text turn land in one history in time order (A19) (1.1326ms)
+✖ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (4.1641ms)
+✔ a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write (2.6874ms)
+✔ an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored (0.4212ms)
+✔ usage counters add up per student per month and stay inside the tenant (0.6232ms)
+✔ U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time (1.1932ms)
+✔ U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count (0.3839ms)
+✔ U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db (0.7486ms)
+✔ U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it (1.1293ms)
+✔ U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row (1.6095ms)
+✔ Q10/Q11: bounded owned sessions and complete pairs exclude current/pending/orphan turns (6.9316ms)
+✔ Q12: corrected/forgotten memory rejects queued old extraction and strips unsupported provenance (9.0621ms)
+✔ Q11: context honors character/lower-message caps and omits incomplete voice exchanges (3.3093ms)
+✔ Q12/Q14 repair1: paused correct never publishes old facts under a stable revision (3.4005ms)
+✔ Q12/Q14 repair1: paused erase never publishes old facts under a stable revision (5.7828ms)
+✔ Q12/Q14 repair1: overlapping decisions remain pending until every mutation completes (2.54ms)
+✔ Q12/Q14 repair1: failed mutation stays closed even after another decision succeeds (1.7094ms)
+✔ Q12/Q14 repair1: proposal paused before persistence is discarded when a decision starts (2.5732ms)
+✔ Q12/Q14 repair1: a proposal writing across pending mutation is removed on revision refusal (2.3819ms)
+✔ Q12/Q14 repair1: begin publication error cannot reopen unchanged memory (1.2264ms)
+✔ Q12/Q14 repair1: complete publication error cannot reopen unchanged memory (1.1189ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal legacy snapshot (2.5835ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal displayed value (1.4819ms)
+✔ Q12/Q14 repair2 B1: displayed value mismatch refuses before changing revision; legacy confirmation still works (1.3082ms)
+✔ Q12/Q14 repair2 B2: failed stale cleanup remains durably closed (2.7795ms)
+✔ Q12/Q14 repair2 B2: ambiguous stale cleanup remains durably closed (2.2308ms)
+✔ Q12/Q14 repair2 B1: confirm CAS conflict cannot release another pending decision (2.23ms)
+✔ Q12/Q14 repair2 B2: failed cleanup reservation cannot expose or confirm an unpublished stale row (1.9263ms)
+✔ Q12/Q14 repair2 B1: explicit correction wins over an unpublished racing proposal (2.218ms)
+ℹ tests 56
+ℹ suites 0
+ℹ pass 55
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 44062.1112
+
+✖ failing tests:
+
+test at packages\db\tests\chat-threads.test.ts:1:10014
+✖ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (4.1641ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'tenant A secret'
+  - ]
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\chat-threads.test.ts:213:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'tenant A secret' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

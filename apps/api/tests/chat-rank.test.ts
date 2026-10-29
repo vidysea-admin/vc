@@ -40,6 +40,8 @@ function rankWorld(over: { port?: OptionDataPort; deps?: Partial<ChatApiDeps>; o
   const port = over.port ?? spyPort();
   const w = chatWorld({
     deps: {
+      // Ranking/extraction fixtures explicitly model a tenant with persisted memory enabled.
+      memoryPolicyForTenant: async () => ({ shortTermEnabled: true, longTermEnabled: true, learningEnabled: true, contextMessages: 12, maxFacts: 20 }),
       ranking: { port, optionIds: over.optionIds ?? (() => FIX.optionIds) },
       extractFacts: async (t) => {
         const key = `${t.tenantId}|${t.studentId}`;
@@ -80,6 +82,89 @@ async function rankTurn(w: ChatWorld, tenant: string, studentId: string, threadI
 
 const rankedIds = (json: { claims: { text: string }[] }): string[] =>
   json.claims.map((c) => c.text.replace(/^NOT PROVEN: /, "")).filter((t) => t.startsWith("#")).map((t) => /^#\d+ (.*?):/.exec(t)![1]!);
+
+test("S12 retained / S13: memory changes before release cannot expose an obsolete answer through HTTP Retry history context or export", async () => {
+  const { COLLECTION_NAMES, proposeProfileFact, decideProfileFact, listChatContext, exportStudent } = await import("@vc/db");
+  const {createMongoPartnerStore,addPartner,updatePartner,resolveMemoryPolicy,DEFAULT_MEMORY_POLICY,NO_MEMORY_POLICY}=await import("../src/partners.js");
+  // S13 fix A3: the usage counters now run AFTER the release CAS (so a refused/retried turn counts once; see chat.test.ts fixA-3), which removes the old pre-release "usage" boundary.
+  for (const boundary of ["completion", "release"] as const) for (const action of ["correct", "erase", "disable"] as const) for(const cleanupFails of [false,true]) {
+    let enabled = true, release!: () => void, entered!: () => void;
+    const paused = new Promise<void>(resolve => { entered = resolve; });
+    const resume = new Promise<void>(resolve => { release = resolve; });
+    const ctx = rankWorld({ deps: { memoryPolicyForTenant: async () => ({ shortTermEnabled: enabled, longTermEnabled: enabled, learningEnabled: enabled, contextMessages: 12, maxFacts: 20 }) } });
+    const store=createMongoPartnerStore(ctx.w.fakeDb as never);
+    await addPartner(store,{id:"tenant-a",name:"Synthetic tenant",origins:[]},{pepper:"synthetic-s13-pepper".padEnd(40,"x")});
+    ctx.w.deps.memoryPolicyForTenant=tenant=>resolveMemoryPolicy(store,tenant);
+    try {
+      const db = ctx.w.deps.dbForTenant("tenant-a"), token = await studentToken(adult());
+      const threadId = await newThread(ctx.w, token);
+      const fact = await proposeProfileFact(db, { studentId: "stu-1", key: "target-country", value: "Germany" });
+      assert.ok(fact);
+      await decideProfileFact(db, { studentId: "stu-1", factId: fact.factId, action: "confirm" });
+      const field = await proposeProfileFact(db, { studentId: "stu-1", key: "field-of-study", value: "engineering" });
+      assert.ok(field);
+      await decideProfileFact(db, { studentId: "stu-1", factId: field.factId, action: "confirm" });
+      const collection = ctx.w.fakeDb.collection(boundary !== "usage" ? COLLECTION_NAMES.chat_turns : COLLECTION_NAMES.student_usage);
+      const original = collection.updateOne.bind(collection);
+      let armed = true;
+      collection.updateOne = async (filter, update, options) => {
+        const change = update as { $set?: { status?: string;publication?:string }; $inc?: { textTurns?: number } };
+        if (armed && (boundary === "completion" ? change.$set?.status === "done" : boundary === "release" ? change.$set?.publication === "published" : change.$inc?.textTurns === 1)) {
+          armed = false; entered(); await resume;
+        }
+        return original(filter, update, options);
+      };
+      const request = { token, body: { text: RANK_TEXT, clientTurnId: "s12-publication-race" } };
+      const answering = call(ctx.w, "POST", turnsPath("stu-1", threadId), request);
+      await paused;
+      if (action === "disable") { enabled = false; await updatePartner(store,"tenant-a",{memoryPolicy:{...NO_MEMORY_POLICY}}); }
+      else await decideProfileFact(db, { studentId: "stu-1", factId: fact.factId, action, ...(action === "correct" ? { value: "Canada" } : {}) });
+      const beforeRelease=await call(ctx.w,"GET",threadsPath("stu-1")+"/"+threadId,{token});
+      assert.equal(beforeRelease.json.turns.some((row:{role:string})=>row.role==="assistant"),false,"concurrent history cannot see a prepared answer");
+      const turns=ctx.w.fakeDb.collection(COLLECTION_NAMES.chat_turns),remove=turns.deleteMany.bind(turns);
+      if(cleanupFails)turns.deleteMany=async()=>{throw Error("synthetic cleanup unavailable");};
+      release();
+      const result = await answering;
+      assert.equal(result.status, 409, `${boundary}/${action}: ${result.body}`);
+      assert.equal(result.json.error, "memory_changed");
+      const history=await call(ctx.w,"GET",threadsPath("stu-1")+"/"+threadId,{token});
+      assert.equal(history.json.turns.some((row:{role:string})=>row.role==="assistant"),false,`${boundary}/${action}: refused history`);
+      assert.equal((await listChatContext(db,{studentId:"stu-1",threadId})).length,0);
+      assert.equal((await exportStudent(db,"stu-1")).chatTurns.some(row=>row.role==="assistant"),false,`${boundary}/${action}: refused export`);
+      turns.deleteMany=remove;
+      let retried = await call(ctx.w, "POST", turnsPath("stu-1", threadId), request);
+      if (retried.status === 409) {
+        assert.equal(retried.json.error, "memory_changed");
+        retried = await call(ctx.w, "POST", turnsPath("stu-1", threadId), { token, body: { ...request.body, clientTurnId: "s12-intentional-fresh-attempt" } });
+      }
+      assert.equal(retried.status, 200, `${boundary}/${action} explicit Retry: ${retried.body}`);
+      assert.ok(!retried.json.profileFactsUsed.some((f: { value: string }) => f.value === "Germany"));
+    } finally { release?.(); ctx.w.cleanup(); }
+  }
+});
+
+test("Q12/Q14 repair2: delayed ranking discards facts after correction erase or policy disable", async () => {
+ const {proposeProfileFact,decideProfileFact}=await import("@vc/db");
+ for(const action of ["correct","erase","disable"] as const){
+  let release!:()=>void,entered!:()=>void;
+  const wait=new Promise<void>(r=>release=r),pending=new Promise<void>(r=>entered=r);
+  let enabled=true;const port=spyPort();
+  const ctx=rankWorld({port,optionIds:async()=>{entered();await wait;return FIX.optionIds;},deps:{memoryPolicyForTenant:async()=>({shortTermEnabled:enabled,longTermEnabled:enabled,learningEnabled:enabled,contextMessages:12,maxFacts:20})}});
+  try{
+   const db=ctx.w.deps.dbForTenant("tenant-a"),token=await studentToken(adult()),thread=await newThread(ctx.w,token);
+   const f=await proposeProfileFact(db,{studentId:"stu-1",key:"target-country",value:"Germany"});assert.ok(f);
+   await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+   const answering=call(ctx.w,"POST",turnsPath("stu-1",thread),{token,body:{text:RANK_TEXT}});await pending;
+   if(action==="disable")enabled=false;
+   else await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action,...(action==="correct"?{value:"Canada"}:{})});
+   release();const res=await answering;
+   assert.equal(res.status,409);assert.equal(res.json.error,"memory_changed");
+   assert.ok(!JSON.stringify(res.json).includes("Germany"),action+": old facts must never reach ranking output");
+   assert.equal(port.calls.length,0,"changed snapshot must refuse before option scoring");
+   assert.equal(res.json.rankingProfile,undefined);
+  }finally{release();ctx.w.cleanup();}
+ }
+});
 
 // ---------------------------------------------------------------------------------------------------------
 // Item 1 (ISS-163): a confirmed chat fact is stored as source "chat"; the ranker accepts it as student-confirmed, and only that
@@ -415,4 +500,11 @@ test("U6w cycle 1 C11 (checker B P3 / A note): non-vacuous C5: an anonymous rout
     a.cleanup();
     auth.w.cleanup();
   }
+});
+
+test("S12 runtime ranking: confirmed canonical preference supersedes supplied alias without two countries", async () => {
+ const ctx=rankWorld({deps:{profile:{facts:async()=>[{key:"preferred_country",value:"Germany",source:"vidysea" as const}]}}});
+ try{const threadId=await sayAndConfirm(ctx,"tenant-a","stu-1",[{key:"target_country",value:"Canada"}]);const out=await rankTurn(ctx.w,"tenant-a","stu-1",threadId);
+ assert.deepEqual(out.json.profileFactsUsed,[{key:"target-country",value:"Canada",source:"student-confirmed"}]);
+ }finally{ctx.w.cleanup();}
 });

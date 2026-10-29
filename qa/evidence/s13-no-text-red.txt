@@ -1,0 +1,62 @@
+✖ S13 a no-text thread stays content-free after the same student becomes eligible (150.3183ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4102.9987
+
+✖ failing tests:
+
+test at apps\api\tests\chat-privacy.test.ts:1:781
+✖ S13 a no-text thread stays content-free after the same student becomes eligible (150.3183ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     at: '2026-11-01T10:00:00.000Z',
+  +     channel: 'text',
+  +     role: 'user',
+  +     text: 'What are the tuition fees for public universities in Germany?',
+  +     turnId: 'no-text-turn'
+  +   },
+  +   {
+  +     at: '2026-11-01T10:00:00.000Z',
+  +     channel: 'text',
+  +     claims: [
+  +       {
+  +         kind: 'fact',
+  +         sourceIds: [
+  +           't-sem-1'
+  +         ],
+  +         status: 'verified',
+  +         text: 'Public universities in Germany charge no tuition for most programmes.'
+  +       }
+  +     ],
+  +     role: 'assistant',
+  +     sources: [
+  +       {
+  +         id: 't-sem-1',
+  +         kind: 'internal-seminar',
+  +         title: 'Study in Germany seminar'
+  +       }
+  +     ],
+  +     text: 'Public universities in Germany charge no tuition for most programmes.',
+  +     turnId: 'no-text-turn'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-privacy.test.ts:30:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { turnId: 'no-text-turn', role: 'user', channel: 'text', text: 'What are the tuition fees for public universities in Germany?', at: '2026-11-01T10:00:00.000Z' }, { turnId: 'no-text-turn', role: 'assistant', channel: 'text', text: 'Public universities in Germany charge no tuition for most programmes.', at: '2026-11-01T10:00:00.000Z', claims: [Array], sources: [Array] } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

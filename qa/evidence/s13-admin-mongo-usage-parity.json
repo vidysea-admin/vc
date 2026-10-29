@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-27T19:01:01.436Z",
+  "scope": "read-only synthetic localhost Mongo",
+  "rows": [
+    {
+      "_id": {
+        "siteId": "pathlynks",
+        "mode": "chat"
+      },
+      "turns": 6
+    },
+    {
+      "_id": {
+        "siteId": "vidysea",
+        "mode": "chat"
+      },
+      "turns": 6
+    },
+    {
+      "_id": {
+        "siteId": "vidysea",
+        "mode": "voice"
+      },
+      "turns": 3
+    }
+  ],
+  "browserApiParity": "PASS"
+}

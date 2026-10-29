@@ -186,7 +186,7 @@ function errorName(err: unknown): string | undefined {
 }
 
 /** Provider errors that mean "no AI right now" (checked by name: another bundled copy may throw them). */
-const AI_DOWN_ERRORS = new Set(["AiUnavailableError", "RulesProviderUnsupportedSkillError", "ProviderNotWiredError"]);
+const AI_DOWN_ERRORS = new Set(["AiUnavailableError", "RulesProviderUnsupportedSkillError", "ProviderNotWiredError", "GeminiHttpError", "GeminiNetworkError", "GeminiTimeoutError", "GeminiMalformedResponseError"]);
 
 export async function planCards(
   input: { turns: ScribeTurn[]; knownFacts: KnownFact[]; preBrief: { openQuestions: string[]; doNotAsk: string[] }; knowledge: KnowledgeOutput },

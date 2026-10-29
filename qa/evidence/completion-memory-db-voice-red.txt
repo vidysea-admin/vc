@@ -1,0 +1,28 @@
+✖ S12: candidate DTOs and decisions bind bounded refs while legacy first confirmation remains valid (5.2741ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 225.5786
+
+✖ failing tests:
+
+test at packages\schemas\tests\student-api.test.ts:1:10940
+✖ S12: candidate DTOs and decisions bind bounded refs while legacy first confirmation remains valid (5.2741ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\schemas\tests\student-api.test.ts:233:9)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

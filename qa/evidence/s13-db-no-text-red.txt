@@ -1,0 +1,40 @@
+✖ S13 DB writers refuse new text and voice on a permanently no-text thread (10.8784ms)
+✖ S13 DB completion refuses a claim after the thread becomes no-text; earlier completed history survives (2.5486ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1001.6789
+
+✖ failing tests:
+
+test at packages\db\tests\chat-threads.test.ts:1:1047
+✖ S13 DB writers refuse new text and voice on a permanently no-text thread (10.8784ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\chat-threads.test.ts:50:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /ChatThreadTextNotStored/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at packages\db\tests\chat-threads.test.ts:1:1580
+✖ S13 DB completion refuses a claim after the thread becomes no-text; earlier completed history survives (2.5486ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\chat-threads.test.ts:64:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /ChatThreadTextNotStored/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

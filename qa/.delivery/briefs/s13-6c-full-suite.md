@@ -1,0 +1,3 @@
+# s13-6c-full-suite
+
+Re-run the 6c pre-push full suite on the current uncommitted worktree, after S13 fix rounds A and B. Use exactly the tf-6c.md procedure: pnpm test per package, sequentially, under the vc-testlock (long waits are normal; a checker may hold it), no -x. The packages are the 11 listed in tf-6c.md. Also run python contracts/verify_contracts.py and every package's typecheck script. Re-run each failure alone twice and triage it as a real defect (file:line plus the change that caused it, via git diff) or a flake. Check free space on C: first. Do not fix code, commit, or touch qa/.6c-green. Write qa/verdicts/s13-6c.md with Overall PASS/FAIL, the table, the triage and the HEAD sha.

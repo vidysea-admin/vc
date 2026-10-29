@@ -70,6 +70,7 @@ export interface OptionDataPort {
 /** [ASSUMPTION, Q-U6b-2] profile fact key -> option attribute key. Synthetic default; configurable per call. */
 export const DEFAULT_FACT_KEY_MAP: Readonly<Record<string, string>> = Object.freeze({
   "target-country": "country",
+  target_country: "country",
   "field-of-study": "field",
   "study-level": "level",
 });
@@ -140,7 +141,7 @@ function usableFacts(facts: readonly RankFactInput[]): { facts: ProfileFact[]; i
     }
     const fact: ProfileFact = { key: f.key, value: f.value, source: f.source as ProfileFact["source"] };
     const prior = byKey.get(fact.key);
-    if (!prior || (prior.source === "pathlynks" && fact.source === "student-confirmed")) byKey.set(fact.key, fact);
+    if (!prior || ((prior.source === "pathlynks" || prior.source === "vidysea") && fact.source === "student-confirmed")) byKey.set(fact.key, fact);
   }
   return { facts: [...byKey.values()].sort((a, b) => cmp(a.key, b.key)), ignored };
 }

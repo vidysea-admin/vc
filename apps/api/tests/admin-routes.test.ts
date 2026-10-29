@@ -611,19 +611,34 @@ test("fix2 F1: the seeded pathlynks-db with its host (or port, database, user, s
   }
 });
 
-test("fix2 F1: the seeded pathlynks-db and the 4 seeded repos, unchanged, still get their env credentials on Test", async () => {
+test("fix2 F1: the seeded pathlynks-db and the 6 seeded repos (T-057 adds vidysea-frontend, T8 vidysea-backend), unchanged, still get their env credentials on Test", async () => {
   const w = await exfilWorld();
   const admin = await w.token("admin");
   const res = await w.call("POST", `${ADMIN_PATH}sources/${SEEDED_PG.id}/test`, { token: admin, body: {} });
   assert.deepEqual(res.json, { ok: true, message: "Connection works." });
   assert.deepEqual(w.pgCalls, [{ host: SEEDED_PG.host, password: ENV_PG_PASSWORD }]);
-  assert.equal(SEEDED_GH.length, 4);
+  // wire-fix-1: pin the exact set, not a count, so an added or dropped repo fails by name.
+  assert.deepEqual(SEEDED_GH.map((s) => s.id).sort(), ["pathlynks-auth", "pathlynks-career", "pathlynks-frontend", "pathlynks-school", "vidysea-backend", "vidysea-frontend"]);
   for (const s of SEEDED_GH) {
     const before = w.ghTokens.length;
     assert.deepEqual((await w.call("POST", `${ADMIN_PATH}sources/${s.id}/test`, { token: admin, body: {} })).json, { ok: true, message: "Connection works." }, s.id);
     assert.equal(w.ghTokens.at(-1)?.token, ENV_GH_TOKEN, s.id);
     assert.equal(w.ghTokens.length, before + 1);
   }
+});
+
+test("wire-fix-1: the read-only mongo source is config-only: seeding skips it, and the console cannot create one (400) or send it an env credential", async () => {
+  const w = await exfilWorld();
+  assert.equal(await w.store.sources.get("pathlynks-journey"), null);
+  const admin = await w.token("admin");
+  const mongo = REAL_SOURCES.sources.find((s) => s.kind === "mongo")!;
+  const { kind, id, ...rest } = mongo;
+  for (const body of [{ ...rest, kind, id: "second-journey" }, { ...rest, kind, id }]) {
+    const res = await w.call("POST", `${ADMIN_PATH}sources`, { token: admin, body });
+    assert.equal(res.status, 400, res.body);
+  }
+  assert.equal(await w.store.sources.get("second-journey"), null);
+  assert.ok(!w.leaked());
 });
 
 test("fix2 F1: with no seeded config handed to the admin routes, no source ever gets an env credential (fail closed)", async () => {
@@ -676,4 +691,68 @@ test("fix1 R4: creating a site while the audit write is failing returns both new
   const plain = await w.call("POST", `${ADMIN_PATH}sites/pathlynks/revoke`, { token: admin, body: {} });
   assert.equal(plain.status, 500);
   assert.equal(plain.json.error, "audit_unavailable");
+});
+
+
+for (const role of ["viewer","admin","super-admin"] as const) test("Q13 memory policy: "+role+" PATCH roundtrip with isolated partner, audit and no secret", async () => {
+  const w = await seeded(); await addPartner(w.partnerStore,{name:"Other Site"},w.deps.partnerCtx!);
+  const token = await w.token(role); const before = (await w.partnerStore.get("pathlynks"))!;
+  const policy = {shortTermEnabled:false,longTermEnabled:true,learningEnabled:false,contextMessages:0,maxFacts:3};
+  const res = await w.call("PATCH",ADMIN_PATH+"sites/pathlynks",{token,body:{memoryPolicy:policy}});
+  assert.equal(res.status,role==="viewer"?403:200,res.body);
+  assert.deepEqual((await w.partnerStore.get("pathlynks"))!.memoryPolicy,role==="viewer"?before.memoryPolicy:policy);
+  assert.deepEqual((await w.partnerStore.get("pathlynks"))!.keys,before.keys);
+  assert.deepEqual((await w.partnerStore.get("pathlynks"))!.allowedOrigins,before.allowedOrigins);
+  assert.equal((await w.partnerStore.get("other-site"))!.memoryPolicy!.shortTermEnabled,true);
+  const audit = w.auditRows().at(-1)!; assert.equal(audit.action,"sites.update"); assert.equal(audit.ok,role!=="viewer");
+  assert.ok(!JSON.stringify([res.json,w.auditRows()]).includes(before.keys.srv.hash));
+  const list = await w.call("GET",ADMIN_PATH+"sites",{token}); assert.equal(list.status,200);
+  assert.deepEqual(list.json.sites.find((s:{partnerId:string})=>s.partnerId==="pathlynks").memoryPolicy,role==="viewer"?before.memoryPolicy:policy);
+});
+
+test("Q13 memory policy: PATCH rejects malformed/unknown policy without mutation and audits failure; legacy explicit initialization", async () => {
+  const w = await seeded(); const token = await w.token("admin");
+  const policy = {shortTermEnabled:true,longTermEnabled:false,learningEnabled:true,contextMessages:12,maxFacts:0};
+  for (const memoryPolicy of [null,{}, {...policy,contextMessages:13}, {...policy,maxFacts:0.5}, {...policy,learningEnabled:"false"}, {...policy,credential:"private"}]) {
+    const before = w.snapshot(); const res = await w.call("PATCH",ADMIN_PATH+"sites/pathlynks",{token,body:{memoryPolicy}});
+    assert.equal(res.status,400,res.body); assert.equal(w.snapshot(),before); assert.equal(w.auditRows().at(-1)!.ok,false);
+    assert.ok(!JSON.stringify(w.auditRows()).includes("private"));
+  }
+  const old = (await w.partnerStore.get("pathlynks"))!; const {memoryPolicy:_policy,...legacy}=old;
+  await w.partnerStore.insert({...legacy,_id:"legacy-site",partnerId:"legacy-site"});
+  const init = await w.call("PATCH",ADMIN_PATH+"sites/legacy-site",{token,body:{memoryPolicy:policy}});
+  assert.equal(init.status,200,init.body); assert.deepEqual(init.json.partner.memoryPolicy,policy);
+});
+
+
+test("Q13 memory policy: actual AdminClient PATCH/store/list roundtrip and viewer forced-write refusal", async () => {
+  const {createAdminClient, AdminApiError, PROXY_BASE} = await import("../../web/src/app/admin/_lib/client.js");
+  const w = await seeded();
+  let role: Role = "admin"; let token=await w.token(role);
+  const client=createAdminClient({
+    getToken:()=>token, onUnauthorized:()=>assert.fail("unexpected expiry"),
+    fetch:(async(url,init)=>{
+      const headers=Object.fromEntries(new Headers(init?.headers).entries());
+      const res=await w.call(init?.method??"GET",String(url).replace(PROXY_BASE+"/",ADMIN_PATH),{headers,raw:typeof init?.body==="string"?init.body:""});
+      return new Response(res.body,{status:res.status,headers:res.headers});
+    }) as typeof fetch,
+  });
+  assert.deepEqual((await client.listSites())[0]!.memoryPolicy,{shortTermEnabled:true,longTermEnabled:true,learningEnabled:true,contextMessages:12,maxFacts:20});
+  const policy={shortTermEnabled:true,longTermEnabled:false,learningEnabled:false,contextMessages:2,maxFacts:0};
+  const updated=await client.updateSite("pathlynks",{memoryPolicy:policy});
+  assert.deepEqual(updated.memoryPolicy,policy);
+  assert.deepEqual((await w.partnerStore.get("pathlynks"))!.memoryPolicy,policy);
+  assert.deepEqual((await client.listSites())[0]!.memoryPolicy,policy,"reload reads persisted settings");
+  role="viewer"; token=await w.token(role); const before=w.snapshot();
+  await assert.rejects(()=>client.updateSite("pathlynks",{memoryPolicy:{...policy,learningEnabled:true}}),e=>e instanceof AdminApiError && e.status===403);
+  assert.equal(w.snapshot(),before); assert.equal(w.auditRows().at(-1)!.ok,false);
+});
+
+
+test('S12 Admin creates an explicit Vidysea source and viewer cannot write or test it',async()=>{
+ const w=await adminWorld();const body={kind:'postgres',id:'vidysea-local',siteId:'vidysea',platform:'vidysea',host:'fixture.example',port:5432,database:'fixture',user:'reader',sslmode:'require',passwordRef:'VIDYSEA_DB_PASSWORD',tables:['users','students','student_shortlisted_courses','ai_profile_assessments']};
+ const before=w.snapshot();assert.equal((await w.call('POST',ADMIN_PATH+'sources',{token:await w.token('viewer'),body})).status,403);assert.equal(w.snapshot(),before);
+ const res=await w.call('POST',ADMIN_PATH+'sources',{token:await w.token('admin'),body});assert.equal(res.status,201,res.body);assert.equal(res.json.source.siteId,'vidysea');assert.equal(res.json.source.config.platform,'vidysea');
+ assert.equal((await w.call('POST',ADMIN_PATH+'sources/vidysea-local/test',{token:await w.token('viewer'),body:{}})).status,403);
+ assert.equal((await w.call('POST',ADMIN_PATH+'sources',{token:await w.token('admin'),body:{...body,id:'bad-prefix',passwordRef:'PATHLYNKS_DB_PASSWORD'}})).status,400);
 });

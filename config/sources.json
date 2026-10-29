@@ -9,7 +9,31 @@
       "repo": "vidyaksh-frontend",
       "branch": "production_frontend",
       "service": "frontend",
-      "tokenRef": "GITHUB_TOKEN"
+      "tokenRef": "GITHUB_TOKEN",
+      "siteId": "pathlynks",
+      "platform": "pathlynks"
+    },
+    {
+      "kind": "github",
+      "id": "vidysea-frontend",
+      "owner": "vidysea-admin",
+      "repo": "vidysea-user-frontend",
+      "branch": "prod",
+      "service": "frontend",
+      "tokenRef": "GITHUB_TOKEN",
+      "siteId": "vidysea",
+      "platform": "vidysea"
+    },
+    {
+      "kind": "github",
+      "id": "vidysea-backend",
+      "owner": "vidysea-admin",
+      "repo": "vidysea-main-service-backend",
+      "branch": "prod",
+      "service": "other",
+      "tokenRef": "GITHUB_TOKEN",
+      "siteId": "vidysea",
+      "platform": "vidysea"
     },
     {
       "kind": "github",
@@ -18,7 +42,9 @@
       "repo": "vidyaksh-backend",
       "branch": "production_auth_service",
       "service": "auth",
-      "tokenRef": "GITHUB_TOKEN"
+      "tokenRef": "GITHUB_TOKEN",
+      "siteId": "pathlynks",
+      "platform": "pathlynks"
     },
     {
       "kind": "github",
@@ -27,7 +53,9 @@
       "repo": "vidyaksh-backend",
       "branch": "production_school_mgt_service",
       "service": "school",
-      "tokenRef": "GITHUB_TOKEN"
+      "tokenRef": "GITHUB_TOKEN",
+      "siteId": "pathlynks",
+      "platform": "pathlynks"
     },
     {
       "kind": "github",
@@ -36,7 +64,9 @@
       "repo": "vidyaksh-backend",
       "branch": "production_career_service",
       "service": "career",
-      "tokenRef": "GITHUB_TOKEN"
+      "tokenRef": "GITHUB_TOKEN",
+      "siteId": "pathlynks",
+      "platform": "pathlynks"
     },
     {
       "kind": "postgres",
@@ -45,14 +75,67 @@
       "port": 5432,
       "database": "pathlynks_prod_121125",
       "user": "pathlynksadm",
-      "sslmode": "require",
+      "sslmode": "verify-full",
       "passwordRef": "PATHLYNKS_DB_PASSWORD",
       "tables": [
+        "users",
+        "user_grade",
+        "grade",
+        "student_saved_careers",
+        "student_career_compare",
+        "career_option",
+        "assessment_response",
+        "user_category_fitscore",
+        "category_option",
+        "user_subcategory_fitscore",
+        "subcategory_option",
+        "student_trait_score_point",
+        "combined_report_llm_data"
+      ],
+      "siteId": "pathlynks",
+      "platform": "pathlynks"
+    },
+    {
+      "kind": "postgres",
+      "id": "vidysea-db",
+      "siteId": "vidysea",
+      "platform": "vidysea",
+      "enabled": true,
+      "host": "vidysea-prod-ecs.clk264aaira9.ap-south-1.rds.amazonaws.com",
+      "port": 5432,
+      "database": "vidyseaprodecs",
+      "user": "vidysedevaadmin",
+      "sslmode": "verify-full",
+      "passwordRef": "VIDYSEA_DB_PASSWORD",
+      "tables": [
+        "users",
         "students",
-        "saved_careers",
-        "compare_lists",
-        "assessments"
+        "student_shortlisted_courses",
+        "ai_profile_assessments",
+        "pathlynks_student_snapshot",
+        "user_course_journey_map",
+        "journey_phases",
+        "milestones",
+        "applications",
+        "visa_applications",
+        "user_favourites",
+        "saved_scholarships"
       ]
+    },
+    {
+      "kind": "mongo",
+      "id": "pathlynks-journey",
+      "siteId": "pathlynks",
+      "platform": "pathlynks",
+      "enabled": true,
+      "database": "pathlynks_journey",
+      "collections": [
+        "pathlynks_quest_profiles",
+        "pathlynks_goals",
+        "pathlynks_activities",
+        "pathlynks_skill_activities"
+      ],
+      "urlRef": "MONGODB_URL"
     }
   ]
 }

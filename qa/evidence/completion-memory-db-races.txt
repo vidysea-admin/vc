@@ -1,0 +1,25 @@
+✔ Q12: corrected/forgotten memory rejects queued old extraction and strips unsupported provenance (10.3823ms)
+✔ Q12/Q14 repair1: paused correct never publishes old facts under a stable revision (2.829ms)
+✔ Q12/Q14 repair1: paused erase never publishes old facts under a stable revision (1.2498ms)
+✔ Q12/Q14 repair1: overlapping decisions remain pending until every mutation completes (1.5352ms)
+✔ Q12/Q14 repair1: failed mutation stays closed even after another decision succeeds (1.1666ms)
+✔ Q12/Q14 repair1: proposal paused before persistence is discarded when a decision starts (1.2281ms)
+✔ Q12/Q14 repair1: a proposal writing across pending mutation is removed on revision refusal (1.4643ms)
+✔ Q12/Q14 repair1: begin publication error cannot reopen unchanged memory (0.8398ms)
+✔ Q12/Q14 repair1: complete publication error cannot reopen unchanged memory (0.6859ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal legacy snapshot (1.628ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal displayed value (0.9635ms)
+✔ Q12/Q14 repair2 B1: displayed value mismatch refuses before changing revision; legacy confirmation still works (0.8839ms)
+✔ Q12/Q14 repair2 B2: failed stale cleanup remains durably closed (1.6003ms)
+✔ Q12/Q14 repair2 B2: ambiguous stale cleanup remains durably closed (1.796ms)
+✔ Q12/Q14 repair2 B1: confirm CAS conflict cannot release another pending decision (1.6909ms)
+✔ Q12/Q14 repair2 B2: failed cleanup reservation cannot expose or confirm an unpublished stale row (1.1195ms)
+✔ Q12/Q14 repair2 B1: explicit correction wins over an unpublished racing proposal (1.1483ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 524.6137

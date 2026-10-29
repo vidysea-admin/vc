@@ -42,13 +42,20 @@ import {
 } from "@vc/db";
 import {
   GithubFetchError,
+  STUDENT_HUB_FILES,
+  applyServiceCopy,
+  buildBackendKg,
+  buildFrontendKg,
   fetchRepoFiles,
   parseNextAppRoutes,
   parseSequelizeMigrations,
+  shouldKeepLastGood,
   type GithubPort,
+  type KgSource,
+  type RepoFile,
 } from "@vc/engine";
-import { SourceConfig, credentialRefPatternFor, findSecretLikeFields, type SourcesFile } from "@vc/schemas";
-import { createPathlynksPort, type PathlynksEvent, type PathlynksResult as McpPathlynksResult } from "@vc/mcp-pathlynks";
+import { SourceConfig, boundSourceCredentialRef, credentialRefPatternFor, findSecretLikeFields, type SourcesFile } from "@vc/schemas";
+import { createPathlynksPort, createVidyseaPort, type VidyseaPort, type PathlynksEvent, type PathlynksResult as McpPathlynksResult } from "@vc/mcp-pathlynks";
 import { studentKeyOf } from "@vc/db";
 import type { StudentGraphDeps } from "@vc/engine";
 import type { TurnUsageSink, UsageMeter } from "./chat.js";
@@ -73,6 +80,7 @@ import {
   rotatePartner,
   unrevokePartner,
   updatePartner,
+  parseMemoryPolicy,
   type KeyScope,
   type PartnerOpContext,
   type PartnerStore,
@@ -97,7 +105,7 @@ class CredentialRefError extends Error {
     this.name = "CredentialRefError";
   }
 }
-const CREDENTIAL_REF_REFUSED = "This source names a credential reference that is not allowed (only PATHLYNKS_* and GITHUB_* names are).";
+const CREDENTIAL_REF_REFUSED = "This source names a credential reference that is not allowed (only platform-bound PATHLYNKS_*, VIDYSEA_DB_* and GITHUB_* names are).";
 
 /** The source names an env credential, but it is not the exact connection that credential was seeded for (and no encrypted secret is stored). */
 class NoCredentialError extends Error {
@@ -114,18 +122,8 @@ type SeededSource = SourcesFile["sources"][number];
  * The env var NAME a stored source may read, or undefined. Only the exact connection seeded from config/sources.json qualifies: the same id and kind,
  * the same ref, and the same host, port, database, user and sslmode (postgres) or owner and repo (github). Without a seeded list nothing qualifies.
  */
-export function boundEnvRef(src: Pick<SourceSummary, "id" | "kind" | "config">, seeded: readonly SeededSource[] | undefined): string | undefined {
-  const seed = seeded?.find((s) => s.id === src.id);
-  if (!seed || seed.kind !== src.kind) return undefined;
-  const c = src.config as Record<string, unknown>;
-  const lower = (v: unknown): string | undefined => (typeof v === "string" ? v.toLowerCase() : undefined);
-  if (seed.kind === "postgres") {
-    const same =
-      lower(c.host) === seed.host.toLowerCase() && c.port === seed.port && c.database === seed.database && c.user === seed.user && c.sslmode === seed.sslmode && c.passwordRef === seed.passwordRef;
-    return same && credentialRefPatternFor("postgres").test(seed.passwordRef) ? seed.passwordRef : undefined;
-  }
-  const same = lower(c.owner) === seed.owner.toLowerCase() && lower(c.repo) === seed.repo.toLowerCase() && c.tokenRef === seed.tokenRef;
-  return same && seed.tokenRef !== undefined && credentialRefPatternFor("github").test(seed.tokenRef) ? seed.tokenRef : undefined;
+export function boundEnvRef(src: Pick<SourceSummary, 'id' | 'kind' | 'config'> & { siteId?: string }, seeded: readonly SeededSource[] | undefined, defaultSiteId = 'pathlynks'): string | undefined {
+  return boundSourceCredentialRef({ ...src, siteId: src.siteId ?? defaultSiteId }, seeded, defaultSiteId);
 }
 
 /** What the Postgres test port answers. `cause` is one of a fixed set; the route maps it to a fixed sentence. */
@@ -135,7 +133,7 @@ export interface PostgresTestResult {
 }
 export interface AdminPostgresPort {
   /** Connects with the source's non-secret config and the password, runs the read-only checks, disconnects. Never throws a driver message. */
-  test(config: Record<string, unknown>, password: string | undefined): Promise<PostgresTestResult>;
+  test(config: Record<string, unknown>, password: string | undefined, context?: { source: SourceSummary; seeded?: readonly SeededSource[]; defaultSiteId?: string }): Promise<PostgresTestResult>;
 }
 
 export interface AdminRoutesDeps {
@@ -458,12 +456,13 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
    * that seeded entry names; else none for a source that names no ref (a public repo), and NoCredentialError for one that does.
    */
   async function credentialFor(src: SourceSummary): Promise<string | undefined> {
+    if (src.config.enabled === false) throw new NoCredentialError();
     if (src.hasSecret) return d.store.sources.readSecret(src.id);
     const ref = src.kind === "github" ? src.config.tokenRef : src.config.passwordRef;
     if (ref === undefined) return undefined;
     // A stored doc may predate the schema: re-check the name AND its kind binding here (PATHLYNKS_* only for postgres, GITHUB_* only for github).
-    if (typeof ref !== "string" || !credentialRefPatternFor(src.kind === "github" ? "github" : "postgres").test(ref)) throw new CredentialRefError();
-    const bound = boundEnvRef(src, d.seededSources);
+    if (typeof ref !== "string" || !credentialRefPatternFor(src.kind === "github" ? "github" : "postgres", src.config.platform === "vidysea" ? "vidysea" : "pathlynks").test(ref)) throw new CredentialRefError();
+    const bound = boundEnvRef(src, d.seededSources, d.defaultSiteId);
     if (bound === undefined) throw new NoCredentialError();
     const value = (d.env ?? process.env)[bound];
     return value !== undefined && value !== "" ? value : undefined;
@@ -550,7 +549,11 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         const name = c.body.name === undefined ? undefined : str(c.body.name);
         const origins = c.body.origins === undefined ? undefined : strArray(c.body.origins);
         if ((c.body.name !== undefined && name === undefined) || (c.body.origins !== undefined && origins === undefined)) return err(400, "invalid_site");
-        const partner = await updatePartner(d.partnerStore, siteIdOf(c), { ...(name === undefined ? {} : { name }), ...(origins === undefined ? {} : { origins }) });
+        const hasMemoryPolicy = Object.prototype.hasOwnProperty.call(c.body, "memoryPolicy");
+        const memoryPolicy = hasMemoryPolicy ? parseMemoryPolicy(c.body.memoryPolicy) : undefined;
+        if (hasMemoryPolicy && !memoryPolicy) return err(400, "invalid_memory_policy");
+        if (Object.keys(c.body).some(k => !["name", "origins", "memoryPolicy"].includes(k))) return err(400, "invalid_site");
+        const partner = await updatePartner(d.partnerStore, siteIdOf(c), { ...(name === undefined ? {} : { name }), ...(origins === undefined ? {} : { origins }), ...(memoryPolicy ? { memoryPolicy } : {}) });
         return ok(200, { partner });
       },
     },
@@ -599,8 +602,10 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         const { siteId: rawSite, ...rest } = c.body;
         // A secret-looking value anywhere in the body (a password / token field holding text, a URL with credentials) is a 400 and nothing is stored.
         if (findSecretLikeFields(rest).length > 0) return err(400, "secret_in_config");
-        const parsed = SourceConfig.safeParse(rest);
+        const parsed = SourceConfig.safeParse(rest.platform === undefined ? rest : { ...rest, siteId: rawSite });
         if (!parsed.success) return err(400, "invalid_source");
+        // wire-fix-1: the read-only Mongo source is config-only (config/sources.json); the console can neither create nor retarget it.
+        if (parsed.data.kind === "mongo") return err(400, "invalid_source");
         const siteId = rawSite === undefined ? d.defaultSiteId : str(rawSite);
         if (siteId === undefined) return err(400, "invalid_source");
         const { kind, id, ...config } = parsed.data;
@@ -643,7 +648,11 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         const src = await d.store.sources.get(sourceIdOf(c));
         if (!src) return err(404, "not_found");
         if (src.kind !== "github") return err(400, "not_syncable");
-        const out = await syncGithubSource(src);
+        // tf-fix-2 / D-135: the explicit keep-last-good override. A strict boolean, honoured for every admin who may sync (minRole "admin"; a viewer never reaches here).
+        // Per-right checkboxes per admin group come later (D-135); until then an admin is an admin.
+        const flag = c.body.acceptShrink;
+        if (flag !== undefined && typeof flag !== "boolean") return err(400, "invalid_request");
+        const out = await syncGithubSource(src, flag === true ? { actor: c.actor.email } : undefined);
         return { res: respond(200, out), ok: out.status === "ok" };
       },
     },
@@ -692,7 +701,7 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         return { ok: true, message: "Connection works." };
       }
       if (!d.postgres) return { ok: false, message: "Database access is not configured on this server." };
-      const out = await withTimeout(d.postgres.test(src.config, await credentialFor(src)), NETWORK_TIMEOUT_MS);
+      const out = await withTimeout(d.postgres.test(src.config, await credentialFor(src), { source: src, ...(d.seededSources ? { seeded: d.seededSources } : {}), ...(d.defaultSiteId ? { defaultSiteId: d.defaultSiteId } : {}) }), NETWORK_TIMEOUT_MS);
       return out.ok ? { ok: true, message: "Connection works." } : { ok: false, message: PG_CAUSE_TEXT[out.cause ?? ""] ?? "The database could not be reached." };
     } catch (e) {
       if (e instanceof SecretsError) return { ok: false, message: "The secrets store is not configured on this server." };
@@ -711,8 +720,54 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
     return list.slice(0, MAX_STORED_DIAGNOSTICS).map((x) => ({ code: scrub(String(x.code), 64), file: scrub(String(x.file), 200), message: scrub(String(x.message), 300) }));
   }
 
+  /** T8: a GithubPort that answers listTree from an already fetched listing (one tree request per sync) and forwards blobs. */
+  function cached(listed: Awaited<ReturnType<GithubPort["listTree"]>>, port: GithubPort): GithubPort {
+    return { listTree: async () => listed, getBlob: (o, r, sha) => port.getBlob(o, r, sha) };
+  }
+
+  /** wire-fix-1: repo identity stored in EVERY synced artifact (`data.source`): owner, repo, branch, plus the commit sha and the tree sha when the port exposes them. */
+  function repoIdentity(coords: { owner: string; repo: string; branch: string }, listed: Awaited<ReturnType<GithubPort["listTree"]>>): Omit<KgSource, "files"> {
+    const extra: { sha?: unknown; commit?: unknown } = Array.isArray(listed) ? {} : (listed as { sha?: unknown; commit?: unknown });
+    return {
+      owner: coords.owner,
+      repo: coords.repo,
+      branch: coords.branch,
+      ...(typeof extra.commit === "string" ? { commit: extra.commit } : {}),
+      ...(typeof extra.sha === "string" ? { treeSha: extra.sha } : {}),
+    };
+  }
+
+  /** T8: repo identity for a graph half: the blob sha of every file read, plus the tree sha / commit when the port exposes one. */
+  function kgSource(coords: { owner: string; repo: string; branch: string }, listed: Awaited<ReturnType<GithubPort["listTree"]>>, tree: { path: string; sha?: string }[], read: readonly RepoFile[]): KgSource {
+    const bySha = new Map(tree.map((e) => [e.path, e.sha]));
+    const files: Record<string, string> = {};
+    for (const f of read) {
+      const sha = bySha.get(f.path);
+      if (typeof sha === "string") files[f.path] = sha;
+    }
+    const id = repoIdentity(coords, listed);
+    return { ...id, files };
+  }
+
+  const KEPT_GRAPH = "so the stored catalogue and graph were kept.";
+  const reasonsText = (reasons: readonly string[]): string => reasons.join(", ");
+  /** The keep-last-good reasons an admin may knowingly accept (tf-fix-2): a shrink or skipped files. An empty graph, a missing hub or no models are never overridable. */
+  const ACCEPTABLE_REASONS: ReadonlySet<string> = new Set(["tools_shrank", "tables_shrank", "skipped_files"]);
+  /** True when the sync must keep the stored graph. With the override (any admin, D-135; the route's minRole already refuses a viewer) an acceptable-only verdict goes through, after a counted audit row; if that row cannot be written the stored graph is kept. */
+  async function keepsStored(src: SourceSummary, verdict: { keep: boolean; reasons: readonly string[] }, counts: string, override?: { actor: string }): Promise<boolean> {
+    if (!verdict.keep) return false;
+    if (override === undefined || !verdict.reasons.every((r) => ACCEPTABLE_REASONS.has(r))) return true;
+    try {
+      await d.store.audit.append({ actorId: override.actor, action: "sources.sync.accept_shrink", target: `${src.id} ${reasonsText(verdict.reasons)} ${counts}`.slice(0, 200), ok: true, at: new Date(nowMs()).toISOString() });
+      return false;
+    } catch (e) {
+      log({ level: "error", event: "admin_audit_failed", error: errorLabel(e) });
+      return true;
+    }
+  }
+
   /** fetch -> parse -> artifacts.put -> sources.recordSync. A failed fetch, or a sync that found nothing usable, records status "error" and leaves the previous artifact in place. */
-  async function syncGithubSource(src: SourceSummary): Promise<SyncOutcome> {
+  async function syncGithubSource(src: SourceSummary, override?: { actor: string }): Promise<SyncOutcome> {
     const fail = async (message: string, counts: Record<string, number> = {}, diagnostics?: SyncDiagnostic[]): Promise<SyncOutcome> => {
       await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "error", counts });
       return { status: "error", counts, message, ...(diagnostics === undefined ? {} : { diagnostics }) };
@@ -735,17 +790,120 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
         const tree = Array.isArray(listed) ? listed : listed.tree;
         if (!Array.isArray(listed) && listed.truncated === true) throw new GithubFetchError("limit", "the repository tree is truncated");
         const paths = tree.filter((e) => e.type === undefined || e.type === "blob").map((e) => e.path);
-        const catalogue = parseNextAppRoutes(paths);
-        const counts = { files: paths.length, routes: catalogue.routes.length };
+        let catalogue = parseNextAppRoutes(paths);
+        // T-057: the platform's services get a name and purpose from the host's English next-intl messages. One extra file, read only when the tree has
+        // /services pages; if it is missing, oversize or unreadable, the plain route catalogue still syncs.
+        if (catalogue.routes.some((r) => r.path.startsWith("/services/"))) {
+          try {
+            const [messages] = await withTimeout(fetchRepoFiles(port, coords, ["src/messages/en.json"], { redact: token === undefined ? [] : [token] }), NETWORK_TIMEOUT_MS);
+            if (messages !== undefined) catalogue = applyServiceCopy(catalogue, messages.content);
+          } catch (e) {
+            log({ level: "warn", event: "admin_sync_service_copy_skipped", source: src.id, error: e instanceof GithubFetchError ? `GithubFetchError:${e.stage}` : errorLabel(e) });
+          }
+        }
+        const counts: Record<string, number> = { files: paths.length, routes: catalogue.routes.length };
         // An empty catalogue (renamed app folder, wrong branch) must not replace the last good one.
         if (counts.routes === 0) return fail("No page routes were found in the repository, so the stored catalogue was kept.", counts);
-        await d.store.artifacts.put({ sourceId: src.id, kind: "nav_catalogue", data: { routes: catalogue.routes } });
+        // T8: when the repo has the StudentOS hub, the tool half of the product knowledge graph rides on the same artifact (`data.kg`).
+        // wire-fix-1 (keep last good): once a stored artifact carries a graph, a later sync replaces it only with a graph that is still whole. The hub or the
+        // navigation file missing from the tree, a skipped hub file, or a drop of more than 30% in the tools keeps the stored catalogue AND graph (the whole sync is
+        // then reported as an error and nothing is written). With nothing stored yet, only an empty graph is held back.
+        const previous = await d.store.artifacts.getLatest(src.id, "nav_catalogue");
+        const prevTools = (previous?.data.kg as { tools?: unknown[] } | undefined)?.tools;
+        const hadGraph = Array.isArray(prevTools) && prevTools.length > 0;
+        const hubInTree = paths.some((p) => /(?:^|\/)StudentOS\.tsx$/.test(p)) && paths.includes(STUDENT_HUB_FILES.navigation);
+        const hubMissing = `The student hub was not found in the repository, ${KEPT_GRAPH}`;
+        let kg: Record<string, unknown> | undefined;
+        if (hubInTree) {
+          let skippedHub = 0;
+          const hubFiles = await withTimeout(
+            fetchRepoFiles(cached(listed, port), coords, [STUDENT_HUB_FILES.navigation, STUDENT_HUB_FILES.sidebar, STUDENT_HUB_FILES.osGlob], {
+              redact: token === undefined ? [] : [token],
+              onSkip: () => {
+                skippedHub++;
+              },
+            }),
+            NETWORK_TIMEOUT_MS * 2,
+          );
+          const built = buildFrontendKg(hubFiles, catalogue, kgSource(coords, listed, tree, hubFiles));
+          const sections = built.tools.filter((t) => t.kind === "section").length;
+          counts.tools = built.tools.length;
+          counts.sections = sections;
+          counts.kgDiagnostics = built.diagnostics.length;
+          counts.skipped = skippedHub;
+          const verdict = shouldKeepLastGood(hadGraph ? { tools: prevTools as unknown[] } : null, { tools: built.tools }, { skipped: skippedHub });
+          if (hadGraph && sections === 0) return fail(hubMissing, counts, safeDiagnostics(built.diagnostics, token));
+          if (hadGraph && (await keepsStored(src, verdict, `tools ${(prevTools as unknown[]).length}->${built.tools.length} skipped ${skippedHub}`, override))) return fail(`The new graph looks incomplete (${reasonsText(verdict.reasons)}), ${KEPT_GRAPH}`, counts, safeDiagnostics(built.diagnostics, token));
+          if (sections > 0) kg = built as unknown as Record<string, unknown>;
+        } else if (hadGraph) {
+          return fail(hubMissing, counts);
+        }
+        await d.store.artifacts.put({ sourceId: src.id, kind: "nav_catalogue", data: { routes: catalogue.routes, source: repoIdentity(coords, listed), ...(kg === undefined ? {} : { kg }) } });
         await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "ok", counts });
         return { status: "ok", counts };
       }
+      if (cfg.service !== "frontend" && src.config.platform === "vidysea") {
+        // T8: the Vidysea backend is Python (SQLAlchemy models, FastAPI routers), not Sequelize migrations. Models give the tables, the student-facing
+        // routers give the writer endpoints; the schema_map artifact keeps the migration-shaped `tables` and carries the graph half in `data.kg`.
+        let skippedPy = 0;
+        const listedPy = await withTimeout(Promise.resolve(port.listTree(coords.owner, coords.repo, coords.branch)), NETWORK_TIMEOUT_MS);
+        const treePy = Array.isArray(listedPy) ? listedPy : listedPy.tree;
+        const pyFiles = await withTimeout(
+          fetchRepoFiles(cached(listedPy, port), coords, [...BACKEND_MODEL_GLOBS, ...BACKEND_ROUTER_GLOBS], {
+            redact: token === undefined ? [] : [token],
+            maxBytes: 2_000_000,
+            onSkip: () => {
+              skippedPy++;
+            },
+          }),
+          NETWORK_TIMEOUT_MS * 5,
+        );
+        // kg-fix-1 / wire-fix-1: the service modules (`app/services/*.py`) let the graph verify the edges whose write happens in a service. They only verify;
+        // they are not stored. A skipped service file leaves its edges unverified (counted), it does not make the schema itself incomplete.
+        let skippedServices = 0;
+        const serviceFiles = await withTimeout(
+          fetchRepoFiles(cached(listedPy, port), coords, [...BACKEND_SERVICE_GLOBS], {
+            redact: token === undefined ? [] : [token],
+            maxBytes: 2_000_000,
+            onSkip: () => {
+              skippedServices++;
+            },
+          }),
+          NETWORK_TIMEOUT_MS * 5,
+        );
+        const isModel = (f: RepoFile): boolean => /^app\/models\/[^/]+\.py$/.test(f.path) || /^app\/api\/v1\/[^/]+\/models\.py$/.test(f.path);
+        const modelFiles = pyFiles.filter(isModel);
+        const siblings = await d.store.sources.list(src.siteId);
+        const vcReadTables = siblings.filter((x) => x.kind === "postgres" && Array.isArray(x.config.tables)).flatMap((x) => (x.config.tables as unknown[]).filter((t): t is string => typeof t === "string"));
+        const built = buildBackendKg(modelFiles, pyFiles.filter((f) => !isModel(f)), { vcReadTables, source: kgSource(coords, listedPy, treePy, pyFiles), serviceFiles });
+        const names = Object.keys(built.tables);
+        const bcounts = { files: pyFiles.length, tables: names.length, writers: built.writers.length, toolEdges: built.toolEdges.length, diagnostics: built.diagnostics.length, skipped: skippedPy, services: serviceFiles.length, skippedServices };
+        const bdiagnostics = safeDiagnostics(built.diagnostics, token);
+        // No model files or no tables (renamed folder, wrong branch) must never become the latest artifact.
+        if (modelFiles.length === 0) return fail("No model files were found in the repository, so the stored schema was kept.", bcounts, bdiagnostics);
+        if (names.length === 0) return fail("The model files define no tables, so the stored schema was kept.", bcounts, bdiagnostics);
+        // wire-fix-1 (keep last good): against a stored schema, a drop of more than 30% in the tables, or any skipped model/router file, keeps the stored one.
+        const previousSchema = await d.store.artifacts.getLatest(src.id, "schema_map");
+        const prevTables = previousSchema?.data.tables;
+        const verdict = shouldKeepLastGood(prevTables !== undefined && prevTables !== null && typeof prevTables === "object" ? { tables: prevTables as Record<string, unknown> } : null, { tables: built.tables }, { skipped: skippedPy + skippedServices });
+        const prevTableCount = prevTables !== undefined && prevTables !== null && typeof prevTables === "object" ? Object.keys(prevTables as Record<string, unknown>).length : 0;
+        if (previousSchema !== null && (await keepsStored(src, verdict, `tables ${prevTableCount}->${names.length} skipped ${skippedPy} skippedServices ${skippedServices}`, override))) return fail(`The new schema looks incomplete (${reasonsText(verdict.reasons)}), so the stored schema was kept.`, bcounts, bdiagnostics);
+        const tables: Record<string, unknown> = {};
+        for (const n of names) {
+          const t = built.tables[n]!;
+          const columns: Record<string, unknown> = {};
+          for (const [c, def] of Object.entries(t.columns)) Object.defineProperty(columns, c, { value: { type: def.type, ...(def.allowNull === undefined ? {} : { allowNull: def.allowNull }) }, enumerable: true, writable: true, configurable: true });
+          Object.defineProperty(tables, n, { value: { columns, sourceFiles: [t.file] }, enumerable: true, writable: true, configurable: true });
+        }
+        await d.store.artifacts.put({ sourceId: src.id, kind: "schema_map", data: { tables, diagnostics: bdiagnostics, source: repoIdentity(coords, listedPy), kg: built as unknown as Record<string, unknown> } });
+        await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "ok", counts: bcounts });
+        return { status: "ok", counts: bcounts, diagnostics: bdiagnostics };
+      }
       let skipped = 0;
+      // wire-fix-1: one listing, shared with the file fetch, so the artifact can record the commit and tree it was read from.
+      const listedSeq = await withTimeout(Promise.resolve(port.listTree(coords.owner, coords.repo, coords.branch)), NETWORK_TIMEOUT_MS);
       const files = await withTimeout(
-        fetchRepoFiles(port, coords, ["**/migrations/*.js", "**/migrations/*.cjs", "**/migrations/*.ts"], {
+        fetchRepoFiles(cached(listedSeq, port), coords, ["**/migrations/*.js", "**/migrations/*.cjs", "**/migrations/*.ts"], {
           redact: token === undefined ? [] : [token],
           onSkip: () => {
             skipped++;
@@ -766,7 +924,7 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
             ? "The migration files define no tables, so the stored schema was kept."
             : undefined;
       if (problem !== undefined) return fail(problem, counts, diagnostics);
-      await d.store.artifacts.put({ sourceId: src.id, kind: "schema_map", data: { tables: schema.tables, diagnostics } });
+      await d.store.artifacts.put({ sourceId: src.id, kind: "schema_map", data: { tables: schema.tables, diagnostics, source: repoIdentity(coords, listedSeq) } });
       await d.store.sources.recordSync(src.id, { at: new Date(nowMs()).toISOString(), status: "ok", counts });
       return { status: "ok", counts, diagnostics };
     } catch (e) {
@@ -777,6 +935,15 @@ function buildRoutes(d: AdminRoutesDeps, log: (l: Record<string, unknown>) => vo
 
   return routes;
 }
+
+/** T8: the backend files the graph reads: every model file, and the student-facing router files (the folders the inventory's write sites live in). */
+const BACKEND_MODEL_GLOBS = ["app/models/*.py", "app/api/v1/*/models.py"] as const;
+const BACKEND_SERVICE_GLOBS = ["app/services/*.py"] as const;
+const BACKEND_ROUTER_GLOBS = [
+  "app/api/v1/{student,students,journey_map,applications,exploration,scholarships}/*router*.py",
+  "app/api/v1/{tools,services,users,auth,rewards,notifications,pre_departure,recommend,discovery}/*router*.py",
+  "app/api/v1/further_profile.py",
+] as const;
 
 interface SyncDiagnostic {
   code: string;
@@ -809,18 +976,23 @@ export async function seedSourcesFromConfig(store: Pick<AdminStore, "sources">, 
   let created = 0;
   let existing = 0;
   for (const s of file.sources) {
+    // wire-fix-1 (D-134): a "mongo" source (the Career Quest database) is read by code from config/sources.json alone. It is not an admin-editable stored source,
+    // so a console edit can never retarget the database or its collection allow-list.
+    if (s.kind === "mongo") continue;
     if (await store.sources.get(s.id)) {
       existing++;
       continue;
     }
     const { kind, id, ...config } = s;
-    await store.sources.upsert({ id, siteId: file.siteId, kind, config });
+    await store.sources.upsert({ id, siteId: s.siteId ?? file.siteId, kind, config });
     created++;
   }
   return { created, existing };
 }
 
 export type GithubFetchFn = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
+
+const GIT_SHA = /^[0-9a-f]{40}$/i;
 
 class GithubHttpError extends Error {
   constructor(readonly status: number) {
@@ -829,7 +1001,8 @@ class GithubHttpError extends Error {
   }
 }
 
-const GithubTree = z.object({ tree: z.array(z.object({ path: z.string(), type: z.string().optional(), sha: z.string().optional(), size: z.number().optional() })), truncated: z.boolean().optional() });
+const GithubTree = z.object({ sha: z.string().regex(GIT_SHA).optional(), tree: z.array(z.object({ path: z.string(), type: z.string().optional(), sha: z.string().optional(), size: z.number().optional() })), truncated: z.boolean().optional() });
+const GithubCommit = z.object({ sha: z.string().regex(GIT_SHA), commit: z.object({ tree: z.object({ sha: z.string().regex(GIT_SHA) }) }) });
 const GithubBlobBody = z.object({ content: z.string(), encoding: z.string().optional(), size: z.number().optional() });
 
 /**
@@ -847,8 +1020,14 @@ export function createGithubPort(token: string | undefined, fetchFn: GithubFetch
   const seg = (v: string): string => encodeURIComponent(v);
   return {
     async listTree(owner, repo, branch) {
-      const parsed = GithubTree.parse(await get(`/repos/${seg(owner)}/${seg(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`));
-      return { tree: parsed.tree, ...(parsed.truncated === undefined ? {} : { truncated: parsed.truncated }) };
+      // wire-fix-1: the listing carries the commit sha of the branch (commits API) and the sha of the tree read, so every artifact can name what it was built from.
+      let parsed = GithubTree.parse(await get(`/repos/${seg(owner)}/${seg(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`));
+      const head = GithubCommit.parse(await get(`/repos/${seg(owner)}/${seg(repo)}/commits/${encodeURIComponent(branch)}`));
+      // The branch moved between the two reads: take the tree of the commit just named, so the commit and the entries always belong together.
+      if (parsed.sha !== undefined && parsed.sha.toLowerCase() !== head.commit.tree.sha.toLowerCase()) {
+        parsed = GithubTree.parse(await get(`/repos/${seg(owner)}/${seg(repo)}/git/trees/${head.commit.tree.sha}?recursive=1`));
+      }
+      return { tree: parsed.tree, ...(parsed.truncated === undefined ? {} : { truncated: parsed.truncated }), sha: head.commit.tree.sha, commit: head.sha };
     },
     async getBlob(owner, repo, sha) {
       return GithubBlobBody.parse(await get(`/repos/${seg(owner)}/${seg(repo)}/git/blobs/${seg(sha)}`));
@@ -914,14 +1093,23 @@ export function createUsageSink(
 type EnginePathlynksPort = NonNullable<StudentGraphDeps["pathlynks"]>;
 
 /** The mcp port answers `{ok, rows, truncated}` or a typed failure; the engine port answers `{status}`. A refusal or failure is just `unavailable` (no cause reaches a student). */
-export function adaptPathlynksPort(p: Pick<ReturnType<typeof createPathlynksPort>, "getStudentProfile" | "getSavedCareers" | "getCompareList" | "getAssessmentStatus">): EnginePathlynksPort {
+export function adaptPathlynksPort(p: Pick<ReturnType<typeof createPathlynksPort>, "getStudentProfile" | "getSavedCareers" | "getCompareList" | "getAssessmentStatus"> & Partial<Pick<ReturnType<typeof createPathlynksPort>, "getCategoryFits" | "getCareerFits" | "getTraitScores" | "getCombinedReportSummary" | "getQuestProfile" | "getQuestGoals" | "getQuestPlan">>, withQuest = true): EnginePathlynksPort {
   const one = (r: McpPathlynksResult) => (r.ok ? ({ status: "ok", data: r.rows[0] ?? null } as const) : ({ status: "unavailable" } as const));
-  const many = (r: McpPathlynksResult) => (r.ok ? ({ status: "ok", data: r.rows } as const) : ({ status: "unavailable" } as const));
+  const many = (r: McpPathlynksResult) => (r.ok ? ({ status: "ok", data: r.rows, ...(r.truncated ? { truncated: true } : {}) } as const) : ({ status: "unavailable" } as const));
   return {
     getStudentProfile: async (id) => one(await p.getStudentProfile(id)),
     getSavedCareers: async (id) => many(await p.getSavedCareers(id)),
     getCompareList: async (id) => many(await p.getCompareList(id)),
     getAssessmentStatus: async (id) => one(await p.getAssessmentStatus(id)),
+    // T-057: the fit/trait/report reads (each is `unavailable` when the stored source does not list its tables).
+    ...(p.getCategoryFits ? { getCategoryFits: async (id: string) => many(await p.getCategoryFits!(id)) } : {}),
+    ...(p.getCareerFits ? { getCareerFits: async (id: string) => many(await p.getCareerFits!(id)) } : {}),
+    ...(p.getTraitScores ? { getTraitScores: async (id: string) => many(await p.getTraitScores!(id)) } : {}),
+    ...(p.getCombinedReportSummary ? { getCombinedReportSummary: async (id: string) => one(await p.getCombinedReportSummary!(id)) } : {}),
+    // D-134: Career Quest (Mongo) reads, passed through only when a quest opener is wired (withQuest); otherwise the engine sees no quest method and falls back to the KB.
+    ...(withQuest && p.getQuestProfile ? { getQuestProfile: async (id: string) => one(await p.getQuestProfile!(id)) } : {}),
+    ...(withQuest && p.getQuestGoals ? { getQuestGoals: async (id: string) => many(await p.getQuestGoals!(id)) } : {}),
+    ...(withQuest && p.getQuestPlan ? { getQuestPlan: async (id: string) => one(await p.getQuestPlan!(id)) } : {}),
   };
 }
 
@@ -930,29 +1118,38 @@ const PORT_CACHE_MS = 60_000;
 /** The seeded id (config/sources.json) of the Pathlynks Postgres source: the only one the live chat port is ever built from. */
 export const PATHLYNKS_POSTGRES_SOURCE_ID = "pathlynks-db";
 
-/** Which configured table backs each Pathlynks read (by name: students, saved_careers, compare_*, assessment*). Undefined when one is missing. */
-export function pathlynksTablesFrom(tables: readonly string[]): { profile: string; savedCareers: string; compareList: string; assessment: string } | undefined {
-  const pick = (re: RegExp) => tables.find((t) => re.test(t));
-  const profile = pick(/student|profile/i);
-  const savedCareers = pick(/saved/i);
-  const compareList = pick(/compar/i);
-  const assessment = pick(/assess/i);
-  return profile && savedCareers && compareList && assessment ? { profile, savedCareers, compareList, assessment } : undefined;
+/** Exact R4 read model. A missing joined table fails closed; similarly named tables never qualify. */
+export function pathlynksTablesFrom(tables: readonly string[]): Parameters<typeof createPathlynksPort>[0]["tables"] | undefined {
+  const required = { profile: "users", userGrade: "user_grade", grade: "grade", savedCareers: "student_saved_careers", compareList: "student_career_compare", careerOption: "career_option", assessment: "assessment_response" };
+  if (!Object.values(required).every((name) => tables.includes(name))) return undefined;
+  // T-057: optional fit/trait/report tables, each exact-named and mapped only when the stored source lists it (a group is all or nothing).
+  const has = (...names: string[]) => names.every((n) => tables.includes(n));
+  return {
+    ...required,
+    ...(has("user_category_fitscore", "category_option") ? { categoryFit: "user_category_fitscore", categoryOption: "category_option" } : {}),
+    ...(has("user_subcategory_fitscore", "subcategory_option") ? { subcategoryFit: "user_subcategory_fitscore", subcategoryOption: "subcategory_option" } : {}),
+    ...(has("student_trait_score_point") ? { traitScores: "student_trait_score_point" } : {}),
+    ...(has("combined_report_llm_data") ? { combinedReport: "combined_report_llm_data" } : {}),
+  };
 }
 
 type PortConnect = Parameters<typeof createPathlynksPort>[0]["connect"];
 
-function mcpPortFor(cfg: Record<string, unknown>, password: string, extra: { onEvent?: (e: PathlynksEvent) => void; connect?: PortConnect; allowPrivileged?: string | undefined }) {
+type QuestDbOpener = Parameters<typeof createPathlynksPort>[0]["questDb"];
+
+function mcpPortFor(cfg: Record<string, unknown>, password: string, extra: { onEvent?: (e: PathlynksEvent) => void; connect?: PortConnect; allowPrivileged?: string | undefined; caFile?: string | undefined; questDb?: QuestDbOpener }) {
   const tableNames = Array.isArray(cfg.tables) ? cfg.tables.filter((t): t is string => typeof t === "string") : [];
   const tables = pathlynksTablesFrom(tableNames);
   if (!tables || typeof cfg.host !== "string" || typeof cfg.port !== "number" || typeof cfg.database !== "string" || typeof cfg.user !== "string") return undefined;
   return createPathlynksPort({
     allowedTables: tableNames,
     tables,
-    connection: { host: cfg.host, port: cfg.port, database: cfg.database, user: cfg.user, sslmode: cfg.sslmode === "verify-full" ? "verify-full" : "require", passwordRef: "PATHLYNKS_PORT_PASSWORD" },
-    env: { PATHLYNKS_PORT_PASSWORD: password, PATHLYNKS_ALLOW_PRIVILEGED_ROLE: extra.allowPrivileged },
+    // CA path is server configuration, never a mutable admin/browser-supplied path or env-name lookup.
+    connection: { host: cfg.host, port: cfg.port, database: cfg.database, user: cfg.user, sslmode: cfg.sslmode === "verify-full" ? "verify-full" : "require", passwordRef: "PATHLYNKS_PORT_PASSWORD", caFileRef: "PATHLYNKS_DB_CA_FILE" },
+    env: { PATHLYNKS_PORT_PASSWORD: password, PATHLYNKS_ALLOW_PRIVILEGED_ROLE: extra.allowPrivileged, PATHLYNKS_DB_CA_FILE: extra.caFile },
     ...(extra.onEvent ? { onEvent: extra.onEvent } : {}),
     ...(extra.connect ? { connect: extra.connect } : {}),
+    ...(extra.questDb ? { questDb: extra.questDb } : {}),
   });
 }
 
@@ -971,6 +1168,9 @@ export function createLivePathlynksPort(
     onEvent?: (e: PathlynksEvent) => void;
     connect?: PortConnect;
     sourceId?: string;
+    siteId?: string;
+    /** D-134: opens the Career Quest Mongo database (`pathlynks_journey`) read-only; supplied by the composition root. Absent = the quest tools are not wired. */
+    questDb?: QuestDbOpener;
   },
 ): EnginePathlynksPort {
   const nowMs = opts.nowMs ?? Date.now;
@@ -986,13 +1186,13 @@ export function createLivePathlynksPort(
     try {
       // The seeded id only: an admin-created postgres source (any other id) can never become the live student-data port.
       const src = await store.sources.get(opts.sourceId ?? PATHLYNKS_POSTGRES_SOURCE_ID);
-      if (!src || src.kind !== "postgres") return none;
+      if (!src || src.kind !== 'postgres' || src.config.enabled === false || (src.config.platform ?? 'pathlynks') !== 'pathlynks' || src.siteId !== (opts.siteId ?? 'pathlynks')) return none;
       // fix2 F1: the env password only for the unchanged seeded connection; a doc whose host/port/database/user/sslmode/ref changed gets none.
-      const bound = src.hasSecret ? undefined : boundEnvRef(src, opts.seeded);
+      const bound = src.hasSecret ? undefined : boundEnvRef(src, opts.seeded, opts.siteId);
       const password = src.hasSecret ? await store.sources.readSecret(src.id) : bound !== undefined ? opts.env[bound] : undefined;
       if (!password) return none;
-      const port = mcpPortFor(src.config, password, { ...(opts.onEvent ? { onEvent: opts.onEvent } : {}), ...(opts.connect ? { connect: opts.connect } : {}), allowPrivileged: opts.env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE });
-      return port ? adaptPathlynksPort(port) : none;
+      const port = mcpPortFor(src.config, password, { ...(opts.onEvent ? { onEvent: opts.onEvent } : {}), ...(opts.connect ? { connect: opts.connect } : {}), allowPrivileged: opts.env.PATHLYNKS_ALLOW_PRIVILEGED_ROLE, caFile: opts.env.PATHLYNKS_DB_CA_FILE, ...(opts.questDb ? { questDb: opts.questDb } : {}) });
+      return port ? adaptPathlynksPort(port, Boolean(opts.questDb)) : none;
     } catch {
       return none;
     }
@@ -1007,15 +1207,105 @@ export function createLivePathlynksPort(
     getSavedCareers: async (id) => (await current()).getSavedCareers(id),
     getCompareList: async (id) => (await current()).getCompareList(id),
     getAssessmentStatus: async (id) => (await current()).getAssessmentStatus(id),
+    getCategoryFits: async (id) => { const p = await current(); return p.getCategoryFits ? p.getCategoryFits(id) : unavailable; },
+    getCareerFits: async (id) => { const p = await current(); return p.getCareerFits ? p.getCareerFits(id) : unavailable; },
+    getTraitScores: async (id) => { const p = await current(); return p.getTraitScores ? p.getTraitScores(id) : unavailable; },
+    getCombinedReportSummary: async (id) => { const p = await current(); return p.getCombinedReportSummary ? p.getCombinedReportSummary(id) : unavailable; },
+    // D-134: present only when the composition root supplied a quest opener, so a deployment without one never shows "can't see" for generic asks.
+    ...(opts.questDb ? {
+      getQuestProfile: async (id: string) => { const p = await current(); return p.getQuestProfile ? p.getQuestProfile(id) : unavailable; },
+      getQuestGoals: async (id: string) => { const p = await current(); return p.getQuestGoals ? p.getQuestGoals(id) : unavailable; },
+      getQuestPlan: async (id: string) => { const p = await current(); return p.getQuestPlan ? p.getQuestPlan(id) : unavailable; },
+    } : {}),
+  };
+}
+
+
+/** Native Vidysea SQL model; this factory never aliases programmes or assessment to Pathlynks careers. */
+export function createLiveVidyseaPort(
+  store: Pick<AdminStore, 'sources'>,
+  opts: { env: Record<string, string | undefined>; seeded?: readonly SeededSource[]; siteId: string; nowMs?: () => number; onEvent?: (e: PathlynksEvent) => void; connect?: PortConnect },
+): VidyseaPort {
+  const unavailable = { ok: false, reason: 'unavailable', cause: 'not_configured' } as const;
+  const none: VidyseaPort = {
+    getStudentProfile: async () => unavailable,
+    getShortlistedProgrammes: async () => unavailable,
+    getProfileAssessment: async () => unavailable,
+    getCompareList: async () => ({ ok: false, reason: 'unavailable', cause: 'unsupported' }),
+    getPathlynksSnapshot: async () => unavailable,
+    getJourneyMaps: async () => unavailable,
+    getApplications: async () => unavailable,
+    getVisaApplications: async () => unavailable,
+    getFavourites: async () => unavailable,
+    getSavedScholarships: async () => unavailable,
+    getStatus: () => ({ privilegeCheck: 'unchecked' }),
+  };
+  const nowMs = opts.nowMs ?? Date.now;
+  let cached: { at: number; identity: string; port: VidyseaPort } | undefined;
+  let last: VidyseaPort = none;
+  const current = async (): Promise<VidyseaPort> => {
+    try {
+      // Binding precedes ALL environment/CA/secret resolution, including encrypted credentials.
+      const src = await store.sources.get('vidysea-db');
+      if (!src || src.kind !== 'postgres' || opts.siteId !== 'vidysea' || src.siteId !== opts.siteId || src.config.platform !== 'vidysea') return last = none;
+      const ref = boundEnvRef(src, opts.seeded, opts.siteId);
+      if (!ref) return last = none;
+      const identity = JSON.stringify([src.siteId, src.kind, src.config, src.hasSecret]);
+      const at = nowMs();
+      if (cached && cached.identity === identity && at - cached.at < PORT_CACHE_MS) return last = cached.port;
+      const password = src.hasSecret ? await store.sources.readSecret(src.id) : opts.env[ref];
+      if (!password) return last = none;
+      const c = src.config;
+      const names = Array.isArray(c.tables) ? c.tables.filter((t): t is string => typeof t === 'string') : [];
+      if (typeof c.host !== 'string' || typeof c.port !== 'number' || typeof c.database !== 'string' || typeof c.user !== 'string' || (c.sslmode !== 'require' && c.sslmode !== 'verify-full')) return last = none;
+      // The connection was matched to trusted seed above. The private ref has no ambient fallback.
+      const connection = { host: c.host, port: c.port, database: c.database, user: c.user, sslmode: c.sslmode, passwordRef: 'VIDYSEA_DB_PORT_PASSWORD', caFileRef: 'VIDYSEA_DB_CA_FILE' } as const;
+      const port = createVidyseaPort({
+        allowedTables: names,
+        tables: { profile: 'users', student: 'students', shortlist: 'student_shortlisted_courses', assessment: 'ai_profile_assessments', ...(names.includes('pathlynks_student_snapshot') ? { snapshot: 'pathlynks_student_snapshot' } : {}) },
+        connection,
+        // D-123: Vidysea's own privileged-role override (reads stay read-only); never inherited from the Pathlynks flag.
+        allowPrivilegedRole: opts.env.VIDYSEA_ALLOW_PRIVILEGED_ROLE === '1',
+        credentialBinding: { platform: 'vidysea', siteId: opts.siteId, sourceId: src.id, seed: connection },
+        env: { VIDYSEA_DB_PORT_PASSWORD: password, VIDYSEA_DB_CA_FILE: opts.env.VIDYSEA_DB_CA_FILE },
+        ...(opts.connect ? { connect: opts.connect } : {}),
+        ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
+      });
+      cached = { at, identity, port };
+      return last = port;
+    } catch { return last = none; }
+  };
+  return {
+    getStudentProfile: async id => (await current()).getStudentProfile(id),
+    getShortlistedProgrammes: async id => (await current()).getShortlistedProgrammes(id),
+    getProfileAssessment: async id => (await current()).getProfileAssessment(id),
+    getPathlynksSnapshot: async id => (await current()).getPathlynksSnapshot(id),
+    getJourneyMaps: async id => (await current()).getJourneyMaps(id),
+    getApplications: async id => (await current()).getApplications(id),
+    getVisaApplications: async id => (await current()).getVisaApplications(id),
+    getFavourites: async id => (await current()).getFavourites(id),
+    getSavedScholarships: async id => (await current()).getSavedScholarships(id),
+    getCompareList: async id => none.getCompareList(id),
+    getStatus: () => last.getStatus(),
   };
 }
 
 /** The Test-connection port for a Postgres source: the same port code as chat, one read-only probe on a dummy student id, mapped to a fixed cause. */
 export function createPostgresTestPort(opts: { connect?: PortConnect; env?: Record<string, string | undefined> } = {}): AdminPostgresPort {
   return {
-    async test(config, password) {
-      if (!password) return { ok: false, cause: "not_configured" };
-      const port = mcpPortFor(config, password, { ...(opts.connect ? { connect: opts.connect } : {}), allowPrivileged: (opts.env ?? process.env).PATHLYNKS_ALLOW_PRIVILEGED_ROLE });
+    async test(config, password, context) {
+      if (!password || config.enabled === false) return { ok: false, cause: 'not_configured' };
+      if (config.platform === 'vidysea') {
+        if (!context) return { ok: false, cause: 'not_configured' };
+        const source = context.source;
+        const native = createLiveVidyseaPort({ sources: {
+          get: async id => id === source.id ? { ...source, hasSecret: true } : null,
+          readSecret: async id => id === source.id ? password : undefined,
+        } } as Pick<AdminStore, 'sources'>, { env: opts.env ?? process.env, siteId: source.siteId, ...(context.seeded ? { seeded: context.seeded } : {}), ...(opts.connect ? { connect: opts.connect } : {}) });
+        const result = await native.getStudentProfile('00000000-0000-4000-8000-000000000000');
+        return result.ok ? { ok: true } : { ok: false, cause: result.cause };
+      }
+      const port = mcpPortFor(config, password, { ...(opts.connect ? { connect: opts.connect } : {}), allowPrivileged: (opts.env ?? process.env).PATHLYNKS_ALLOW_PRIVILEGED_ROLE, caFile: (opts.env ?? process.env).PATHLYNKS_DB_CA_FILE });
       if (!port) return { ok: false, cause: "not_configured" };
       const res = await port.getStudentProfile("connection-test");
       return res.ok ? { ok: true } : { ok: false, cause: res.cause };
@@ -1036,7 +1326,7 @@ export function createNavCatalogueLoader(store: Pick<AdminStore, "sources" | "ar
     try {
       let best: { builtAt: string; routes: { path: string }[] } | undefined;
       for (const s of await store.sources.list()) {
-        if (s.kind !== "github" || s.siteId !== siteId) continue;
+        if (s.kind !== "github" || s.siteId !== siteId || s.config.enabled === false) continue;
         const art = await store.artifacts.getLatest(s.id, "nav_catalogue");
         const routes = art?.data.routes;
         if (art && Array.isArray(routes) && (best === undefined || art.builtAt > best.builtAt)) best = { builtAt: art.builtAt, routes: routes as { path: string }[] };

@@ -1,0 +1,7 @@
+# t057-r3-vidysea-navcatalogue
+
+Apply the minimal fix in qa/evidence/t057/services-live-rootcause.md (source 2): the Vidysea tenant never gets a navCatalogue dep because vidysea-db is disabled and index.ts only builds per-tenant runtimes for sites with an enabled postgres source.
+Files you own: apps/api/src/index.ts, plus ONE test file (apps/api/tests/chat-pathlynks.test.ts or admin-sync.test.ts, whichever already has the right harness). Do not touch graph.ts, navigate.ts, chat.ts or config/sources.json, and do NOT enable vidysea-db (D-123).
+TEST FIRST (red): a Vidysea-tenant turn 'what services do you offer?', with vidysea-db disabled and a stored nav_catalogue for the vidysea-frontend source (7 labelled services), returns the service list; a 'do you help with education loans?' turn returns the Student Loan Assistance line.
+Fix: build a catalogue-only map for every enabled github source's site that has no platformRuntimes entry ({ navCatalogue: createNavCatalogueLoader(adminStore, site) }), and pass platformForTenant: (t) => platformForTenant(t) ?? navOnly.get(t) ONLY into the chat wiring (~index.ts:1031). Leave the module-level platformForTenant used by liveProfile.facts (~878-883) and the voice tools (~934-936) unchanged. Add a test proving liveProfile/voice don't receive the catalogue-only runtime, or argue it by file:line.
+Green, plus tsc for apps/api, plus the focused api tests (chat, chat-pathlynks, admin-sync, main). Do not restart the API; main will.

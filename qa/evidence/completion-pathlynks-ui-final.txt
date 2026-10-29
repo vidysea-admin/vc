@@ -1,0 +1,39 @@
+✔ Quest host service uses authenticated interceptor and excludes browser facts/identity from payloads (2.2897ms)
+✔ Quest host component retains failed input and retries the same composed turn without duplicate bubble (37.0773ms)
+✔ Quest host timeout-after-success history followed by Retry does not duplicate the displayed central turn (9.2166ms)
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Received `false` for a non-boolean attribute `drag`.
+
+If you want to write it to the DOM, pass a string instead: drag="false" or drag={value.toString()}.
+
+If you used to conditionally omit it with drag={condition && value}, pass drag={condition ? value : undefined} instead.
+React does not recognize the `dragControls` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `dragcontrols` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+React does not recognize the `dragListener` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `draglistener` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+React does not recognize the `dragMomentum` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `dragmomentum` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+✔ Quest host component voice uses interceptor mint, appends to same log, stops mic and refreshes redacted history (16.6583ms)
+✔ Quest host component cancels pending add-on load when returning to Chat (6.4528ms)
+✔ Quest host actual React render retains Guide, Chat/Voice controls and disabled locked navigation chip (212.3669ms)
+✔ Quest host actual shared voice add-on binds interceptor mint thread and releases mic without credential URL/storage (7.4302ms)
+✔ Quest memory UI reload selects owned latest, new chat preserves memory and retry thread identity (5.4376ms)
+✔ Quest memory UI fences delayed chat mint transcripts and profile on switching and rejects failed opens (10.9484ms)
+✔ Quest memory UI failed create blocks sends and retry restores originating draft after reopen (4.0118ms)
+✔ Quest memory UI fences delayed list create history and account profile before effect cleanup (4.2644ms)
+✔ Quest memory service uses interceptor for bounded sessions and memory and forwards only resource selectors (1.0299ms)
+✔ Quest memory UI decision outranks a delayed pre-decision memory read (3.4931ms)
+✔ Quest memory UI late history refresh cannot replace a newly composed answer (3.797ms)
+✔ Quest memory actual React renders sidebar and editable provenance with live fields read-only (43.6651ms)
+✔ Quest selection UI reload restores server-selected older session outside listed first page (12.7798ms)
+✔ Quest selection UI late reload cannot override current session or retry ownership (3.7636ms)
+✔ S12 host service forwards only exact candidate and current prompt fields (1.427ms)
+✔ S12 host fresh conversational yes is bound to a current server prompt; history never creates authority (3.3928ms)
+✔ S12 host candidate reject binds displayed new value and selected thread (2.9356ms)
+✔ S12 host unpublished stale turn keeps transport id; explicit published marker rotates only on manual Retry (6.1537ms)
+✔ S12 host legacy memory decision retains original three arguments without selectors (3.2593ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 678.9676

@@ -73,6 +73,12 @@ function matchesFilter(doc: Record<string, unknown>, filter: Filter): boolean {
             return valueMatches(actual, arg);
           case "$in":
             return (arg as unknown[]).some((candidate) => valueMatches(actual, candidate));
+          case "$type":
+            if (arg !== "string") throw new Error("FakeCollection: unsupported $type");
+            return typeof actual === "string";
+          case "$not":
+            if (!(arg instanceof RegExp)) throw new Error("FakeCollection: only regex $not is supported");
+            return typeof actual !== "string" || !arg.test(actual);
           // T-016: range comparisons (the scribe recovery lease's expiry, MongoDBSaver.list's
           // `before`). Mongo type bracketing: only same-type values compare; a missing field never matches.
           case "$lt":
@@ -171,7 +177,7 @@ function equalityFields(filter: Filter): Record<string, unknown> {
 /** Applies $set / $unset / $addToSet (top-level fields; $addToSet with a scalar or `$each`). */
 function applyUpdate(
   doc: Record<string, unknown>,
-  update: { $set?: unknown; $unset?: Record<string, unknown>; $addToSet?: Record<string, unknown>; $inc?: Record<string, number> },
+  update: { $set?: unknown; $unset?: Record<string, unknown>; $addToSet?: Record<string, unknown>; $inc?: Record<string, number>; $max?: Record<string, string | number> },
 ): void {
   if (update.$set) {
     // pc-partner-keys c1: a dotted `$set` key ("keys.pub") sets ONE nested field and leaves its siblings alone, as the server does (a key with no dot is the
@@ -192,6 +198,12 @@ function applyUpdate(
     const current = doc[field];
     if (current !== undefined && typeof current !== "number") throw new Error(`FakeCollection: $inc on non-numeric field ${field}`);
     doc[field] = ((current as number | undefined) ?? 0) + by;
+  }
+  // S12: $max retains the greater same-type value and sets a missing field.
+  for (const [field, value] of Object.entries(update.$max ?? {})) {
+    const current = doc[field];
+    if (current === undefined || (typeof current === typeof value && (current as string | number) < value)) doc[field] = value;
+    else if (typeof current !== typeof value) throw new Error("FakeCollection: unsupported mixed BSON types in $max " + field);
   }
   // T-011 cycle 2: `$unset` removes the field (re-setting an erasure fence clears releaseAfter).
   for (const field of Object.keys(update.$unset ?? {})) delete doc[field];
@@ -392,11 +404,12 @@ export class FakeCollection<T extends { _id: string }> {
       $unset?: Record<string, unknown>;
       $addToSet?: Record<string, unknown>;
       $inc?: Record<string, number>;
+      $max?: Record<string, string | number>;
     },
     options: { upsert?: boolean } & Record<string, unknown> = {},
   ): Promise<{ matchedCount: number; upsertedCount: number; upsertedId: string | null }> {
     for (const op of Object.keys(update)) {
-      if (!["$set", "$setOnInsert", "$unset", "$addToSet", "$inc"].includes(op)) {
+      if (!["$set", "$setOnInsert", "$unset", "$addToSet", "$inc", "$max"].includes(op)) {
         throw new Error(`FakeCollection.updateOne: unsupported update operator ${op}`);
       }
     }
@@ -414,7 +427,8 @@ export class FakeCollection<T extends { _id: string }> {
     const seed: Record<string, unknown> = { ...equalityFields(filter), ...(update.$setOnInsert ?? {}) };
     const _id = (seed._id as string | undefined) ?? new ObjectId().toHexString();
     const created = { ...seed, _id } as Record<string, unknown>;
-    applyUpdate(created, { $set: update.$set, $addToSet: update.$addToSet, $inc: update.$inc });
+    // S13 fix A5: the server applies $max (and the other field operators) to the inserted document too; a missing field is set.
+    applyUpdate(created, { $set: update.$set, $addToSet: update.$addToSet, $inc: update.$inc, $max: update.$max });
     const doc = created as unknown as T;
     // T-016: an upsert that inserts is an insert: a duplicate _id or unique key is 11000, as on the server.
     if (this.docs.has(_id)) {

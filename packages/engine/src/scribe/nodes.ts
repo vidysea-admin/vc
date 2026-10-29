@@ -1333,11 +1333,28 @@ export async function extractStudentTurnFacts(
  * it is stored; a failure throws the text-free `StudentFactExtractionError`, which both callers already treat as "no facts, turn unaffected".
  */
 export function createStudentFactExtractor(
-  deps: Omit<ScribeDeps, "db"> & { now?: () => Date },
+  deps: Omit<ScribeDeps, "db"> & { now?: () => Date; log?: (event: FactExtractionLogEvent) => void },
 ): (turn: { turnId: string; text: string; lang?: string }) => Promise<StudentTurnFact[]> {
-  const { now, ...scribeDeps } = deps;
-  return async (turn) => (await extractStudentTurnFacts({ turnId: turn.turnId, text: turn.text, ...(turn.lang !== undefined ? { lang: turn.lang } : {}), now: (now ?? (() => new Date()))() }, scribeDeps)).facts;
+  const { now, log, ...scribeDeps } = deps;
+  const emit = log ?? ((e: FactExtractionLogEvent) => { process.stderr.write(`${JSON.stringify(e)}\n`); });
+  return async (turn) => {
+    const result = await extractStudentTurnFacts({ turnId: turn.turnId, text: turn.text, ...(turn.lang !== undefined ? { lang: turn.lang } : {}), now: (now ?? (() => new Date()))() }, scribeDeps);
+    // A schema-invalid model output used to vanish here (t057 run 4). One text-free event: name, reason code, attempt count; never the turn text or model output.
+    if (result.failedReason !== undefined) {
+      try { emit({ event: "fact_extraction_schema_invalid", reason: "schema_invalid", attempts: PROVIDER_OUTPUT_RETRIES + 1 }); } catch { /* logging never fails a turn */ }
+    }
+    // t057 c6: candidates were proposed but every one was dropped (a silent no-op before). Count only; never keys, reasons or text.
+    if (result.facts.length === 0 && result.dropped.length > 0) {
+      try { emit({ event: "fact_extraction_all_dropped", dropped: result.dropped.length }); } catch { /* logging never fails a turn */ }
+    }
+    return result.facts;
+  };
 }
+
+/** The text-free events `createStudentFactExtractor` emits: the model output stayed schema-invalid, or every candidate was dropped. */
+export type FactExtractionLogEvent =
+  | { event: "fact_extraction_schema_invalid"; reason: "schema_invalid"; attempts: number }
+  | { event: "fact_extraction_all_dropped"; dropped: number };
 
 // ---------------------------------------------------------------------------
 // (d) session summary — skill via provider, B1 recital check

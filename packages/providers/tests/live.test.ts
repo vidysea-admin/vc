@@ -420,8 +420,19 @@ test("C5 audit A9b: the model names a counsellor who is on the do-not-name list;
   assert.deepEqual(of(r.events, "flag").map((f) => [f.reason, f.detail]), [["listed_speaker", "Priyanka Sharma"]]);
 });
 
+test("Q14/I1 repair: tool results default to context and result payloads cannot authorize factual evidence", async () => {
+  const r = await rig({ auditOutput: AUDIT, tools: [{ name: "student_memory", description: "untrusted context" }] });
+  await r.session.sendToolResult({ id: "memory", name: "student_memory", args: {} }, { factualEvidence: true, facts: [{ value: "Fee is 987651 euros" }] });
+  await r.session.sendToolResult({ id: "undeclared", name: "search_kb", args: {} }, { text: "Fee is 876542 euros" });
+  r.backend.emitOutputTranscript("University fees are 987651 and 876542 euros");
+  r.backend.emitTurnComplete();
+  await r.session.drain();
+  assert.deepEqual(of(r.events, "flag").map(f => f.detail).sort(), ["876542", "987651"]);
+  assert.equal(r.backend.calls.filter(c => c.type === "tool_response").length, 2, "context still reaches the provider unchanged");
+});
+
 test("C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record", async () => {
-  const r = await rig({ auditOutput: AUDIT, toolHandler: () => ({ hits: [{ text: "Fee is 12,000 euros per year" }] }) });
+  const r = await rig({ auditOutput: AUDIT, tools: [{ name: "search_kb", description: "trusted KB", factualEvidence: true }], toolHandler: () => ({ hits: [{ text: "Fee is 12,000 euros per year" }] }) });
   r.backend.emitToolCall({ id: "t", name: "search_kb", args: {} });
   await new Promise((res) => setImmediate(res));
   r.backend.emitOutputTranscript("Public tuition is 12000 euros a year at that university.");
@@ -583,7 +594,7 @@ test("C3 gemini: connecting asks for audio out, both transcripts, the voice, the
     onEvent: () => {},
     systemInstruction: "You are a coach.",
     voiceName: "Puck",
-    tools: [{ name: "search_kb", description: "search", parameters: { type: "object", properties: { q: { type: "string" } } } }],
+    tools: [{ name: "search_kb", description: "search", factualEvidence: true, parameters: { type: "object", properties: { q: { type: "string" } } } }],
   });
   assert.equal(f.calls[0]!.model, "gemini-live-x");
   const cfg = f.calls[0]!.config as Record<string, any>;
@@ -592,7 +603,7 @@ test("C3 gemini: connecting asks for audio out, both transcripts, the voice, the
   assert.deepEqual(cfg.outputAudioTranscription, {});
   assert.equal(cfg.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName, "Puck");
   assert.equal(cfg.systemInstruction.parts[0].text, "You are a coach.");
-  assert.equal(cfg.tools[0].functionDeclarations[0].name, "search_kb");
+  assert.deepEqual(cfg.tools[0].functionDeclarations[0], { name: "search_kb", description: "search", parametersJsonSchema: { type: "object", properties: { q: { type: "string" } } } }, "app-only evidence metadata never enters the Gemini SDK declaration");
   assert.equal(buildGeminiLiveConfig({ onEvent: () => {} }).tools, undefined);
 });
 
@@ -1043,4 +1054,28 @@ test("C4 crisis Low: after a crisis the student starts a new, harmless utterance
   await r.session.drain();
   assert.equal(of(r.events, "crisis").length, 1, "stale crisis text refired the helpline");
   assert.ok(r.transcripts.some((t) => t.role === "user" && t.text === "okay what about fees"), "the new utterance is its own thread turn");
+});
+
+
+test("S12 voice: explicit human finality retains starting context; implicit output flush cannot grant it",async()=>{
+  const backend=new MockLiveBackend();const transcripts:LiveFinalTranscript[]=[];let prompt="first";
+  const session=new LiveSession({onEvent:()=>{},captureInputContext:()=>prompt,sink:{onFinalTranscript:t=>{transcripts.push(t);}}}).attach(backend);
+  backend.bind(session);
+  backend.emitInputTranscript("yes",false);prompt="second";backend.emitInputTranscript("please",true);await session.drain();
+  assert.equal(transcripts[0]!.inputFinal,true);assert.equal(transcripts[0]!.inputContext,"first");
+  backend.emitInputTranscript("yes",false);backend.emitOutputTranscript("yes");backend.emitTurnComplete();await session.drain();
+  assert.equal(transcripts[1]!.inputFinal,undefined);assert.equal(transcripts[1]!.inputContext,undefined);
+  session.close();
+});
+
+
+test("S12 voice Gemini connector: only explicit input finished marks human finality, including an empty final marker",async()=>{
+  const f=fakeConnector(),transcripts:LiveFinalTranscript[]=[];
+  const session=await new GeminiLiveProvider({model:"synthetic-unchanged",connector:f.connector}).connect({onEvent:()=>{},captureInputContext:()=>"owned-prompt",sink:{onFinalTranscript:t=>{transcripts.push(t);}}});
+  f.cb().onmessage({serverContent:{inputTranscription:{text:"yes",finished:false}}});
+  f.cb().onmessage({serverContent:{outputTranscription:{text:"yes"},turnComplete:true}});await session.drain();
+  assert.equal(transcripts[0]!.inputFinal,undefined);
+  f.cb().onmessage({serverContent:{inputTranscription:{text:"no",finished:false}}});
+  f.cb().onmessage({serverContent:{inputTranscription:{finished:true}}});await session.drain();
+  const no=transcripts.find(t=>t.role==="user"&&t.text==="no")!;assert.equal(no.inputFinal,true);assert.equal(no.inputContext,"owned-prompt");session.close();
 });

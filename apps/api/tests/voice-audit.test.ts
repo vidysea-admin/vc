@@ -81,7 +81,7 @@ test("C5: a figure that a knowledge-base tool returned this session is cited, so
   await withWorld(
     async (w, threadId) => {
       const { client } = await w.open(adult(), threadId);
-      assert.equal(w.provider.configs[0]!.tools?.length, 1, "the declarations are offered to the model");
+      assert.deepEqual(w.provider.configs[0]!.tools?.map(t => t.name), ["search_kb", "student_memory"], "the exact knowledge and eligible memory declarations are offered to the model");
       speak(w, "fees?");
       w.provider.last.emitToolCall({ id: "c1", name: "search_kb", args: { q: "fees" } });
       await until(() => w.provider.last.calls.some((c) => c.type === "tool_response"), "tool response sent");

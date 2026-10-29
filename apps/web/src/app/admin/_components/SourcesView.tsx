@@ -18,26 +18,28 @@ export interface SourcesViewProps {
 
 /** Only these non-secret config fields are ever shown (S1: `*Ref` fields hold env NAMES, never values). Anything else the payload carries is dropped. */
 const SHOWN_CONFIG: Record<SourceSummary["kind"], string[]> = {
-  github: ["owner", "repo", "branch", "service", "tokenRef"],
-  postgres: ["host", "port", "database", "user", "sslmode", "passwordRef", "tables"],
+  github: ["platform", "enabled", "owner", "repo", "branch", "service", "tokenRef"],
+  postgres: ["platform", "enabled", "host", "port", "database", "user", "sslmode", "passwordRef", "tables"],
 };
 
 function configText(v: unknown): string {
   if (Array.isArray(v)) return v.filter(x => typeof x === "string").join(", ");
-  return typeof v === "string" || typeof v === "number" ? String(v) : "";
+  return typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : "";
 }
 
 const SERVICES: GithubService[] = ["frontend", "auth", "school", "career", "other"];
 
 function AddSourceForm({ busy, onCreate }: { busy: boolean; onCreate: SourcesViewProps["onCreate"] }) {
   const [kind, setKind] = useState<"github" | "postgres">("github");
-  const [f, setF] = useState<Record<string, string>>({ branch: "main", service: "frontend", port: "5432", sslmode: "require" });
+  const [f, setF] = useState<Record<string, string>>({ branch: "main", service: "frontend", port: "5432", sslmode: "require", platform: "pathlynks", siteId: "pathlynks" });
   const set = (k: string) => (e: { target: { value: string } }) => setF(prev => ({ ...prev, [k]: e.target.value }));
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (kind === "github") {
       await onCreate({
         kind: "github",
+        siteId: f.siteId?.trim() ?? "",
+        platform: f.platform === "vidysea" ? "vidysea" : "pathlynks",
         id: f.id?.trim() ?? "",
         owner: f.owner?.trim() ?? "",
         repo: f.repo?.trim() ?? "",
@@ -48,6 +50,8 @@ function AddSourceForm({ busy, onCreate }: { busy: boolean; onCreate: SourcesVie
     } else {
       await onCreate({
         kind: "postgres",
+        siteId: f.siteId?.trim() ?? "",
+        platform: f.platform === "vidysea" ? "vidysea" : "pathlynks",
         id: f.id?.trim() ?? "",
         host: f.host?.trim() ?? "",
         port: Number(f.port) || 5432,
@@ -75,6 +79,8 @@ function AddSourceForm({ busy, onCreate }: { busy: boolean; onCreate: SourcesVie
           <option value="postgres">Postgres database</option>
         </select>
       </label>
+      <label className="adm-field"><span>Platform</span><select value={f.platform} onChange={e => setF(prev => ({ ...prev, platform: e.target.value, siteId: e.target.value }))} data-testid="source-platform"><option value="pathlynks">Pathlynks</option><option value="vidysea">Vidysea</option></select></label>
+      {text("siteId", "Site id")}
       {text("id", "Source id", { hint: "for example gh-frontend" })}
       {kind === "github" ? (
         <>
@@ -106,7 +112,7 @@ function AddSourceForm({ busy, onCreate }: { busy: boolean; onCreate: SourcesVie
               <option value="verify-full">verify-full</option>
             </select>
           </label>
-          {text("passwordRef", "Password variable name (a name such as PATHLYNKS_DB_PASSWORD, never the password)")}
+          {text("passwordRef", f.platform === "vidysea" ? "Password variable name (VIDYSEA_DB_PASSWORD, never the password)" : "Password variable name (PATHLYNKS_DB_PASSWORD, never the password)")}
           {text("tables", "Tables (comma separated)")}
         </>
       )}
@@ -158,6 +164,7 @@ export function SourcesView({ role, sources, results, error, busy, onCreate, onT
                 {s.id} <span className="adm-badge">{s.kind}</span>
               </h2>
               <dl className="adm-dl">
+                <div><dt>site</dt><dd>{s.siteId}</dd></div>
                 {SHOWN_CONFIG[s.kind].map(k => {
                   const v = configText(s.config[k]);
                   return v === "" ? null : (
@@ -180,12 +187,12 @@ export function SourcesView({ role, sources, results, error, busy, onCreate, onT
               </dl>
               <div className="adm-actions">
                 {canTest ? (
-                  <button type="button" className="adm-btn adm-btn-small" disabled={busy} data-testid="test-source" onClick={() => void onTest(s.id)}>
+                  <button type="button" className="adm-btn adm-btn-small" disabled={busy || s.config.enabled === false} data-testid="test-source" onClick={() => void onTest(s.id)}>
                     Test
                   </button>
                 ) : null}
-                {canSync ? (
-                  <button type="button" className="adm-btn adm-btn-small" disabled={busy} data-testid="sync-source" onClick={() => void onSync(s.id)}>
+                {canSync && s.kind === "github" ? (
+                  <button type="button" className="adm-btn adm-btn-small" disabled={busy || s.config.enabled === false} data-testid="sync-source" onClick={() => void onSync(s.id)}>
                     Sync
                   </button>
                 ) : null}

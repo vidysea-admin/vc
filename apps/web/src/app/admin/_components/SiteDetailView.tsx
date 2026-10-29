@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { can } from "../_lib/permissions";
-import type { AdminRole, KeyScope, RevealedKeys, SiteSummary } from "../_lib/types";
+import type { AdminRole, KeyScope, MemoryPolicy, RevealedKeys, SiteSummary } from "../_lib/types";
 import { ErrorBanner, KeyRevealPanel, PageHeading, parseList, ReadOnlyNote, shortDate } from "./ui";
 
 export interface SiteDetailViewProps {
@@ -11,7 +11,7 @@ export interface SiteDetailViewProps {
   revealed: RevealedKeys | null;
   error: string | null;
   busy: boolean;
-  onSave: (patch: { name: string; origins: string[] }) => Promise<void>;
+  onSave: (patch: { name?: string; origins?: string[]; memoryPolicy?: MemoryPolicy }) => Promise<void>;
   onRotate: (scope: KeyScope) => Promise<void>;
   onRevoke: () => Promise<void>;
   onUnrevoke: () => Promise<void>;
@@ -64,8 +64,21 @@ export function SiteDetailView({ role, site, revealed, error, busy, onSave, onRo
   const keyWritable = can(role, "key.write") && site.status === "active";
   const [name, setName] = useState(site.name);
   const [origins, setOrigins] = useState(site.allowedOrigins.join("\n"));
+  const [memoryPolicy, setMemoryPolicy] = useState<MemoryPolicy>(site.memoryPolicy ?? { shortTermEnabled: false, longTermEnabled: false, learningEnabled: false, contextMessages: 0, maxFacts: 0 });
+  const [memoryError, setMemoryError] = useState<string | null>(null);
+  const saveMemory = (e: FormEvent) => {
+    e.preventDefault();
+    if (!siteWritable || busy) return;
+    if (!Number.isInteger(memoryPolicy.contextMessages) || memoryPolicy.contextMessages < 0 || memoryPolicy.contextMessages > 12 || !Number.isInteger(memoryPolicy.maxFacts) || memoryPolicy.maxFacts < 0 || memoryPolicy.maxFacts > 20) {
+      setMemoryError("Use whole numbers: context messages 0–12 and memory facts 0–20.");
+      return;
+    }
+    setMemoryError(null);
+    void onSave({ memoryPolicy: { ...memoryPolicy } });
+  };
   const save = (e: FormEvent) => {
     e.preventDefault();
+    if (!siteWritable || busy || site.status !== "active") return;
     void onSave({ name: name.trim(), origins: parseList(origins) });
   };
   return (
@@ -125,6 +138,35 @@ export function SiteDetailView({ role, site, revealed, error, busy, onSave, onRo
           {site.allowedOrigins.length === 0 ? <p className="adm-note">None.</p> : site.allowedOrigins.map(o => <div key={o}>{o}</div>)}
         </section>
       )}
+
+      <form className="adm-card" aria-label="Student memory" data-testid="memory-policy-form" onSubmit={saveMemory}>
+        <h2>Student memory</h2>
+        {!site.memoryPolicy ? <p className="adm-note">Memory is off until settings are saved. Choose each feature and its limits below.</p> : null}
+        <p className="adm-note">Applies to this platform's text and voice conversations, subject to student consent. Turning a feature off keeps existing history and memories.</p>
+        <fieldset disabled={!siteWritable || busy}>
+          <legend>Memory features</legend>
+          {([
+            ["shortTermEnabled", "Use recent messages in the selected conversation"],
+            ["longTermEnabled", "Use confirmed memories across conversations"],
+            ["learningEnabled", "Suggest new memories for the student to confirm"],
+          ] as const).map(([key, label]) => (
+            <label className="adm-field" key={key}>
+              <span><input type="checkbox" checked={memoryPolicy[key]} disabled={!siteWritable || busy} data-testid={"memory-" + key} onChange={e => setMemoryPolicy(p => ({ ...p, [key]: e.target.checked }))} /> {label}</span>
+            </label>
+          ))}
+          <label className="adm-field">
+            <span>Recent context messages (0–12)</span>
+            <input type="number" min={0} max={12} step={1} required value={Number.isNaN(memoryPolicy.contextMessages) ? "" : memoryPolicy.contextMessages} disabled={!siteWritable || busy} data-testid="memory-contextMessages" onChange={e => setMemoryPolicy(p => ({ ...p, contextMessages: e.target.valueAsNumber }))} />
+          </label>
+          <label className="adm-field">
+            <span>Confirmed memory facts (0–20)</span>
+            <input type="number" min={0} max={20} step={1} required value={Number.isNaN(memoryPolicy.maxFacts) ? "" : memoryPolicy.maxFacts} disabled={!siteWritable || busy} data-testid="memory-maxFacts" onChange={e => setMemoryPolicy(p => ({ ...p, maxFacts: e.target.valueAsNumber }))} />
+          </label>
+        </fieldset>
+        <p className="adm-note">A limit of 0 provides no messages or facts. Students can still inspect, confirm, correct and forget their memories when suggestions are off.</p>
+        <ErrorBanner error={memoryError} />
+        {siteWritable ? <button type="submit" className="adm-btn adm-btn-primary" disabled={busy} data-testid="save-memory">Save memory settings</button> : null}
+      </form>
 
       {siteWritable ? (
         <section className="adm-card" aria-label="Revoke">

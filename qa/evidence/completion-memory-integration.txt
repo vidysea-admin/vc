@@ -1,0 +1,293 @@
+✔ A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable (23.455ms)
+✖ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (145.679ms)
+✔ A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another (47.3172ms)
+✔ A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400 (37.9142ms)
+✔ D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created (12.3157ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.799Z"}
+{"level":"info","event":"admin_sources_seeded","created":0,"existing":0,"ts":"2026-10-27T15:01:21.809Z"}
+✔ a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body (9.1308ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:21.866Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.898Z"}
+✔ Q1/Q14: default live profile grounds ordinary guidance, projects grade only and never looks up an unconsented student (100.2793ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.918Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.925Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.933Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.938Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.948Z"}
+✔ startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read (15.6619ms)
+✔ startApi: flag on with a temp copy of the real repo gates (B13 set back to pending) refuses to start, BEFORE connecting to Mongo (12.4645ms)
+✔ startApi: chat flag on, NO gatesDir and VC_GATE_APPROVER unset -> the default gates dir (the real repo qa/gates) refuses to start, BEFORE connecting to Mongo (5.9368ms)
+✔ startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key) (14.4413ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:21.976Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:21.987Z"}
+✔ startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused (38.5774ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.033Z"}
+✔ LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called (47.1075ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.042Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.085Z"}
+✔ LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provider and nothing is sent to Ollama (58.1848ms)
+✔ LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting (0.5555ms)
+✔ LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key (0.2256ms)
+✖ p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact is English with the Devanagari quote kept as its source (76.4016ms)
+✔ p1-lk6: a fact whose quote is not in the student's words is never proposed (23.6991ms)
+✔ p1-lk6: an under-18 student without guardian consent makes no extraction call (11.1333ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.230Z"}
+✔ p1-lk6: extraction failure never fails the turn; the log has the event name, no student words or quote (23.8716ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.293Z"}
+✔ p1-lk6: startApi wires the default extractor for chat when none is injected, over the default text provider (62.4828ms)
+✔ p1-lk6: an injected extractFacts still wins over the default (62.687ms)
+✔ p1-lk6: a crisis turn is answered with the fixed helpline text and is never sent to the fact extractor model (28.005ms)
+✔ p1-lk9 C2: an extractor that never resolves does not block the reply, and the reply is complete (25.5648ms)
+✔ p1-lk9 C2: an extractor that rejects is logged text-free and is never an unhandled rejection; the turn is unaffected (54.2008ms)
+✔ p1-lk9 C2: a throwing logger and a synchronous extractor throw are also never an unhandled rejection (26.0205ms)
+✔ p1-lk9 C2: an erasure that starts after the reply but before extraction resolves still prevents the fact write (StudentFencedError on the detached path) (35.2856ms)
+✖ p1-lk9 C2: proposed facts are absent from GET chat/profile while extraction is pending and appear once it resolves (23.7108ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.583Z"}
+✔ p1-lk9 C2: extraction still happens only in the stores-text branch (a replay and an unconsented minor never start it) (33.444ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.644Z"}
+✔ LK7 L1: with VC_TEXT_CHAIN set, an authenticated turn's language comes from the MODEL detector (on the chain wire), and the answer call is told that reply language (63.1677ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.655Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.682Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.688Z"}
+✔ LK7 L2: VC_TEXT_CHAIN unset -> no model detector call exists anywhere (offline script test only) and nothing is sent to Ollama (44.8711ms)
+{"event":"escalation_unrouted","escalationId":"6489a32c-e684-4ee2-808c-469b5c1f09db:lk7-1","sessionId":"6489a32c-e684-4ee2-808c-469b5c1f09db"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.728Z"}
+✔ LK7 C1: crisisGuard still runs FIRST on the original text: a crisis turn makes no detector, screen or chain call and gets the fixed message (38.3534ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.760Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.769Z"}
+✔ LK7 S1: the safety screen is on for authenticated turns by default: 'possible' returns the fixed crisis message with no answer; the screen saw the original text (40.8156ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.798Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.806Z"}
+{"level":"error","event":"chat_write_failed","ts":"2026-10-27T15:01:22.839Z","write":"safety_screen"}
+{"level":"error","event":"alert_safety_screen_outage","write":"safety_screen"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.842Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.849Z"}
+✔ LK7 S2: a clear screen releases the normal answer; a screen outage fails closed to the fixed crisis message (D-105) (81.0893ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.886Z"}
+✔ LK7 S3: with the chain set, the screen still runs on the classifier's base provider (D-105 Q4: a task moves to the chain only after its own eval), never on the chain (37.3224ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.897Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.920Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.928Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:22.979Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.985Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:22.988Z"}
+✔ LK7 S4: chat.safetyScreen = false turns the authenticated screen off (no classifier call); a supplied screen provider is the one used (100.2252ms)
+{"level":"error","event":"alert_chain_cap_80pct","month":"2026-11","capUsd":1,"spentUsd":1}
+{"level":"error","event":"alert_chain_cap_exhausted","month":"2026-11","capUsd":1,"spentUsd":1}
+{"level":"error","event":"alert_chain_cap_80pct","month":"2026-11","capUsd":1,"spentUsd":0.9}
+{"level":"error","event":"alert_chain_cap_exhausted","month":"2026-11","capUsd":1,"spentUsd":0.9}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.007Z"}
+✔ LK7 P1: VC_TEXT_CHAIN set and the cap missing or invalid -> startApi refuses (fail closed) BEFORE connecting, naming the variable and never a key (1.1606ms)
+✔ LK7 P2: a valid cap starts the chain; with VC_TEXT_CHAIN unset the cap is not required (11.1462ms)
+✔ LK7 G1: the guard reserves the estimate before a request, refuses one that would pass the cap with a NON-retryable error, and settles a reported usage to the actual figure (2.5653ms)
+✔ LK7 G2: the cap is per UTC calendar month: a new month starts at zero, and a usage settled after the month turned does not touch the new month (0.9334ms)
+{"level":"error","event":"alert_chain_cap_exhausted","month":"2026-10","capUsd":0.03,"spentUsd":0.020284}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:23.060Z"}
+{"level":"error","event":"alert_chain_cap_80pct","month":"2026-10","capUsd":0.03,"spentUsd":0.028972}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.136Z"}
+✔ LK7 E1: when the cap runs out mid-month, student turns get the existing degraded reply over real HTTP (200, never a 500), no request leaves after the stop, and spend never passes the cap (130.3518ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:23.180Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:23.203Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:23.225Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:23.244Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+✔ LK7 E2: reported token usage settles the spend to the actual figure, so the same cap serves more turns than the reservation alone would (136.4854ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.320Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.329Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.339Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.355Z"}
+✔ LK7 X1: when every hop of the chain fails (the whole chain is exhausted) the turn is the degraded reply, the failover alert still fires, and the exhaustion is counted (50.7684ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.361Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.378Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.388Z"}
+✔ LK7 C1-fix R1: chat on + screen on + a rules base provider (no concern-classifier) -> startApi REFUSES with a named error, before connecting, naming no key (18.4753ms)
+✔ LK7 C1-fix R2: the same rules base with the screen switched off in code (chat.safetyScreen = false) starts; so does chat off (22.8999ms)
+✔ LK7 C1-fix R3: a rules base is fine when the screen has its own classifier-capable provider (the screen's provider is what counts), and a refusal names the screen provider (26.257ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T15:01:23.421Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.428Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.437Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.446Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.454Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.464Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.476Z"}
+✔ LK7 C1-fix R4: a classifier-capable base starts and an ordinary question is ANSWERED (not escalated, no crisis message) (39.5289ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T15:01:23.488Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.503Z"}
+✔ H2: chat + VC_GROUNDING=gemini + chat.safetyScreen=false, or a rules screen provider, refuses to start with a named GroundingConfigError before connecting (36.8481ms)
+✔ H2: chat + grounding starts when the screen is on over a classifier-capable provider (default, or its own screen provider); without grounding safetyScreen=false still starts (37.3148ms)
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.544Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.564Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.587Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.605Z"}
+✔ K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant is (a case variant of) an existing partner id gets the uniform 401 on chat, thread and profile routes; the partner's bound tenant and an unrelated tenant pass (105.6812ms)
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.645Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.675Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.704Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.735Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.771Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.802Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T15:01:23.837Z"}
+✔ w1-counsellor-tenant-guard T1 startApi: with partners on, a counsellor/admin/approver JWT whose tenant is (a case or width variant of) an existing partner id gets the uniform 401 on EVERY non-public route family; the partner's bound tenant and an unrelated tenant are not refused (232.0818ms)
+✔ w1-counsellor-tenant-guard T1: a partner-store failure while checking the tenant claim fails closed (uniform 401), like the student path (12.4899ms)
+✔ w1-counsellor-tenant-guard T2 startApi: with the partner registry off (pepper unset) a counsellor JWT whose tenant looks like a partner id is NOT blocked, the one guard-off note names both guards, and no extra Mongo connection is opened (5.1215ms)
+✔ Q10-Q14: actual handler passes only owned completed context and confirmed memory; missing/off policy stops retrieval and extraction (47.9048ms)
+✔ Q12/Q14: queued extraction is discarded after erase or policy disable (16.7298ms)
+✔ Q12/Q14: correction clears stale history, proposed memories never personalize, and missing policy fails off (59.2822ms)
+✔ Q12/I1: confirmed sensitive field labels are never included in answer-provider memory (54.2842ms)
+✔ Q14: a policy disabled during a memory-bearing answer prevents release of the stale model result (17.1475ms)
+✔ I1 repair2: memory fallback never swallows an erasure fence (10.0582ms)
+✔ Q12 repair2: displayed confirmation value must match the current proposal (9.4764ms)
+✔ I1 repair2: pending or uncertain memory never suppresses a deterministic crisis response (30.867ms)
+✔ Q12/Q14 repair1: text opened during a paused correction or erase cannot consume the former memory (69.044ms)
+✔ Q12: more than twenty stored memories remain inspectable through bounded owner-bound pages (25.7348ms)
+✔ S12: a completed memory decision during turn completion or usage never releases or replays the obsolete answer (404.693ms)
+✔ Q12/Q14 repair2: delayed ranking discards facts after correction erase or policy disable (61.7861ms)
+✔ U6w item 1 ISS-163: facts the student confirmed in chat (db label source 'chat') change the ranking, and two students with different facts get different orders (123.1625ms)
+✔ U6w item 1: a fact the student has NOT confirmed (still proposed) never changes the ranking: every option is insufficient_data and no profile fact is reported as used (37.2561ms)
+✔ U6w item 1: the one mapping turns exactly {source 'chat', status 'confirmed'} into student-confirmed; a proposed row, a 'chat-extracted' label or an unknown label stay unmapped and the ranker ignores them (0.507ms)
+✔ U6w item 2 ISS-167: every number the student is shown carries a visible NOT PROVEN label, in the reply, in each number claim, and in the stored thread (52.1761ms)
+✔ U6w item 3 tenancy: the same student id in tenant B with other facts never moves tenant A's ranking, and only tenant A's id reaches the profile and option-list ports (95.7655ms)
+✔ U6w item 4: a throwing option port, option-list callback or weights callback still returns the reply (200), names the failure in the server log, and logs no profile text (107.7036ms)
+✔ U6w item 4: an ordinary (non-ranking) question never touches the ranking port, and a rank question with no ranking wired behaves as before (45.801ms)
+✔ U6w item 5: an anonymous visitor asking to rank gets sign_in_required with no ranking, and the option-data port is never asked (18.463ms)
+✔ U6w cycle 1 C6 (senior review MEDIUM): a NOT PROVEN number never carries an attributed status: every ranked claim is unverified, live and stored, and keeps the label (39.5411ms)
+✔ U6w cycle 1 C7 (checker A P1): a turn that stores no text (an unconsented minor) never reaches the ranking port, the option list or the weights callback (37.8252ms)
+✔ U6w cycle 1 C8 (checker A P4): a profile fact value holding a phone number never reaches the stored thread through profileFactsUsed (22.6314ms)
+✔ U6w cycle 1 C10 (checker B P2): weightsForTenant receives the asking tenant's id, and tenant A's weights never apply to tenant B (100.9376ms)
+✔ U6w cycle 1 C11 (checker B P3 / A note): non-vacuous C5: an anonymous route handed live ranking, profile and Db spies never calls them, and the same spy wiring is called by the authenticated route (80.6428ms)
+✔ S12: an obsolete unpublished answer is not history and an explicit retry can reclaim its exact turn (8.2669ms)
+✔ S12: an assistant staged while its final guard is pending cannot be read as a completed exchange (1.9053ms)
+✔ a student opening the chat gets a thread owned by them; another student cannot read it (0.7715ms)
+✔ a chat-store call on an unscoped Db is refused (tenant isolation fails closed) (0.5797ms)
+✔ a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim (10.0692ms)
+✔ a retry that arrives while the first attempt is still running is told it is in progress, not run twice (0.8156ms)
+✔ a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete (1.6992ms)
+✔ the same turn id sent again with different text is a conflict, not a silent replay of the old answer (0.7477ms)
+✔ when the model call fails the claim is abandoned so the student's retry runs again (2.963ms)
+✔ a voice turn and a text turn land in one history in time order (A19) (1.0791ms)
+✔ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (0.5975ms)
+✔ a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write (2.4655ms)
+✔ an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored (0.4073ms)
+✔ usage counters add up per student per month and stay inside the tenant (0.4781ms)
+✔ U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time (1.0139ms)
+✔ U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count (0.322ms)
+✔ U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db (0.4801ms)
+✔ U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it (1.3371ms)
+✔ U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row (1.834ms)
+✔ Q10/Q11: bounded owned sessions and complete pairs exclude current/pending/orphan turns (6.4682ms)
+✔ Q12: corrected/forgotten memory rejects queued old extraction and strips unsupported provenance (8.4271ms)
+✔ Q11: context honors character/lower-message caps and omits incomplete voice exchanges (2.5778ms)
+✔ Q12/Q14 repair1: paused correct never publishes old facts under a stable revision (3.2439ms)
+✔ Q12/Q14 repair1: paused erase never publishes old facts under a stable revision (1.8708ms)
+✔ Q12/Q14 repair1: overlapping decisions remain pending until every mutation completes (2.1247ms)
+✔ Q12/Q14 repair1: failed mutation stays closed even after another decision succeeds (2.0209ms)
+✔ Q12/Q14 repair1: proposal paused before persistence is discarded when a decision starts (1.9353ms)
+✔ Q12/Q14 repair1: a proposal writing across pending mutation is removed on revision refusal (2.2286ms)
+✔ Q12/Q14 repair1: begin publication error cannot reopen unchanged memory (1.1501ms)
+✔ Q12/Q14 repair1: complete publication error cannot reopen unchanged memory (1.2964ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal legacy snapshot (2.6537ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal displayed value (1.5336ms)
+✔ Q12/Q14 repair2 B1: displayed value mismatch refuses before changing revision; legacy confirmation still works (1.1409ms)
+✔ Q12/Q14 repair2 B2: failed stale cleanup remains durably closed (2.4208ms)
+✔ Q12/Q14 repair2 B2: ambiguous stale cleanup remains durably closed (5.1068ms)
+✔ Q12/Q14 repair2 B1: confirm CAS conflict cannot release another pending decision (3.2903ms)
+✔ Q12/Q14 repair2 B2: failed cleanup reservation cannot expose or confirm an unpublished stale row (1.5339ms)
+✔ Q12/Q14 repair2 B1: explicit correction wins over an unpublished racing proposal (1.3094ms)
+ℹ tests 116
+ℹ suites 0
+ℹ pass 113
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5670.6075
+
+✖ failing tests:
+
+test at apps\api\tests\chat-profile.test.ts:64:1
+✖ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (145.679ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'target-country',
+  -   'target_country',
+      'Germany',
+      'proposed'
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-profile.test.ts:74:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'target-country', 'Germany', 'proposed' ],
+    expected: [ 'target_country', 'Germany', 'proposed' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at apps\api\tests\chat-profile.test.ts:398:1
+✖ p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact is English with the Devanagari quote kept as its source (76.4016ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      [
+        'intended_degree',
+        'MBA'
+      ],
+      [
+  +     'target-country',
+  -     'target_country',
+        'Germany'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-profile.test.ts:415:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'intended_degree', 'MBA' ], [ 'target-country', 'Germany' ] ],
+    expected: [ [ 'intended_degree', 'MBA' ], [ 'target_country', 'Germany' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at apps\api\tests\chat-profile.test.ts:654:1
+✖ p1-lk9 C2: proposed facts are absent from GET chat/profile while extraction is pending and appear once it resolves (23.7108ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      [
+  +     'target-country',
+  -     'target_country',
+        'Germany',
+        'proposed'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-profile.test.ts:666:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'target-country', 'Germany', 'proposed' ] ],
+    expected: [ [ 'target_country', 'Germany', 'proposed' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

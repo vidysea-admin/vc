@@ -1,0 +1,63 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "completion-vidysea-map-20261027",
+  "task_id": "completion-vidysea-map",
+  "attempt_id": "attempt1",
+  "owner": "completion-vidysea-map",
+  "status": "success",
+  "outputs": [
+    {
+      "path": "docs/features/vc-admin-control/plan.md",
+      "sha256": "0e32081cad1a875de49503ce3dce1d376855f81b88d2c682c9ff76513b7de02c"
+    },
+    {
+      "path": "qa/.delivery/requests/completion-vidysea-map.brief.md",
+      "sha256": "e7d062ed5f00cca723408e09335e1298c725f1d19c70659fceb6e2ed45339718"
+    }
+  ],
+  "reason": null,
+  "exit_code": 0,
+  "elapsed_ms": 429819,
+  "output_bytes": 415931,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 6,
+    "source_read_bytes": 133545,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 38541
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "184b6a583eaf0ec11a8bf5b2295e84e90f8be15f",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "exec",
+      "--approve-for-me",
+      "--json",
+      "-"
+    ],
+    "selection": [
+      "completion-vidysea-map"
+    ],
+    "input_blobs": [
+      {
+        "path": "docs/features/vc-admin-control/plan.md",
+        "blob": "0e32081cad1a875de49503ce3dce1d376855f81b88d2c682c9ff76513b7de02c"
+      },
+      {
+        "path": "qa/.delivery/requests/completion-vidysea-map.brief.md",
+        "blob": "e7d062ed5f00cca723408e09335e1298c725f1d19c70659fceb6e2ed45339718"
+      }
+    ],
+    "config_id": "b04eb2bcaf5f7d01be5c8d737a00fe1bdb09d42664a887e3575c9189384b443e",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "b344f406e0b6c4beb3df693b1e67cfc7b867afd3970c580207e4203d13a1de4d",
+    "policy_id": "236bc0e7c075f9729ef464dbd8aa2bdbec02754e95e228c936480c96d4c8fe39",
+    "protocol_id": "835d6a2764c50567b4573c7aa8f4f991430e2240a46107256b4a07d934799cf1",
+    "context_id": "c934aa10efcf82432f9569e38b9788cbe7ca4dd5efbb854553c4a50ffa3de909",
+    "status": "success",
+    "exit_code": 0,
+    "log_file": "qa/.delivery/21f0fba872f8d820a9c54e002987d0a6018c20ef88c89e9822de0b93596e8184.log",
+    "log_sha256": "21f0fba872f8d820a9c54e002987d0a6018c20ef88c89e9822de0b93596e8184"
+  }
+}

@@ -1,0 +1,246 @@
+✔ A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable (27.3894ms)
+✔ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (84.3914ms)
+✔ A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another (24.3913ms)
+✔ A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400 (21.5413ms)
+✔ D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created (7.3184ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.098Z"}
+{"level":"info","event":"admin_sources_seeded","created":0,"existing":0,"ts":"2026-10-27T16:00:23.104Z"}
+✔ a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body (7.7322ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.143Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.153Z"}
+✔ Q1/Q14: default live profile grounds ordinary guidance, projects grade only and never looks up an unconsented student (56.7115ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.172Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.178Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.184Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.188Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.195Z"}
+✔ startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read (14.4681ms)
+✔ startApi: flag on with a temp copy of the real repo gates (B13 set back to pending) refuses to start, BEFORE connecting to Mongo (11.8576ms)
+✔ startApi: chat flag on, NO gatesDir and VC_GATE_APPROVER unset -> the default gates dir (the real repo qa/gates) refuses to start, BEFORE connecting to Mongo (4.1936ms)
+✔ startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key) (10.8956ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.219Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.228Z"}
+✔ startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused (32.1372ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.265Z"}
+✔ LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called (38.3055ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.271Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.286Z"}
+✔ LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provider and nothing is sent to Ollama (24.7043ms)
+✔ LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting (0.4214ms)
+✔ LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key (0.162ms)
+✔ p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact is English with the Devanagari quote kept as its source (47.3877ms)
+✔ p1-lk6: a fact whose quote is not in the student's words is never proposed (17.8184ms)
+✔ p1-lk6: an under-18 student without guardian consent makes no extraction call (7.5605ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.384Z"}
+✔ p1-lk6: extraction failure never fails the turn; the log has the event name, no student words or quote (19.178ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.410Z"}
+✔ p1-lk6: startApi wires the default extractor for chat when none is injected, over the default text provider (27.5147ms)
+✔ p1-lk6: an injected extractFacts still wins over the default (26.7458ms)
+✔ p1-lk6: a crisis turn is answered with the fixed helpline text and is never sent to the fact extractor model (14.4204ms)
+✔ p1-lk9 C2: an extractor that never resolves does not block the reply, and the reply is complete (14.9545ms)
+✔ p1-lk9 C2: an extractor that rejects is logged text-free and is never an unhandled rejection; the turn is unaffected (16.8846ms)
+✔ p1-lk9 C2: a throwing logger and a synchronous extractor throw are also never an unhandled rejection (13.5845ms)
+✔ p1-lk9 C2: an erasure that starts after the reply but before extraction resolves still prevents the fact write (StudentFencedError on the detached path) (13.6544ms)
+✔ p1-lk9 C2: proposed facts are absent from GET chat/profile while extraction is pending and appear once it resolves (13.84ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.562Z"}
+✔ p1-lk9 C2: extraction still happens only in the stores-text branch (a replay and an unconsented minor never start it) (36.9632ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.593Z"}
+✔ LK7 L1: with VC_TEXT_CHAIN set, an authenticated turn's language comes from the MODEL detector (on the chain wire), and the answer call is told that reply language (30.7867ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.598Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.610Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.615Z"}
+✔ LK7 L2: VC_TEXT_CHAIN unset -> no model detector call exists anywhere (offline script test only) and nothing is sent to Ollama (21.8647ms)
+{"event":"escalation_unrouted","escalationId":"49303509-d9b5-4ed9-9e33-b3cf1d2b8ec6:lk7-1","sessionId":"49303509-d9b5-4ed9-9e33-b3cf1d2b8ec6"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.636Z"}
+✔ LK7 C1: crisisGuard still runs FIRST on the original text: a crisis turn makes no detector, screen or chain call and gets the fixed message (21.8825ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.656Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.660Z"}
+✔ LK7 S1: the safety screen is on for authenticated turns by default: 'possible' returns the fixed crisis message with no answer; the screen saw the original text (23.4766ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.679Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.683Z"}
+{"level":"error","event":"chat_write_failed","ts":"2026-10-27T16:00:23.700Z","write":"safety_screen"}
+{"level":"error","event":"alert_safety_screen_outage","write":"safety_screen"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.704Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.709Z"}
+✔ LK7 S2: a clear screen releases the normal answer; a screen outage fails closed to the fixed crisis message (D-105) (48.4072ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.736Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.741Z"}
+✔ LK7 S3: with the chain set, the screen still runs on the classifier's base provider (D-105 Q4: a task moves to the chain only after its own eval), never on the chain (32.1093ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.758Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.763Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.783Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.786Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.788Z"}
+✔ LK7 S4: chat.safetyScreen = false turns the authenticated screen off (no classifier call); a supplied screen provider is the one used (46.5168ms)
+{"level":"error","event":"alert_chain_cap_80pct","month":"2026-11","capUsd":1,"spentUsd":1}
+{"level":"error","event":"alert_chain_cap_exhausted","month":"2026-11","capUsd":1,"spentUsd":1}
+{"level":"error","event":"alert_chain_cap_80pct","month":"2026-11","capUsd":1,"spentUsd":0.9}
+{"level":"error","event":"alert_chain_cap_exhausted","month":"2026-11","capUsd":1,"spentUsd":0.9}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.793Z"}
+✔ LK7 P1: VC_TEXT_CHAIN set and the cap missing or invalid -> startApi refuses (fail closed) BEFORE connecting, naming the variable and never a key (0.7638ms)
+✔ LK7 P2: a valid cap starts the chain; with VC_TEXT_CHAIN unset the cap is not required (3.6291ms)
+✔ LK7 G1: the guard reserves the estimate before a request, refuses one that would pass the cap with a NON-retryable error, and settles a reported usage to the actual figure (0.4234ms)
+✔ LK7 G2: the cap is per UTC calendar month: a new month starts at zero, and a usage settled after the month turned does not touch the new month (0.3513ms)
+{"level":"error","event":"alert_chain_cap_exhausted","month":"2026-10","capUsd":0.03,"spentUsd":0.020284}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.814Z"}
+{"level":"error","event":"alert_chain_cap_80pct","month":"2026-10","capUsd":0.03,"spentUsd":0.028972}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.854Z"}
+✔ LK7 E1: when the cap runs out mid-month, student turns get the existing degraded reply over real HTTP (200, never a 500), no request leaves after the stop, and spend never passes the cap (61.3053ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.871Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.880Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.889Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:23.898Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+✔ LK7 E2: reported token usage settles the spend to the actual figure, so the same cap serves more turns than the reservation alone would (56.6663ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.941Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.946Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.953Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.963Z"}
+✔ LK7 X1: when every hop of the chain fails (the whole chain is exhausted) the turn is the degraded reply, the failover alert still fires, and the exhaustion is counted (29.7837ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.968Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.984Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:23.993Z"}
+✔ LK7 C1-fix R1: chat on + screen on + a rules base provider (no concern-classifier) -> startApi REFUSES with a named error, before connecting, naming no key (12.4007ms)
+✔ LK7 C1-fix R2: the same rules base with the screen switched off in code (chat.safetyScreen = false) starts; so does chat off (15.222ms)
+✔ LK7 C1-fix R3: a rules base is fine when the screen has its own classifier-capable provider (the screen's provider is what counts), and a refusal names the screen provider (24.4221ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-27T16:00:24.021Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:24.026Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:24.032Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:24.038Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:24.048Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:24.054Z"}
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:24.067Z"}
+✔ LK7 C1-fix R4: a classifier-capable base starts and an ordinary question is ANSWERED (not escalated, no crisis message) (33.114ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:24.078Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:24.099Z"}
+✔ H2: chat + VC_GROUNDING=gemini + chat.safetyScreen=false, or a rules screen provider, refuses to start with a named GroundingConfigError before connecting (28.9688ms)
+✔ H2: chat + grounding starts when the screen is on over a classifier-capable provider (default, or its own screen provider); without grounding safetyScreen=false still starts (30.6251ms)
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:24.190Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:24.276Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:24.358Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:24.427Z"}
+✔ K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant is (a case variant of) an existing partner id gets the uniform 401 on chat, thread and profile routes; the partner's bound tenant and an unrelated tenant pass (339.1659ms)
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:24.708Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:24.891Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:25.063Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:25.243Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:25.446Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:25.630Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T16:00:25.798Z"}
+✔ w1-counsellor-tenant-guard T1 startApi: with partners on, a counsellor/admin/approver JWT whose tenant is (a case or width variant of) an existing partner id gets the uniform 401 on EVERY non-public route family; the partner's bound tenant and an unrelated tenant are not refused (1373.1061ms)
+✔ w1-counsellor-tenant-guard T1: a partner-store failure while checking the tenant claim fails closed (uniform 401), like the student path (26.0627ms)
+✔ w1-counsellor-tenant-guard T2 startApi: with the partner registry off (pepper unset) a counsellor JWT whose tenant looks like a partner id is NOT blocked, the one guard-off note names both guards, and no extra Mongo connection is opened (13.5485ms)
+✔ Q10-Q14: actual handler passes only owned completed context and confirmed memory; missing/off policy stops retrieval and extraction (205.3873ms)
+✔ Q12/Q14: queued extraction is discarded after erase or policy disable (77.0283ms)
+✔ Q12/Q14: correction clears stale history, proposed memories never personalize, and missing policy fails off (227.2706ms)
+✔ Q12/I1: confirmed sensitive field labels are never included in answer-provider memory (84.9357ms)
+✔ Q14: a policy disabled during a memory-bearing answer prevents release of the stale model result (68.9681ms)
+✔ I1 repair2: memory fallback never swallows an erasure fence (69.4425ms)
+✔ Q12 repair2: displayed confirmation value must match the current proposal (54.1847ms)
+✔ I1 repair2: pending or uncertain memory never suppresses a deterministic crisis response (81.6302ms)
+✔ Q12/Q14 repair1: text opened during a paused correction or erase cannot consume the former memory (254.7829ms)
+✔ Q12: more than twenty stored memories remain inspectable through bounded owner-bound pages (137.4623ms)
+✔ S12 runtime: canonical latest confirmed preference wins while authoritative supplied grade remains (74.079ms)
+{"level":"warn","event":"partner_tenant_guard_off","message":"VC_PARTNER_KEY_PEPPER is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed","ts":"2026-10-27T16:00:27.422Z"}
+{"level":"info","event":"admin_sources_seeded","created":3,"existing":0,"ts":"2026-10-27T16:00:27.450Z"}
+✔ S12 runtime HTTP: exact old/new prompt, fresh owned yes/no, immutable history and intentional Retry (234.4604ms)
+✔ S12 runtime boot: exact enabled tenant selects its native text/profile adapter and never the bootstrap platform (305.0678ms)
+✔ S12 runtime: real preferences remain reachable past excluded legacy account rows (50.6453ms)
+✔ S12 HTTP memory controls bind a replacement to its originating owned thread (58.8327ms)
+✔ S12 export: unpublished assistant output is excluded and completed history stays without internal lease/snapshot metadata (8.8881ms)
+✔ fixture: student A has retired AND active facts, edges, claims, checkpoints and checkpoint writes (5.6234ms)
+✔ B15: an unconfirmed request deletes NOTHING (every collection byte-identical) (2.6371ms)
+✔ B15/T-029: a self-approval (requester or confirmer, incl. case/whitespace variants) is refused and the request stays unexecutable (2.5951ms)
+✔ B15: confirm records requester, confirmer and times in the audit row; a second confirm is refused (1.3476ms)
+✔ B15: request validation — free-text reason, the student as actor, blank actors, unknown ids are refused (1.6278ms)
+✔ B15: the full purge leaves ZERO documents for the student in every collection (retired facts, edges, claims, checkpoints) (3.0694ms)
+✔ T-034/B15: a queued webhook_outbox event that names the student (event.data.studentId) is purged by the full erasure -- a sibling student's queued event is untouched (2.2316ms)
+✔ w1-erasure-outbox E1 (autoDelete=false): a pending webhook_outbox event for the student is NOT silently dropped -- the erasure is held (retryable, fence kept) while delivered/dead rows are purged; once the event is delivered a retry completes (2.7456ms)
+✔ w1-erasure-outbox E1 (autoDelete=false): a failed webhook_outbox event for the student is NOT silently dropped -- the erasure is held (retryable, fence kept) while delivered/dead rows are purged; once the event is delivered a retry completes (2.5229ms)
+✔ w1-erasure-outbox E1 (autoDelete=true): a pending webhook_outbox event for the student is NOT silently dropped -- the erasure is held (retryable, fence kept) while delivered/dead rows are purged; once the event is delivered a retry completes (2.3083ms)
+✔ w1-erasure-outbox E1 (autoDelete=true): a failed webhook_outbox event for the student is NOT silently dropped -- the erasure is held (retryable, fence kept) while delivered/dead rows are purged; once the event is delivered a retry completes (3.5781ms)
+✔ w1-erasure-outbox E1: a student with ONLY delivered/dead events completes in one run (settled rows are deleted as before) (1.3587ms)
+✔ T-042/B15: a queued webhook_emit_gaps row naming the student (flat studentId) is purged by the full erasure -- a sibling student's row is untouched (1.6865ms)
+✔ B15: the receipt counts match what was actually there (read back, per collection) (1.3177ms)
+✔ ISS-t-014-rev-1: ERASURE_PURGE_OP_TIMEOUT_MS is larger than the client-level default (D-016's fence margin) (0.0585ms)
+✔ ISS-t-014-rev-1: every executeErasure deleteMany/countDocuments call REALLY CARRIES {timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS} (the fake records the options it received) (1.4229ms)
+✔ B15: ANOTHER student's data is untouched, byte for byte (2.1005ms)
+✔ B15: an unrelated global edge (kb_record -> kb_record) survives (1.1893ms)
+✔ B15: the receipt and the surviving audit row carry NO personal data (searched for every identifier) (2.4614ms)
+✔ B15: the audit hash is salted per request (two requests for one student do not share a hash) (2.0543ms)
+✔ B15: a deleteMany failure on edges is REPORTED (thrown with a receipt), anchors are deferred, and the retry completes (2.9571ms)
+✔ B15: a failure on an anchor collection (sessions) is reported and the retry still finds every dependent (2.0097ms)
+✔ B15: the verification pass catches a delete that reports success but leaves documents (2.0135ms)
+✔ B15: every COLLECTION_NAMES entry is in ERASURE_PLAN or explicitly exempt with a reason (a new cards/feedback collection can not be missed) (0.1338ms)
+✔ B15 drift guard: checkpoint collection names and the scribe thread-id format match packages/engine (1.3448ms)
+✔ B15 export: the bundle holds all of A's facts (with history), sessions, decisions, consents, edges and claims, and nothing of B (2.8659ms)
+✔ ISS-t-013r-c0-3: exportStudent includes the full transcript VERBATIM (every turn, text + translation), and none of B's (1.2671ms)
+✔ ISS-t-013r-c0-3: erasure hard-deletes A's transcript with read-back ZERO, and B's transcript is untouched (1.7091ms)
+✔ ISS-t-013r-c0-3: the counsellor reads a session's chat back verbatim, in speaking order, scoped to the student (1.628ms)
+✔ B15 export: an unknown student yields an empty bundle, not someone else's data (1.2638ms)
+✔ rev-3: a fact (with edges, via the real applyApprovedDiff) written at the START of phase 2 leaves no orphan edge and nothing of A (2.4789ms)
+✔ rev-3: a SESSION (row, checkpoints, checkpoint writes, a session edge) inserted mid-erasure is erased too, never orphaned (1.7098ms)
+✔ rev-3: a writer that never stops exhausts the bounded loop -> verified:false + failed (retryable); the retry still finds edges of facts deleted in the failed run (2.2623ms)
+✔ c0-1: two concurrent executeErasure calls on one confirmed request both return the STORED receipt; attempts counted once (1.5738ms)
+✔ c0-1: two concurrent FAILING runs each record their own attempt (1 and 2); the stored receipt is the last one recorded (2.6183ms)
+✔ D-015 fence: confirm sets a fence that holds NO clear studentId (hashed key), unique per student; pending sets none (0.8909ms)
+✔ D-015 fence: a writer that STARTS after confirm is refused and writes nothing (every collection unchanged) (1.2917ms)
+✔ D-015 H4 (checker probe, fact + edge): a writer started BEFORE confirm and landing inside students.countDocuments (the LAST read-back) is compensated -> zero residue, fenced error (2.0039ms)
+✔ D-015 H4 variant: a writer that STARTS inside students.countDocuments (after confirm) is refused by its pre-check -> zero residue (4.4426ms)
+✔ D-015 H4b (checker probe, session + checkpoint + edge): a fence-aware writer landing inside scribe_resolutions.countDocuments leaves zero residue (1.28ms)
+✔ D-015: a writer that starts BEFORE confirm and finishes AFTER it (before execute) compensates; the erasure then completes with zero residue (1.22ms)
+✔ D-015 (ISS-t-011-c1-rev-1): a writer landing between the final read-back and the completion CAS is compensated -> zero residue (1.3254ms)
+✔ D-015: ANOTHER student is unaffected by A's fence (B writes while A is fenced; B intact after A's erasure) (1.3585ms)
+✔ D-016: on completion the fence is HELD until createdAt + MINIMUM_FENCE_HOLD_MS (with grace 0); after the hold the sweep removes it and the student can be written again (1.4527ms)
+✔ D-015: a FAILED attempt keeps the fence (writes still refused) until the retry completes (1.2764ms)
+✔ D-015: executeErasure re-creates a missing fence BEFORE resolving any selector (1.0412ms)
+✔ D-015/D-016: two concurrent executes leave no fence beyond the hold (one fence, stamped; the sweep removes it after the hold) (1.3552ms)
+✔ D-015: with a grace period the fence lingers after completion (writes refused), and releaseExpiredErasureFences releases it once expired (1.0118ms)
+✔ D-015: a failed fence release never fails a verified erasure, and releaseExpiredErasureFences clears the leftover fence after the hold (1.4904ms)
+✔ rev-2: ids over MAX_CARRIED_IDS -> failed with the distinct 'selectors:over_cap' label, no anchor deleted past the cap, the carried ids stay within the cap and parse (1.803ms)
+✔ rev-2: a corrupted carriedSelectors on the row is refused (zod) before anything is deleted (1.3841ms)
+✔ rev-3: CAS retries exhausted -> the attempt is STILL recorded (attempts+1, failed, receipt stored) and the call throws (1.8389ms)
+✔ rev-3: a resolve failure in a later round is labelled with the collection that failed (sessions), not always facts (2.9276ms)
+✔ D-016 KEY PROBE (ISS-t-011-c2-1): a real writer paused before its insert and released only AFTER completion AND the fence-release call is still fenced -> compensated, zero residue; the sweep removes the fence only after the hold (2.0883ms)
+✔ D-016 minimum hold: releaseAfter = max(createdAt + hold, completion + grace); createdAt is NOT reset on re-arm; an old fence past its hold is deleted at completion (11.7795ms)
+✔ D-016 deadline: a writer that exceeds its deadline is ABORTED and COMPENSATED (typed error; its in-flight insert is undone when it lands; every op carried a driver timeoutMS) (40.8524ms)
+✔ D-016 finally post-check: an unrelated error mid-write still runs the post-check; when fenced it compensates and StudentFencedError carries the original error as `cause` (ISS-t-011-c2-rev-3) (1.6047ms)
+✔ D-016 lows (ISS-t-011-c2-rev-3): the fenced undo removes ONLY edges this call created, never pre-existing deterministic edges (idempotent replay) (1.0841ms)
+✔ T-014/ISS-t-011-c3-rev-1: a PRE-EXISTING edge survives even when THIS call's link() to it throws (ambiguous outcome), because it lacks this call's writerToken (1.1099ms)
+✔ T-014/ISS-t-011-c3-rev-1: an edge THIS call actually created is still removed by the fenced undo, even though link()'s own outcome to it was ambiguous (1.1686ms)
+✔ D-016 one open request (ISS-t-011-c2-rev-4): a second open request for the same student is refused with a typed error, also under concurrency; after completion a new one is allowed (1.6338ms)
+✔ D-016 no stuck fence (ISS-t-011-c2-rev-4): the fence is released only when no fencing request remains, and never left behind (1.6085ms)
+✔ T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep's timer actually releases an expired fence, and stop() actually stops it (fake timers) (4.041ms)
+✔ T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep rejects a non-positive intervalMs (0.1448ms)
+✔ T-014/ISS-t-011-c3-rev-3: a failing tick is reported via onError, not thrown, and does not stop the interval (6.7593ms)
+✔ ISS-t-015-c0-3: an onError that itself throws does not produce an unhandledRejection, and the interval keeps running (4.9959ms)
+✔ ISS-t-017-rev-2: an ASYNC onError whose returned promise rejects (not a synchronous throw) does not produce an unhandledRejection, and the interval keeps running (4.9524ms)
+✔ ISS-t-017-rev-3: an onError that returns a NEVER-SETTLING promise does not stall the sweep — a LATER tick still runs and releases an expired fence (14.918ms)
+✔ ISS-t-017-rev-3: onError returning a THENABLE (not a native Promise) that never resolves does not stall the sweep either (4.9513ms)
+✔ ISS-t-017-rev-3: a non-function onError does not crash tick() or stall the sweep (5.033ms)
+✔ T-015/ISS-t-014-rev-4: an in-flight tick is not overlapped by the next scheduled tick; a tick AFTER the previous one finished is not skipped (29.989ms)
+✔ D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns (46.2017ms)
+✔ ISS-t-011-rev-5: checkpoints of a thread recorded on the session row (NOT scribe:<sessionId>) are exported and purged to zero (0.7468ms)
+✔ T-035: projected safety export and unanchored erasure preserve an identical-ID other tenant (2.1508ms)
+✔ T-035: either safety purge or residue read failure cannot report completed (4.1197ms)
+✔ T-035: safety export orders each stored row and projects classified annotations (0.3306ms)
+ℹ tests 145
+ℹ suites 0
+ℹ pass 145
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6911.4347

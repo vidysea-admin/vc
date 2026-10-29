@@ -259,3 +259,189 @@ test("p1-lk6: a student correcting a fact whose quote supports the old value dro
   const confirmed = await decideProfileFact(a, { studentId: "stu-1", factId: kept.factId, action: "confirm" });
   assert.equal(confirmed?.quote, "पुणे", "confirming keeps the quote");
 });
+
+
+test("S12: replacement preserves active provenance and needs exact candidate/version/displayed value; reject preserves active", async () => {
+  const { a } = setup();
+  const first = (await proposeProfileFact(a,{studentId:"stu-1",key:"target_country",value:"Germany",quote:"Deutschland",sourceLang:"de",threadId:"one",turnId:"old"}))!;
+  await decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"confirm"});
+  const next = (await proposeProfileFact(a,{studentId:"stu-1",key:"target_country",value:"France",quote:"France",sourceLang:"fr",threadId:"two",turnId:"new"}))!;
+  assert.equal(next.value,"Germany"); assert.equal(next.quote,"Deutschland");
+  assert.equal(next.pendingChange?.value,"France"); assert.equal(next.pendingChange?.threadId,"two");
+  const candidate = next.pendingChange!;
+  for (const ref of [{},{candidateId:candidate.candidateId},{candidateId:candidate.candidateId,expectedVersion:"stale",value:"France"},{candidateId:candidate.candidateId,expectedVersion:candidate.version,value:"Germany"}]) {
+    await assert.rejects(decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"confirm",...ref}),/ProfileFactChanged/);
+  }
+  const rejected = await decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"reject",candidateId:candidate.candidateId,expectedVersion:candidate.version,value:candidate.value});
+  assert.equal(rejected?.value,"Germany"); assert.equal(rejected?.quote,"Deutschland"); assert.equal(rejected?.pendingChange,undefined);
+  await assert.rejects(decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"confirm",candidateId:candidate.candidateId,expectedVersion:candidate.version,value:candidate.value}),/ProfileFactChanged/);
+  const replacement = (await proposeProfileFact(a,{studentId:"stu-1",key:"target_country",value:"Spain"}))!;
+  const accepted = await decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"confirm",candidateId:replacement.pendingChange!.candidateId,expectedVersion:replacement.pendingChange!.version,value:"Spain"});
+  assert.equal(accepted?.value,"Spain"); assert.equal(accepted?.pendingChange,undefined);
+  assert.equal(accepted?.quote,undefined); assert.equal(accepted?.threadId,undefined);
+});
+
+test("S12: correction clears candidate and provenance, forget removes active and candidate, initial reject removes only proposal",async()=>{
+ const {a}=setup();
+ const first=(await proposeProfileFact(a,{studentId:"stu-1",key:"budget",value:"10 lakh",quote:"ten",threadId:"one"}))!;
+ assert.equal(first.pendingChange?.value,"10 lakh");
+ const corrected=await decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"correct",value:"12 lakh"});
+ assert.equal(corrected?.pendingChange,undefined); assert.equal(corrected?.quote,undefined);
+ await proposeProfileFact(a,{studentId:"stu-1",key:"budget",value:"15 lakh",quote:"fifteen"});
+ await decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"erase"});
+ assert.deepEqual(await listProfileFacts(a,{studentId:"stu-1"}),[]);
+ const pending=(await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"music"}))!;
+ await decideProfileFact(a,{studentId:"stu-1",factId:pending.factId,action:"reject",candidateId:pending.pendingChange!.candidateId,expectedVersion:pending.pendingChange!.version,value:"music"});
+ assert.deepEqual(await listProfileFacts(a,{studentId:"stu-1"}),[]);
+});
+
+test("S12: stale extraction successful cleanup never rewinds the explicit forget history cutoff",async()=>{
+ const m=await import("../src/profile-facts.js"); const {a,fakeDb}=setup();
+ const t0=new Date("2026-11-01T10:00:00.000Z"),t2=new Date("2026-11-01T10:00:02.000Z");
+ const threads=await import("../src/chat-threads.js");
+ await createChatThread(a,{studentId:"stu-1",threadId:"owned",textStored:true},{now:t0});
+ const claim=await claimChatTurn(a,{studentId:"stu-1",threadId:"owned",turnId:"t1",channel:"text",text:"I like robotics",requestHash:"synthetic-t1"},{now:new Date("2026-11-01T10:00:01Z")});
+ assert.equal(claim.kind,"claimed");
+ if(claim.kind!=="claimed")throw new Error("claim unavailable");
+ await completeChatTurn(a,{studentId:"stu-1",threadId:"owned",turnId:"t1",leaseToken:claim.leaseToken,channel:"text",assistantText:"Lets explore robotics",response:{state:"ok",claims:[],sources:[],profileFactsUsed:[]}});
+ assert.equal((await threads.listChatContext(a,{studentId:"stu-1",threadId:"owned"})).length,2);
+ const fact=(await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"robotics"},{now:t0}))!;
+ const revision=await m.readStudentMemoryRevision(a,"stu-1");
+ const col=fakeDb.collection(COLLECTION_NAMES.profile_facts), update=col.updateOne.bind(col);
+ let release!:()=>void,entered!:()=>void;const blocked=new Promise<void>(r=>release=r),paused=new Promise<void>(r=>entered=r);
+ col.updateOne=(async(...args:Parameters<typeof col.updateOne>)=>{if((args[1] as any).$setOnInsert?.key==="stale"){entered();await blocked;}return update(...args);}) as typeof col.updateOne;
+ const proposal=proposeProfileFact(a,{studentId:"stu-1",key:"stale",value:"robotics",expectedRevision:revision},{now:t0});
+ try {
+   await paused;await decideProfileFact(a,{studentId:"stu-1",factId:fact.factId,action:"erase"},{now:t2});
+   const before=await m.readStudentMemoryRevision(a,"stu-1");
+   release();assert.equal(await proposal,null);
+   const after=await m.readStudentMemoryRevision(a,"stu-1");assert.notEqual(before,after);
+   // Old implementation derives a transcript cutoff from revision; retained counterexample reopens T1 chat after T2 forget.
+   const snapshot=typeof m.readStudentMemorySnapshot==="function"?await m.readStudentMemorySnapshot(a,"stu-1"):{historyAfter:after.split("|")[0],historyUsable:true};
+   assert.equal(snapshot.historyAfter,t2.toISOString());assert.equal(snapshot.historyUsable,true);
+   assert.equal(["2026-11-01T10:00:01.000Z"].filter(at=>!snapshot.historyAfter||at>snapshot.historyAfter).length,0);
+   assert.deepEqual(await threads.listChatContext(a,{studentId:"stu-1",threadId:"owned",after:snapshot.historyAfter!}),[]);
+   assert.equal((await threads.listChatTurns(a,{studentId:"stu-1",threadId:"owned"})).length,2,"delivered history stays immutable");
+   assert.deepEqual(await listProfileFacts(a,{studentId:"stu-1"}),[]);
+ } finally {release();await Promise.allSettled([proposal]);}
+});
+
+test("S12: unknown legacy cutoff excludes history without discarding confirmed facts; marker-free history stays usable",async()=>{
+ const m=await import("../src/profile-facts.js");const {a,b,fakeDb}=setup();
+ assert.deepEqual(await m.readStudentMemorySnapshot(a,"stu-1"),{revision:"",historyAfter:null,historyUsable:true});
+ const f=(await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"music"}))!;
+ await decideProfileFact(a,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+ const markers=fakeDb.collection(COLLECTION_NAMES.student_usage);
+ await markers.updateOne({studentId:"stu-1",tenantId:"tenantA"},{$set:{revision:"arbitrary-legacy"},$unset:{historyAfter:"",historyUsable:""}});
+ assert.deepEqual(await m.readStudentMemorySnapshot(a,"stu-1"),{revision:"arbitrary-legacy",historyAfter:null,historyUsable:false});
+ assert.equal((await listProfileFacts(a,{studentId:"stu-1",status:"confirmed"}))[0]?.value,"music");
+ assert.deepEqual(await m.readStudentMemorySnapshot(b,"stu-1"),{revision:"",historyAfter:null,historyUsable:true});
+ for(const invalid of ["not-a-date",17]) {
+  await markers.updateOne({studentId:"stu-1",tenantId:"tenantA"},{$set:{historyAfter:invalid}});
+  assert.equal((await m.readStudentMemorySnapshot(a,"stu-1")).historyUsable,false);
+ }
+ await markers.updateOne({studentId:"stu-1",tenantId:"tenantA"},{$set:{pendingCompensations:1}});
+ await assert.rejects(m.readStudentMemorySnapshot(a,"stu-1"),/pending/i);
+});
+
+test("S12: later explicit decision retains monotonic cutoff even if an earlier decision completes last",async()=>{
+ const m=await import("../src/profile-facts.js");const {a,fakeDb}=setup();
+ const facts=await Promise.all(["budget","interest"].map(key=>proposeProfileFact(a,{studentId:"stu-1",key,value:"old"})));
+ const col=fakeDb.collection(COLLECTION_NAMES.profile_facts),update=col.updateOne.bind(col);
+ let release!:()=>void,entered!:()=>void;const blocked=new Promise<void>(r=>release=r),paused=new Promise<void>(r=>entered=r);
+ col.updateOne=(async(...args:Parameters<typeof col.updateOne>)=>{if((args[1] as any).$set?.value==="earlier"){entered();await blocked;}return update(...args);}) as typeof col.updateOne;
+ const first=decideProfileFact(a,{studentId:"stu-1",factId:facts[0]!.factId,action:"correct",value:"earlier"},{now:new Date("2026-11-01T10:00:01Z")});
+ try {
+  await paused;
+  await decideProfileFact(a,{studentId:"stu-1",factId:facts[1]!.factId,action:"correct",value:"later"},{now:new Date("2026-11-01T10:00:02Z")});
+  await assert.rejects(m.readStudentMemorySnapshot(a,"stu-1"),/pending/i);
+ } finally {release();await first;}
+ assert.equal((await m.readStudentMemorySnapshot(a,"stu-1")).historyAfter,"2026-11-01T10:00:02.000Z");
+});
+
+test("S12: overlapping candidate confirmations cannot overwrite a newer explicit correction",async()=>{
+ const {a,fakeDb}=setup(); const fact=(await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"music"}))!;
+ await decideProfileFact(a,{studentId:"stu-1",factId:fact.factId,action:"confirm"});
+ const proposed=(await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"robotics"}))!;
+ assert.ok(proposed.pendingChange);
+ const col=fakeDb.collection(COLLECTION_NAMES.profile_facts),update=col.updateOne.bind(col);
+ let release!:()=>void,entered!:()=>void;const blocked=new Promise<void>(r=>release=r),paused=new Promise<void>(r=>entered=r);
+ col.updateOne=(async(...args:Parameters<typeof col.updateOne>)=>{if((args[1] as any).$set?.value==="robotics"){entered();await blocked;}return update(...args);}) as typeof col.updateOne;
+ const decision=decideProfileFact(a,{studentId:"stu-1",factId:fact.factId,action:"confirm",value:"robotics",candidateId:proposed.pendingChange.candidateId,expectedVersion:proposed.pendingChange.version});
+ const outcome=decision.then(()=>undefined,e=>e);
+ try {await paused;await decideProfileFact(a,{studentId:"stu-1",factId:fact.factId,action:"correct",value:"astronomy"});}
+ finally {release();}
+ assert.match((await outcome)?.message??"",/ProfileFactChanged/);
+ assert.equal((await listProfileFacts(a,{studentId:"stu-1"}))[0]?.value,"astronomy");
+});
+
+
+test("S12: late older extraction cannot overwrite a newer candidate and exact same-candidate confirmations have one winner",async()=>{
+ const {a,fakeDb}=setup();const first=(await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"music"}))!;
+ await decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"confirm"});
+ const col=fakeDb.collection(COLLECTION_NAMES.profile_facts),update=col.updateOne.bind(col);
+ let release!:()=>void,entered!:()=>void;const blocked=new Promise<void>(r=>release=r),paused=new Promise<void>(r=>entered=r);
+ col.updateOne=(async(...args:Parameters<typeof col.updateOne>)=>{if((args[1] as any).$set?.pendingChange?.value==="older"){entered();await blocked;}return update(...args);}) as typeof col.updateOne;
+ const older=proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"older"});
+ let newest:Awaited<ReturnType<typeof proposeProfileFact>>;
+ try {await paused;newest=await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"newer"});}finally{release();}
+ await older;
+ const current=(await listProfileFacts(a,{studentId:"stu-1"}))[0]!;
+ assert.equal(current.value,"music");assert.equal(current.pendingChange?.value,"newer");assert.equal(current.pendingChange?.candidateId,newest!.pendingChange?.candidateId);
+ const decision={studentId:"stu-1",factId:first.factId,action:"confirm" as const,value:"newer",candidateId:current.pendingChange!.candidateId,expectedVersion:current.pendingChange!.version};
+ const results=await Promise.allSettled([decideProfileFact(a,decision),decideProfileFact(a,decision)]);
+ assert.equal(results.filter(r=>r.status==="fulfilled").length,1);assert.equal(results.filter(r=>r.status==="rejected").length,1);
+ assert.equal((await listProfileFacts(a,{studentId:"stu-1"}))[0]?.value,"newer");
+});
+
+test("S12: candidate decisions are student and tenant owned, aliases use one fact, account fields refuse before persistence",async()=>{
+ const {a,b}=setup();const first=(await proposeProfileFact(a,{studentId:"stu-1",key:"targetCountry",value:"Germany"}))!;
+ await decideProfileFact(a,{studentId:"stu-1",factId:first.factId,action:"confirm"});
+ const next=(await proposeProfileFact(a,{studentId:"stu-1",key:"preferred country",value:"France"}))!;
+ assert.equal(first.factId,next.factId);assert.equal(next.key,"target_country");
+ await proposeProfileFact(b,{studentId:"stu-1",key:"country",value:"Japan"});
+ const decision={studentId:"stu-1",factId:first.factId,action:"confirm" as const,value:"France",candidateId:next.pendingChange!.candidateId,expectedVersion:next.pendingChange!.version};
+ await assert.rejects(decideProfileFact(a,{...decision,studentId:"other"}),ProfileFactNotFoundError);
+ await assert.rejects(decideProfileFact(b,decision),/ProfileFactChanged/);
+ assert.equal((await listProfileFacts(a,{studentId:"stu-1"})).length,1);
+ assert.equal((await listProfileFacts(b,{studentId:"stu-1"}))[0]?.value,"Japan");
+ for(const key of ["name","studentName","grade","schoolGrade","accountId","email"]) await assert.rejects(proposeProfileFact(a,{studentId:"stu-1",key,value:"synthetic"}),/authoritative account/);
+ assert.equal((await listProfileFacts(a,{studentId:"stu-1"})).length,1);
+});
+
+
+test("S12: legacy authoritative chat rows cannot be read or confirmed as editable preferences but may be erased",async()=>{
+ const {a,fakeDb}=setup();
+ await a.collection(COLLECTION_NAMES.profile_facts).insertOne({_id:"legacy-name",factId:"legacy-name",studentId:"stu-1",key:"studentName",value:"synthetic",source:"chat",status:"proposed",proposedAt:"2026-10-27T00:00:00.000Z"});
+ assert.deepEqual(await listProfileFacts(a,{studentId:"stu-1"}),[]);
+ await assert.rejects(decideProfileFact(a,{studentId:"stu-1",factId:"legacy-name",action:"confirm"}),/authoritative account/);
+ await assert.rejects(decideProfileFact(a,{studentId:"stu-1",factId:"legacy-name",action:"correct",value:"changed"}),/authoritative account/);
+ await decideProfileFact(a,{studentId:"stu-1",factId:"legacy-name",action:"erase"});
+ assert.equal(fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length,0);
+});
+
+test("S13 fixA-5: a discarded proposal for a student with no prior decision keeps short-term context usable (historyAfter is set, history is not cut)", async () => {
+  const m = await import("../src/profile-facts.js");
+  const threads = await import("../src/chat-threads.js");
+  const { a, fakeDb } = setup();
+  await createChatThread(a, { studentId: "stu-1", threadId: "th-1", textStored: true });
+  await createChatThread(a, { studentId: "stu-1", threadId: "th-2", textStored: true });
+  const claim = await claimChatTurn(a, { studentId: "stu-1", threadId: "th-1", turnId: "t1", text: "hello", requestHash: "h", channel: "text" }, { now: new Date("2026-11-01T10:00:00.000Z") });
+  assert.equal(claim.kind, "claimed");
+  await completeChatTurn(a, { studentId: "stu-1", threadId: "th-1", turnId: "t1", leaseToken: (claim as { leaseToken: string }).leaseToken, channel: "text", assistantText: "hi", response: { state: "ok" } }, { now: new Date("2026-11-01T10:00:01.000Z") });
+  assert.equal((await threads.listChatContext(a, { studentId: "stu-1", threadId: "th-1" })).length, 2);
+  assert.deepEqual(await m.readStudentMemorySnapshot(a, "stu-1"), { revision: "", historyAfter: null, historyUsable: true });
+  // The proposing thread turns no-text after the proposal row is written: the proposal is discarded (no decision was ever made).
+  const facts = fakeDb.collection(COLLECTION_NAMES.profile_facts), update = facts.updateOne.bind(facts);
+  facts.updateOne = (async (...args: Parameters<typeof facts.updateOne>) => {
+    const out = await update(...args); 
+    if ((args[1] as any).$setOnInsert?.status === "proposed") await threads.markChatThreadTextNotStored(a, { studentId: "stu-1", threadId: "th-2" });
+    return out;
+  }) as typeof facts.updateOne;
+  assert.equal(await proposeProfileFact(a, { studentId: "stu-1", key: "interest", value: "music", threadId: "th-2" }), null);
+  const snapshot = await m.readStudentMemorySnapshot(a, "stu-1");
+  assert.notEqual(snapshot.revision, "", "the discard bumped the revision");
+  assert.equal(snapshot.historyUsable, true, "fail-closed unusable history would drop a new student's short-term context");
+  assert.notEqual(snapshot.historyAfter, null);
+  assert.equal((await threads.listChatContext(a, { studentId: "stu-1", threadId: "th-1", after: snapshot.historyAfter! })).length, 2, "earlier delivered turns are still context");
+});

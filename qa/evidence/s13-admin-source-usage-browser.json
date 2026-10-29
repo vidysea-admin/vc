@@ -1,0 +1,72 @@
+{
+  "at": "2026-10-27T19:03:12.008Z",
+  "scope": "built local Admin + current API + real localhost Mongo, synthetic tenants only",
+  "usage": [
+    {
+      "site": "Pathlynks localhost QA",
+      "status": 200,
+      "metrics": {
+        "perSiteDay": [
+          {
+            "siteId": "pathlynks",
+            "day": "2026-10-27",
+            "conversations": 6
+          }
+        ],
+        "activeStudents": 3,
+        "chatVsVoice": {
+          "chat": 6,
+          "voice": 0
+        },
+        "tokens": 0,
+        "costUsd": 0,
+        "costPerStudentInr": 0,
+        "latencyP50": 52,
+        "latencyP95": 120,
+        "guardrailHits": 0,
+        "unanswered": 0
+      },
+      "chart": "Chat vs voice\n\nChat 6 / Voice 0",
+      "rows": "Conversations per site per day\nSITE\tDAY\tCONVERSATIONS\nPathlynks localhost QA pathlynks\t2026-10-27\t6"
+    },
+    {
+      "site": "Vidysea localhost synthetic QA",
+      "status": 200,
+      "metrics": {
+        "perSiteDay": [
+          {
+            "siteId": "vidysea",
+            "day": "2026-10-27",
+            "conversations": 9
+          }
+        ],
+        "activeStudents": 2,
+        "chatVsVoice": {
+          "chat": 6,
+          "voice": 3
+        },
+        "tokens": 0,
+        "costUsd": 0,
+        "costPerStudentInr": 0,
+        "latencyP50": 27,
+        "latencyP95": 116,
+        "guardrailHits": 0,
+        "unanswered": 0
+      },
+      "chart": "Chat vs voice\n\nChat 6 / Voice 3",
+      "rows": "Conversations per site per day\nSITE\tDAY\tCONVERSATIONS\nVidysea localhost synthetic QA vidysea\t2026-10-27\t9"
+    }
+  ],
+  "audit": {
+    "sourceTestAudit": [
+      "2026-10-27 18:58super@vc.testsources.testqa-vidysea-dbFailed"
+    ]
+  },
+  "sourceConnectivity": {
+    "sourceId": "qa-vidysea-db",
+    "tested": true,
+    "ok": false,
+    "message": "No password is set for this database source."
+  },
+  "signedOut": true
+}

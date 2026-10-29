@@ -1,0 +1,42 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "HARD RULES (non-negotiable):\n- Secrets: NEVER print, echo, log or paste any secret value (API keys, passwords, partner keys, JWTs); report env key NAMES only; never commit any env file.\n- Production DBs (Pathlynks Postgres, Vidysea Postgres, Vidysea Mongo Vanced_new) are READ-ONLY. Mongo writes only to the virtual_counsellor database, never drop it.\n- Real student rows never go into git, logs you write, or your report: counts and field names only.\n- Do not edit anything under .claude/**, docs/DECISIONS.md, qa/contracts, ARCHITECTURE.md. Do not commit, push, or delete worktrees. Do not remove qa/.paused.\n- Other agents are working in parallel: edit ONLY the files your brief assigns you. Do not restart services unless your brief says so.\n- The test lock is shared: long waits on it are normal, keep waiting (do not give up).\n- Edit in place, minimal diffs, TDD (failing test first) for code; report every file changed with file:line.",
+  "sources": [
+    {
+      "path": "qa/.delivery/briefs/t057-voice-evidence.md",
+      "sha256": "f8b56ad67795be44235c32feb0f74b0a553bb6038c837655b63e6d5d04176cfc",
+      "ranges": [
+        [
+          1,
+          6
+        ]
+      ]
+    },
+    {
+      "path": "docs/demo-contract.md",
+      "sha256": "231683b7459de1726ca1302b58d551ce8e2648a12c2e7ad8bf6ad93cd2602b9a",
+      "ranges": [
+        [
+          1,
+          55
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "t057-voice-evidence",
+    "owner": "general-purpose",
+    "purpose": "Execute the brief in qa/.delivery/briefs/t057-voice-evidence.md (source 1) exactly; it is the full task.",
+    "dependencies": [],
+    "acceptance": [
+      "voice readiness proven or gaps listed; qa/evidence/t057-demo.md written with C1-C11 table + manual voice script, no real data"
+    ],
+    "checks": [
+      "Return: voice env key names set/missing, smoke-check commands + results, path of evidence file, gaps."
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 65536,
+    "max_prompt_bytes": 98304
+  }
+}

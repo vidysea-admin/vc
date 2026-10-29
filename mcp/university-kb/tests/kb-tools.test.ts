@@ -5,7 +5,7 @@
  * (fakeKb.ts) and the real client; fixtures are in `kb-fixture/` (contract-shaped, derived from the
  * KnowledgeBase route code; the KB server itself is never started or called).
  */
-import { test } from "node:test";
+import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,11 +21,15 @@ import {
   loadAnonymousKbConfigFromEnv,
   type KbAskOk,
   type KbAskResult,
+  resetKbBreakers,
 } from "../src/kb-client.js";
 import { SourceKindConfigSchema } from "../src/source-kind.js";
 import { createFakeDb } from "./fakes.js";
 import { startFakeKb, type FakeKbRequest, type FakeKbResponse } from "./fakeKb.js";
 import { FIXTURE_DIR, readFixture } from "./kb-fixture.js";
+
+// The KB circuit breaker is process-wide per base URL: every test starts closed.
+beforeEach(() => resetKbBreakers());
 
 const SOURCE_KINDS = SourceKindConfigSchema.parse({
   internalSeminar: { sourceIds: ["src-sem-1"] },
@@ -466,7 +470,8 @@ for (const [label, resp, reason] of OUTAGES) {
 test("typed unavailable: timeout and network error on every read method; the network detail never echoes the query text", async () => {
   const slow = await startFakeKb(() => ({ status: 200, body: "{}", delayMs: 300 }));
   try {
-    const kb = createKnowledgeBaseClient({ baseUrl: slow.url, apiKey: "k", timeoutMs: 40 });
+    // four consecutive timeouts in a row would (correctly) open the circuit breaker; this test is about the typed `timeout` on each method
+    const kb = createKnowledgeBaseClient({ baseUrl: slow.url, apiKey: "k", timeoutMs: 40, breaker: { failThreshold: 100 } });
     for (const result of [await kb.search("q"), await kb.getSession("s"), await kb.gaps(), await kb.sources()]) {
       assert.equal(result.status, "unavailable");
       assert.equal(result.status === "unavailable" && result.reason, "timeout");

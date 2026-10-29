@@ -1023,3 +1023,258 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** Feature trio + qa/gates/vc-admin-control.md written; parallel build waves dispatched against fakes. Live Pathlynks DB connection and live GitHub sync are HELD on gate G1/G2 (read-only role, password rotation, access method). Unchanged: crisisGuard, LK10 wording, D-110, anonymous zero persistence; only the virtual_counsellor DB is written; production deploy stays a separate Umesh gate.
 **Links:** D-111, D-112, vc-admin-control, partner-chatbot
 **Changes-authorized:** none
+
+## D-114 | 2026-10-27 | type: decision | status: ACTIVE
+**What:** Umesh explicitly approved implementation of the complete Quest Guide -> scalable VC repair plan: real Pathlynks table/identity joins, existing authenticated Quest Guide integration with feature parity, multilingual verified navigation and personalized proxy Chat/Voice. T-057 is a new successor feature; completed vc-admin-control histories/counters remain unchanged. Named Pathlynks frontend/backend integration edits may be prepared in isolated local checkouts for review; existing source-only sibling rules still apply to all unrelated repositories.
+**Why:** Live read-only audit reproduced four adapter query_error/unavailable results because none of the configured tables exists; the live Quest Guide calls its legacy AI endpoint and gives incorrect/missing account state and generic navigation. Fixture-green was not live acceptance. User selected the existing authorized account and explicitly requested IMPLEMENT THIS PLAN.
+**Result:** Approved plan recorded in docs/features/vc-admin-control/plan.md; T-057 and quest-successor manifest opened. Independent implementation-plan approval precedes product edits, then non-overlapping build groups and one completed-feature dual check. Live DB remains SELECT-only/read-only, credentials stay outside committed sources/evidence. No deployment/publishing/production-data mutation authorized.
+**Links:** T-057, D-111, D-113, qa/manifests/quest-successor.md, docs/features/vc-admin-control/plan.md
+**Changes-authorized:** Existing implementation/config/test/feature-plan files for T-057; no ARCHITECTURE.md, frozen contracts or enforcement edits.
+
+## D-115 | 2026-10-27 | type: decision | status: ACTIVE
+**What:** Extend T-057 with own-user new/reopened chat sessions, Mongo short/long-term memory and Admin Console platform memory configuration, using existing storage/UI seams.
+**Why:** Umesh directly requested session-wise history, a user knowledge graph and platform-admin settings while successor work is BUILDING; existing chat_threads/profile_facts/partners avoid duplicate systems.
+**Result:** Scope recorded for independent amended-plan approval before extension code. D-114 and Q1-Q9 preserved; final product acceptance remains unverified, no cycle reset, deployment or production mutation.
+**Links:** T-057; docs/features/vc-admin-control/plan.md; qa/manifests/quest-successor.md
+
+## D-116 | 2026-10-27 | type: decision | status: ACTIVE
+
+**What:** Umesh clarifies local-first completion: DevOps deploys later, and missing DOB must not make available student data unusable. Keep unknown age explicit; grade is academic context, never proof of adulthood or guardian consent. S8 limited-mode proposal in the existing feature plan is pending fresh independent plan decision.
+
+**Why:** The actual read-only account has grade and assessment data but no DOB/usable consent assertion. Current central non-crisis no-consent branch returns a fixed message before any provider. This is an eligibility-policy interaction, not missing DB records. The user explicitly requested using actual available fields and a proper local build.
+
+**Result:** T-057 remains BUILDING cycle0. Separate compatibility maker repairs14 observed API failures; S8 plan reviewer checks existing frozen consent/no-provider authority before approving any change. No inferred age, invented consent, frozen-contract change, product PASS, paid-run gate bypass or production action authorized. Local Guide/Mongo session, memory correction/forget, selected reload, navigation chip, ChatVoiceChat/mic UI and Admin save/reload are observed fixture execution only.
+
+**Links:** T-057; docs/features/vc-admin-control/plan.md S8; qa/manifests/quest-successor.md; qa/evidence/quest-successor-root.md
+
+**Changes-authorized:** No ARCHITECTURE.md, frozen contract or enforcement edit; only existing T-057 source/test files after independent scoped plan approval.
+
+## D-117 | 2026-10-27 | type: decision | status: ACTIVE
+**What:** Umesh authorizes the bounded local synthetic real-voice verification using the existing GEMINI_API_KEY in .env, in response to the explicitly scoped question: maximum two sessions of 30 seconds each, INR 10 total hard cap, no production deployment or real student data. Local test runtime may use the existing sibling reference's gemini-3.1-flash-live-preview explicitly, temporary synthetic QA audio and ephemeral WS secrets, without changing the production model or .env defaults. Existing text chain remains Ollama deepseek-v4.1-flash then glm-5.3-flash from .env.
+**Why:** Umesh answered: ".env mai gemini api key hai naa use those and for the chat and all env se hi ollama models use ho rhee hai ya konsee?" The key is present, the text chain has four successful synthetic real calls, and voice needs actual SDK audio evidence rather than fixture bytes.
+**Result:** Record per-use approval in qa/gates/g-real.md. S9 budget repair independently plan-approved and implemented with failing-before/passing-after tests; keep caps, reservation-before-call, audit, existing D-111 owner override, consent/privacy and all safety gates. Use only local synthetic consenting adult data and operator-visible QA audio; no model fallback/retries, no production asset promotion, no forced consent for the real account, no deployment. Product acceptance and ISS-133 closure remain checker-owned.
+**Links:** T-057, D-111, D-114, D-115, D-116, qa/evidence/quest-closeout-budget-green.txt
+**Changes-authorized:** Existing local execution evidence and QA test configuration only; no frozen contracts, enforcement, production deployment or production-data write.
+
+## D-118 | 2026-10-27 | type: session | status: ACTIVE
+
+**What:** Close the parallel local directory-audit/build/browser evidence lane for T057 and hand off remaining source work to the active same-directory owner after Umesh explicitly authorized a coordination message. This is not a finished-product verdict.
+
+**Why:** Actual shared state was reconciled: parallel human Gemini approval/D117 and independent S9 approval/34test repair had completed while this lane's earlier snapshot was stale. Avoid duplicated2x30sec/INR10 voice calls, overlapping source writers and repeated full suites. Missing-age exception S8 is not implemented because Umesh chose keep current consent gate.
+
+**Result:** Attributed actual workspace log totals3990tests/3945PASS/0FAIL/45skip, all11types done; root inputs had no source/config/test mtimes newer than that green log. Actual compiled Admin/browser/RBAC/Mongo flows and actual full201page host production build PASS recorded. Host build required only fresh empty child TMP/TEMP to isolate Next/nft runtime report glob, no product/permission changes; compiler generated tsconfig addition surgically restored. Local real Guide session/memory/navigation/mic UI and real portal read-only labels reconciled, no picks/compare/production writes. Original failed timing runs and timed-out/refused reviewer receipt retained. Root sent the approved exact evidence/ownership message to task01a178ed-59b6-7161-adfd-d6ac4f1b7793; send succeeded. That active owner retains paid SDK/audio proof, new resize/focus UI, and final fresh dual/specialist acceptance. No product PASS, commit, push or deploy. Landplane task/decision/verification/audit evidence recorded; commit/handoff ritual is not claimed complete while source feature remains BUILDING and another owner is active. Live local services retained intentionally.
+
+**Links:** T057; D116; D117; qa/evidence/quest-successor-root.md; qa/evidence/quest-successor-host-production-build-isolated.txt; qa/evidence/quest-closeout-workspace-tests.txt; qa/manifests/quest-successor.md
+
+**Changes-authorized:** No ARCHITECTURE.md/frozen contracts/enforcement changes. Existing task/evidence status only; no stage-all or commit of peer WIP.
+
+## D-119 | 2026-10-27 | type: session | status: ACTIVE
+
+**What:** Record Vidysea handover/repository inventory and close local T-057 repair/check execution as STALLED after the final permitted cycle2, with two independently reproduced remaining memory-consistency failures. Existing central service/Admin/widget are reused; no second counsellor implementation or Vidysea personal-data enablement was performed.
+
+**Why:** Umesh provided Vidysea gateway/AI/student/admin setup, asked to complete remaining work with useful parallel makers, and required actual functional validation without rebuilding existing features. Seven original issues and four subsequent repair targets received bounded in-place repairs, but final data/SSE source reviews identified additional affected-consumer gaps that positive tests did not cover.
+
+**Result:** Current affected114/114, host18/18, mounted Guide13/13 and seven-package types are green with exact source-bound evidence; real loopback Mongo confirmation/cleanup and browser microphone lifecycle passed at their stated fixture scope. Final dual coordinators are BLOCKED on real eligible-account/live sourced-quality conjunction; AI source Warning. Data/SSE Block findings were independently reproduced on unchanged frozen cycle2 source: successful stale cleanup moves history cutoff backwards and restores forgotten dialogue; erase during final ranking persistence still returns obsolete facts. These are concrete Q12/Q14 failures, so T-057/manifest are STALLED, not checked-PASS. All own managed workers/checkers/tests/contexts/clients completed or closed; shared local fixtures retained. Existing feature-plan S11 records a two-boundary recovery proposal only, awaiting explicit Umesh disposition and fresh independent plan approval; no cycle3/reset, additional paid call, commit/push/deploy or production mutation. Current consent gate/A10 override and production asset/live proof limits remain. Vidysea nonsecret inventory is in docs/partner-integration.md; supplied passwords were not copied into repo config or evidence, and no Vidysea production DB was accessed.
+
+**Links:** T-057; D-114; D-115; D-116; D-117; D-118; qa/manifests/quest-successor.md; qa/evidence/quest-closeout-20261027.md; qa/verdicts/quest-successor.md; qa/verdicts/quest-successor.b.md; qa/evidence/quest-closeout-data.md; qa/evidence/quest-closeout-sse.md; docs/features/vc-admin-control/plan.md S11; docs/partner-integration.md
+
+**Changes-authorized:** No ARCHITECTURE.md, frozen contract or enforcement update. Existing task/evidence/handoff status and unapproved recovery proposal only; no new source repair or production action.
+
+## D-120 | 2026-10-27 | type: decision | status: ACTIVE
+
+**What:** Umesh explicitly approved S12 local completion for Pathlynks and Vidysea, latest-confirmed conversational memory and a named preserved-lineage T057 recovery.
+
+**Why:** Two retained current-source counterexamples prevent acceptance; user asks to finish existing functionality without rebuilding accepted Admin/widget behavior and to push independently verified usable slices while their team deploys.
+
+**Result:** Independent S12 PLAN review required before product edits. Main D:/vc WIP preserved; isolated implementation in codex/vc-completion. Prior cycle2 STALLED receipts/costs/issues remain, not reset. Team owns consent provisioning; synthetic local eligible assertions permitted, runtime checks retained. No production writes/deploys, no model changes, no other Mongo database.
+
+**Changes-authorized:** Existing source/test/config/docs seams listed in S12 and isolated Pathlynks/Vidysea host consumers; QA artifacts. No enforcement-path or frozen contract changes.
+
+**Approved-by:** Umesh (direct PLEASE IMPLEMENT THIS PLAN message, 2026-10-27).
+
+**Links:** T-057; docs/features/vc-admin-control/plan.md S11-S12; qa/manifests/quest-successor.md; retained cutoff/ranking counterexamples.
+
+## D-121 | 2026-10-27 | type: decision | status: ACTIVE
+
+**What:** Umesh authorizes named S13 recovery through final deployed/browser-verified Pathlynks and Vidysea VC outcome, with five useful disjoint lanes and up to two targeted checker-driven repair rounds.
+
+**Why:** Fresh S12 final reviews found concrete no-text privacy, stale-publication history and native shortlist contract defects. Pushed base and local UI checks do not establish deployment or live integration. Existing features must be repaired in place and verified end-to-end.
+
+**Result:** Active goal registered; S13 independent plan approval precedes product edits. All T057 originalcycle2/S12 history, issues, receipts and cumulative costs retained. Main checkout WIP immutable; isolated core/host checkouts only. Production deploy is DevOps-owned and separately approved on concrete package; previous paidvoice allowance exhausted, no new provider batch without bounded approval.
+
+**Changes-authorized:** Existing source/test/config/docs seams in S13 plus QA artifacts. No ARCHITECTURE, frozen contracts, enforcement changes or new product modules/collections. Checker-owned QA contracts remain independent.
+
+**Approved-by:** Umesh (direct PLEASE IMPLEMENT THIS PLAN message quoting S13 goal plan, 2026-10-27).
+
+**Links:** T-057; D-120; docs/features/vc-admin-control/plan.md S13; qa/gates/vc-admin-control.md G-RECOVERY-T057-S12-FINAL; ISS-T057-S12-01..04.
+
+## D-122 | 2026-10-28 | type: decision | status: ACTIVE
+
+**What:** Data-boundary change for the T-057 local demo, plus a reset of how the work is run. (1) VC may READ (read-only, never write) the Vidysea gateway Postgres `vidyseaprodecs`, the Vidysea AI/ML Mongo `Vanced_new` and the Pathlynks student DB, for real users, as fully as needed: first a schema/aggregate understanding pass, then filtering to the supplied test user. Writes remain allowed only in `virtual_counsellor` (D-008/D-009 unchanged). (2) Real student data from those sources may be sent to the configured LLM providers (Gemini and the Ollama cloud chain) to produce chat answers. (3) T-057 "done" = a LOCAL demo on real data (not deployed/production). (4) Order of work: consolidate the two Codex WIP sets onto codex/vc-completion -> data-source discovery (docs/data-sources.md) -> scope table + frozen ~10-criterion demo contract (checker may not add criteria mid-cycle; only safety/boundary findings block) -> HLD/LLD/generated schema docs -> build the Vidysea adapter in existing seams. Rigor level is decided with the frozen contract.
+
+**Why:** Session diagnosis 2026-10-28: over 30 days qa/ took ~1.94M changed lines vs ~86k product lines (675 qa commits vs 492 other); docs/plan.md holds 53 approval/amendment sections; contracts/ is empty, so the finish line kept moving; the 2026-10-27 Codex day landed nothing (makers blocked by delivery lineage admission). The live chatbot never connected because no agent was ever cleared to read Vidysea/Pathlynks DBs or send student data to an LLM, and no Vidysea user->student adapter exists (config/sources.json is Pathlynks-only). The Approver explicitly answered both gates in this session ("read everything max possible with vidysea and pathlynks both for the real users ... ek baar samajh le, test user phir filter"; LLM send "yes no issues for even real data").
+
+**Result:** Gates recorded; no data read yet. Credentials are supplied by the Approver into .env (never chat, never committed). Real rows never enter git; discovery outputs are schema + aggregates only. Accepted risk, recorded not resolved: Pathlynks users are minors and DPDP legal review Q3 remains open; sending real minors' data to external LLMs is an Approver-accepted risk for the local demo only, not a production authorization.
+
+**Links:** T-057; D-008; D-009; D-021; D-121; docs/partner-integration.md (Vidysea handover); C:/Users/Lenovo/.claude/plans/understand-what-all-we-shimmying-micali.md
+
+**Changes-authorized:** ARCHITECTURE.md section 5 (data boundary: add the read-only Vidysea/Pathlynks sources and the LLM-send scope above) and section 3 H3 (replace the 8-collection list with a pointer to the generated docs/schema.md), at the next /landplane. New docs: docs/data-sources.md, docs/hld.md, docs/lld.md, docs/schema.md, scripts/gen-schema-doc.ts. No frozen contract or enforcement-path change.
+
+**Approved-by:** Umesh
+
+## D-123 | 2026-10-28 | type: decision | status: ACTIVE
+**What:** (1) Umesh approves sending real student queries to the live KnowledgeBase (which forwards them to its cloud LLM; Tavily is currently off). (2) "Read only access for both": the Vidysea port gets the same privileged-role override as Pathlynks G1. The handover users are admins, but reads stay a read-only transaction with SELECT-only, owner-bound SQL. (3) Because live KB /ask takes about 2 min, the demo chat path uses KB GET /search plus VC's own LLM, and /ask is off the critical path.
+**Why:** Real-data discovery on 2026-10-28 (docs/data-sources.md): both handover DB users can write; port.ts:291 refuses Vidysea privileged roles; live /ask timed out at 90 s while /search returns in about 3 s.
+**Result:** Recorded. No code has changed yet. Draft contract docs/demo-contract.md awaits Umesh's approval.
+**Links:** T-057; D-122; docs/data-sources.md; docs/demo-contract.md
+**Changes-authorized:** none (code changes ride the approved demo contract)
+**Approved-by:** Umesh
+
+## D-124 | 2026-10-28 | type: decision | status: ACTIVE
+**What:** Umesh froze docs/demo-contract.md (11 criteria C1-C11) as the T-057 demo contract. The checker judges only these, plus tier A boundaries. Demo login goes THROUGH THE PLATFORM, not a locally signed VC JWT: locally run Pathlynks/Vidysea frontends and backends, pointed at the production platform DBs, proxying to the local VC.
+**Why:** A frozen finish line was the missing piece (session diagnosis 2026-10-28). Platform login proves the real SSO and proxy path end to end.
+**Result:** Accepted risks: a login writes the platform's own session rows (user_sessions/refresh_tokens) in production. A locally run platform backend must start with every cron, email, WhatsApp, SMS, payment and outbound sender disabled, so no real user is contacted. VC still writes only to virtual_counsellor.
+**Links:** T-057; D-122; D-123; docs/demo-contract.md; docs/data-sources.md
+**Changes-authorized:** none
+**Approved-by:** Umesh
+
+## D-125 | 2026-10-28 | type: decision | status: ACTIVE
+**What:** For the headed-browser demo walk (C4â€“C11), Umesh chose to run BOTH platforms locally against production: (1) the Pathlynks stack (auth service, school_mgt + quest proxy, frontend), and (2) the Vidysea stack, but only after a local-only patch to the Vidysea backend checkout. The patch adds one env switch, `VC_DEMO_NO_PROD_WRITES=1`, which skips its startup writes that have no switch (wallet_ledger credit expiry, funnel delivery and location, notification template seed) and the daily login-streak wallet credit. It also adds an env-gated local `vc_eligibility` claim. Umesh also approved creating a VC partner server key, which writes to `virtual_counsellor`.
+**Why:** A read-only runbook (2026-10-28) found those Vidysea writes run on every boot or login with no switch. Vidysea never mints `vc_eligibility`, so the VC proxy returns 403. The Pathlynks login path writes nothing to production. The PB quest proxy's Mongo writes go to a throwaway local mongod.
+**Result:** Prep under way. The host-checkout patches stay local and are never pushed upstream without a separate approval.
+**Links:** T-057; D-124; docs/demo-contract.md
+**Changes-authorized:** none
+**Approved-by:** Umesh
+
+## D-126 | 2026-10-28 | type: decision | status: ACTIVE
+**What:** Umesh: "age is really not our concern, and neither the consent thing". For the local Vidysea demo, age and guardian consent are not an eligibility gate. With VC_DEMO_ELIGIBILITY=1, the Vidysea backend mints vc_eligibility for every student access token with guardianConsent true and a placeholder age (18). The VC proxy replaces that age, for personalisation only, with the real age from students.date_of_birth; if there is no DOB, it approximates the age from pathlynks_student_snapshot.grade_label as grade + 5; if neither exists, the placeholder stays.
+**Why:** The Vidysea test student has no DOB, and the fail-closed rule from the review (no default age, consent only at 18+) refused VC chat entirely. Umesh wants age used for personalisation, not as a gate. The DPDP risk for minors was already accepted in D-122.
+**Result:** Patched in the vc-vidysea-backend checkout (app/core/security.py create_token; app/api/v1/student/ai_counsellor_router.py vc_student_proxy). Local only; not pushed.
+**Links:** T-057; D-122; D-125
+**Changes-authorized:** none
+**Approved-by:** Umesh
+
+## D-127 | 2026-10-28 | type: decision | status: ACTIVE
+**What:** Umesh approved the following for contract C10 (voice):
+- VC_VOICE_MODEL = gemini-3.1-flash-live-preview.
+- The real-data voice probe runs only on Umesh's allowed TEST users (VC_TEST_PATHLYNKS_USER_ID / VC_TEST_VIDYSEA_USER_ID), with no cost cap; each session's duration and estimated cost are logged.
+- Other real students come later, after go-live, behind the existing gates.
+
+Separately, the remaining T-057 demo work runs as parallel subagent lanes:
+- Wave 1: safety and fact extraction follow the Gemini provider seam; senior review of the D-126 host patches; C10 voice probe; frontends up.
+- Wave 2: Pathlynks and Vidysea headed walks, then the checker.
+**Why:** Umesh answered "gemini 3.1 live use kr loo and in real data" and "hnn mere allowed tyest users, later tho baaki users bhi hogee and also abhi koi cap mat lgoo". The D-117 voice allowance (2x30 s, INR 10) was already consumed. The 2026-10-28 Pathlynks walk failed C6 and returned fallback replies, because the safety and extraction calls still route to the Ollama chain.
+**Result:** Recorded. Voice evidence goes to qa/evidence/t057/c10-voice-probe.md. Production deployment is still out of demo scope (D-122/D-124).
+**Links:** T-057; D-117; D-122; D-124; D-126; docs/demo-contract.md
+**Changes-authorized:** none (local .env VC_VOICE_MODEL value and existing-seam code fixes ride the frozen demo contract)
+**Approved-by:** Umesh
+
+## D-128 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** Product direction from Umesh: "tool-first guidance".
+- When a student's request is something an existing Vidysea/Pathlynks expert tool already does, VC does not produce the answer itself. Examples: "best universities in Canada" (university/program search), "make my full journey" (Journey Map), shortlists, assessments.
+- Instead VC names the tool, gives a step-by-step how-to with an in-product path, and lets the student run it.
+- On later turns, VC reads the student's own resulting records (owner-bound, read-only platform DB per D-123) and summarises progress and next steps in the chat.
+- VC answers directly only what no tool covers: general guidance and KB facts, with the existing grounding and safety rules.
+**Why:** Umesh, 2026-10-29: "hum already expert tool bana chuke hain ... user se hamare tool use karwane, because that is the best thing we can provide ... dobara reinvent wheel nahi karna". It matches the north star: Explore â†’ Conclude â†’ Execute, AI assists and the human decides, never a script.
+**Result:** Pending.
+- Audit: the tool inventory (routes) and, per tool, the activity tables VC can read. Then a spec/plan and the maker build.
+- The T-057 R2 services catalogue (7 /services pages) is the first slice. The product tools are to be added to the same catalogue path.
+**Links:** T-057; D-122; D-123; D-124; qa/evidence/t057/services-knowledge-audit.md
+**Changes-authorized:** none (product direction; any contract change is to go through the plan gate)
+
+## D-129 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** Umesh's answers on the shape of D-128 tool-first:
+1. Deep links: `?section=<key>` is allowed, but only from a fixed, reviewed list of section keys and never from free text.
+2. "Act on my behalf": the student can tick a consent checkbox.
+   - Ticked: VC runs the search for them (for example "best universities in Canada") and opens the relevant screen.
+   - Not ticked: VC gives step-by-step directions only.
+3. Tracking reads (owner-bound, read-only):
+   - journey maps
+   - applications
+   - visa tables
+   - favourites and scholarships
+4. Knowledge graph target: VC should hold a full knowledge graph of the product (what is where) and the DB (which table holds what), so it can choose the right tool from the student's needs.
+5. Models: use a faster model for responses (Umesh named "3.5 flash lite"; the exact model id is to be verified), configurable.
+6. Progress summaries: AI-written, configurable, and built from the student's DB and KG data. Umesh suggests web-search grounding (e.g. Gemini Google Search) for general facts.
+**Why:** Umesh, 2026-10-29 (AskUserQuestion answers). Student-facing behaviour of the tool-first direction (D-128).
+**Result:** Pending.
+- The T-057 demo finishes first (R3 fixes â†’ review â†’ walk).
+- The tool-first build then goes through the maker PLAN gate: intent, spec, plan, then plan-approved.
+- Act-on-behalf is navigation and read-only search only. VC still never writes to platform DBs (D-123).
+**Links:** D-122; D-123; D-127; D-128; T-057; qa/evidence/t057/tool-first-inventory.md
+**Changes-authorized:** none (spec and plan first)
+
+## D-130 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** Umesh approved the tool-first spec and plan (`docs/features/tool-first/spec.md`, `plan.md`), which pass the maker PLAN gate for that feature.
+- Scope: P1 (fixed-list `?section=` deep links, step-by-step directions, owner-bound read-only progress reads, AI-written configurable summaries), then P2 (act-on-behalf checkbox: open a screen or run a read-only search only), then P3 (the full product and DB KG).
+- The `[ASSUMPTION]` items and open questions in spec/plan are accepted at their stated defaults unless Umesh overrides one.
+- Constraints carried in: D-123 (VC never writes to platform DBs). Act-on-behalf never presses Generate, Shortlist or Apply, never submits, never pays. `vidysea-db` stays disabled. Models stay on probed ids only.
+- Build order: the T-057 Vidysea walk (run 4) finishes first because of the memory ceiling, then wave 1 of the plan.
+**Why:** Umesh, 2026-10-29: "Approval of the tool-first spec ... go approved and do the analysis".
+**Result:** Pending. Gate recorded at qa/gates/plan-approved-tool-first.md. Build through maker lanes, then reviews, then /checker.
+**Links:** D-128; D-129; T-057; docs/features/tool-first/spec.md; docs/features/tool-first/plan.md
+**Changes-authorized:** none outside the tool-first plan's work units (no ARCHITECTURE.md, contracts or enforcement-path edits)
+**Approved-by:** Umesh
+
+## D-131 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** The KB speed fix is split by repo ownership.
+- The KnowledgeBase session makes all KB repo changes itself: K1 per-session visibility memo, K2 score-then-check, a vectorless `/route` over its existing PageIndex tree (KB D-173), K5 deadline and cache, re-indexing the 2 failed sessions. VC never edits D:/KnowledgeBase.
+- VC does its own side only: a KB circuit breaker, 4 s KB timeout caps, and route-first behind the flag VC_KB_ROUTE (default off) with fallback to /search.
+- Redeploying the KB host is a separate Umesh gate.
+**Why:** Umesh, 2026-10-29: "yes. you dont edit it. send it all your findings and ask it to update it all itself" / "you just do your side of work". The slowness root cause is in the KB (qa/evidence/t057/kb-slowness-analysis.md), and the vectorless design is in kb-vectorless-design.md.
+**Result:** Pending. The findings were sent to the KB session; the VC build lane is running.
+**Links:** D-001; D-128; T-057; qa/evidence/t057/kb-slowness-analysis.md; qa/evidence/t057/kb-vectorless-design.md
+**Changes-authorized:** none (VC code changes go through review and the checker)
+
+## D-132 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** VC's `vidysea-db` source is enabled for READ-ONLY use, so the Vidysea tenant gets the real Vidysea runtime (profile, shortlist, snapshot) instead of the catalogue-only stand-in.
+- This reverses the line "`vidysea-db` stays disabled" in D-130's Constraints. That line was the maker's own assumption, not a decision by Umesh.
+- Conditions:
+  - every connection is SELECT-only inside a session with read-only enforced (`default_transaction_read_only=on`, verified);
+  - the table allow-list is unchanged;
+  - VC never writes to platform DBs (D-123).
+- If any enable path would write, the lane stops and does not enable.
+**Why:** Umesh, 2026-10-29: "productdion db tho on hai naa off thodi naa hai" (the production DB is on, so use it). D-122 already cleared real Vidysea reads.
+**Result:** Pending. The maker lane is investigating, then enabling, with evidence in qa/evidence/t057/vidysea-db-enable.md.
+**Supersedes:** D-130 -- only its "vidysea-db stays disabled" constraint is replaced; it was an unratified maker assumption, while Umesh now directs read-only use of the live DB under the D-123 read-only lock (rest of D-130 stands).
+**Links:** D-122; D-123; D-130; T-057; qa/evidence/t057/walk-run4-diagnosis.md
+**Changes-authorized:** config/sources.json and the runtime source store (vidysea-db enable only)
+
+## D-133 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** Umesh's answers, 2026-10-29:
+1. **Tool-first covers both cases.** A student who has data gets a summary built from their DB rows. A new student with no data is guided to the right built-in tool step by step; once they use it, the data exists and VC tracks it. This is why VC needs a KG of both the DB and the git repo (product). T8 (KG) moves up and runs right after T1 frees navigate tests. The walk does not create rows on the production Vidysea DB: the "has data" path is proven with fakes, and live only once the test student has used the tools.
+2. **Latency.** Answers must come fast, with streaming; wait longer only when an answer is genuinely coming, and treat that as an exception. The deadline crisis rule stays as built (screen unavailable at the deadline gives the helpline text), since Umesh did not overrule it.
+3. **Push.** Commit only the work that is fully validated (checker PASS, plus the full-suite push gate), and push it straight to main.
+4. **next.config.** The two non-demo-gated next.config.mjs changes (the microphone permission on /student/* and the widget script origin) stay. Umesh tells the product team; the DevOps runbook notes them.
+**Why:** Umesh's AskUserQuestion answers, 2026-10-29.
+**Result:** Pending. Wave 1 (T1-T3) is building. After it: the walk-5 results, the full suite, /checker, then a commit and push of the validated set to main.
+**Links:** D-128; D-129; D-130; D-131; D-132; T-057
+**Changes-authorized:** none
+
+## D-134 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** Umesh answered four open items (AskUserQuestion, 2026-10-29).
+- G1 Pathlynks Career Quest: VC gets a READ-ONLY reader for Mongo `pathlynks_journey` (`pathlynks_quest_profiles`, `pathlynks_goals`, `pathlynks_activities`, `pathlynks_skill_activities`), owner-bound to the signed-in student, field allow-list (no reflection, description, proof or share-token fields), counts only in logs. VC never writes there (D-123 holds). Connection string comes from env; if the current Mongo user cannot read that database, the reader reports unavailable and the gap goes to DevOps.
+- KB step-B tree summaries use `gemini-3.5-flash-lite` (offline build only).
+- KB re-index of the 2 failed webinar sessions is approved (writes only to the KB's own `lkb_prod`; done by the KB session, D-131).
+- KB fast search + `/route` may deploy to the live KB once the KB checkers PASS, including confirmation that `/route` applies the same visibility and withdrawn filter as `/search`; VC then sets `VC_KB_ROUTE=1` and re-tests.
+**Why:** Umesh: "Yes, read-only" / "gemini-3.5-flash-lite" / "Yes, re-index both" / "Yes, after checker PASS".
+**Result:** Pending. Mongo reader built in VC via maker lane; KB items relayed to the KB session.
+**Links:** D-123; D-131; D-133; T-057; qa/evidence/tool-first/pathlynks-inventory.md (G1)
+**Changes-authorized:** none outside the tool-first plan's work units
+**Approved-by:** Umesh
+
+## D-135 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** For now, every admin who may sync (role admin or super-admin) may use the keep-last-good override (`acceptShrink`) on a GitHub source sync. A viewer is still refused. Later, rights become per-right checkboxes per admin group, with some special services ticked by default for the admin group.
+**Why:** Umesh, 2026-10-29: "an admin is an admin ... for the time being, but later we will allow rights with checkboxes, like the admin group has some special service checkboxes by default".
+**Result:** apps/api/src/admin-routes.ts sources sync route: the super-admin-only check was removed. The test in apps/api/tests/admin-sync.test.ts was updated (admin honoured, viewer 403). admin-sync passes 52/52 and tsc is clean.
+**Links:** T-057; D-130; qa/evidence/tool-first/tf-fix-2.md
+**Changes-authorized:** none (code only, within the tool-first plan)
+**Approved-by:** Umesh
+
+## D-136 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** Push scope for the vc-completion worktree. Before anything is pushed, one fresh independent review pass runs over the S13 files (chat, memory, voice, widget; the part not covered by the tool-first checker PASS) and its findings are fixed. Then everything is committed and pushed to `vidysea-admin/vc` main, the same remote as the last approved push (vca-push).
+**Why:** Umesh (2026-10-29, AskUserQuestion) chose "Run the S13 review, then push all" and "vidysea-admin/vc main". The worktree's 121 changed files mix the checker-PASSed tool-first wave with S13 work that passed its tests but never had its final independent review.
+**Result:** Pending. Evidence before the review: the full suite qa/verdicts/tf-6c.md (4296 pass, 0 fail, 46 skip) and the tool-first PASS qa/verdicts/tf-checker-final-2.md.
+**Links:** D-133; D-134; D-135; T-057
+**Changes-authorized:** none
+**Approved-by:** Umesh

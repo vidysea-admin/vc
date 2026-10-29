@@ -102,14 +102,16 @@ export async function adminWorld(overrides: Partial<AdminRoutesDeps> = {}): Prom
 export const ADMIN_PATH = "/admin/api/";
 
 /** A fake GithubPort over an in-memory repo: path -> file text. Blob shas are the paths. Counts calls. */
-export function fakeGithub(files: Record<string, string>, opts: { failWith?: Error } = {}): GithubPort & { calls: string[] } {
+export function fakeGithub(files: Record<string, string>, opts: { failWith?: Error; head?: { sha: string; commit: string } } = {}): GithubPort & { calls: string[] } {
   const calls: string[] = [];
   return {
     calls,
     async listTree(owner, repo, branch) {
       calls.push(`listTree ${owner}/${repo}@${branch}`);
       if (opts.failWith) throw opts.failWith;
-      return Object.entries(files).map(([path, content]) => ({ path, type: "blob", sha: path, size: content.length }));
+      const tree = Object.entries(files).map(([path, content]) => ({ path, type: "blob", sha: path, size: content.length }));
+      // wire-fix-1: the production port returns the tree sha and the branch's commit sha beside the entries; `head` makes the fake do the same.
+      return opts.head ? { tree, sha: opts.head.sha, commit: opts.head.commit } as { tree: typeof tree } : tree;
     },
     async getBlob(owner, repo, sha) {
       calls.push(`getBlob ${sha}`);

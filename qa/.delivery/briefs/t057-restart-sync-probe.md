@@ -1,0 +1,9 @@
+# t057-restart-sync-probe
+
+Ops lane. You MAY restart ONLY the VC API on 8787 (current pid 44256). Capture its exact command line/cwd first (Get-CimInstance Win32_Process). Known launch: cwd D:/vc/.worktrees/vc-completion/apps/api, command node_modules\.bin\tsx --env-file=../../.env src/main.ts, log C:/Users/Lenovo/AppData/Local/Temp/claude/D--vc/3729a82a-387f-4051-a933-dfde6424d2aa/scratchpad/logs/vc-api.log (rotate the old log to vc-api.prev.log). Relaunch detached in the background so it survives your exit (Start-Process with redirected output).
+Then:
+1. Confirm the API is up (an existing health/ready route, or any 401 from an auth route).
+2. Trigger the GitHub sync for source id 'vidysea-frontend' through the EXISTING admin route (find it in apps/api/src/admin-routes.ts; authenticate the way the existing admin tests/scripts do, e.g. the admin key env NAME; never print values). This is an approved credentialed GitHub READ that writes only to virtual_counsellor. Report sync status and counts.
+3. Read back (virtual_counsellor, read-only query) the stored catalogue for that source: number of routes and the 7 /services/* entries with label + summary (these are public marketing copy, OK to show).
+4. Live probe the engine path without a browser if an existing script/test harness allows calling the turn route with a minted test token the way t057 scripted checks did (see qa/evidence/t057/c8-live-reject.mjs and scripted-checks.md). Send two turns as the Vidysea TEST student: 'do you help with education loans?' and 'what is the average cost of living in Toronto for students?'. Record HTTP status, total ms, and the reply text (bot reply only). If minting is not possible without new code, skip step 4 and say so.
+Write qa/evidence/t057/fix-round-live.md with commands, statuses and timings.

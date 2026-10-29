@@ -1,0 +1,8 @@
+# t057-run5-lanes-review
+
+Read-only senior review (never edit, never restart services) of three T-057 lanes, uncommitted in this worktree (use git diff on the named files):
+1. KB circuit breaker + 4 s caps + optional route-first: mcp/university-kb/src/kb-client.ts, mcp/university-kb/src/source-kind.ts, tests kb-client/student-port/kb-tools; evidence qa/evidence/t057/kb-breaker-route-build.md. Focus: breaker state shared per base URL across tenants/anon (is one tenant able to trip it for another? acceptable?), half-open race with concurrent turns, no student text in logs, route fallback correctness, the shared hit parser still enforces the withdrawn/visibility filtering exactly as /search did, test isolation (resetKbBreakers).
+2. Fact extractor schema fix: packages/engine/src/scribe/schemas.ts ~95 (preprocess bare array), nodes.ts ~1335 text-free failure log; evidence qa/evidence/t057/walk-run4-fixes.md. Focus: the z.ZodType cast hiding type errors, any path where a bare array now admits facts that the object schema would have rejected, log contains no student text/model output.
+3. vidysea-db enabled (D-132): config/sources.json:91, packages/schemas/tests/sources.test.ts, evidence qa/evidence/t057/vidysea-db-enable.md. Focus: every enabled path is read-only (SET default_transaction_read_only=on at port.ts:313 aborts on failure; no SHOW verification — is that enough?), allow-list unchanged, no write path (sync rejects non-GitHub), tenant isolation of the Vidysea port vs navOnly.
+Re-run the focused tests named in each evidence file and tsc for touched packages. Return Approve/Warning/Block, most severe first, with file:line. Write the verdict to qa/verdicts/t057-run5-lanes-review.md.
+

@@ -92,7 +92,11 @@ export type CrisisGateOutput = z.infer<typeof CrisisGateOutputSchema>;
  * (`CandidateFactSchema`) so one malformed or uncited fact is dropped with a reason instead of
  * failing the whole batch.
  */
-export const ExtractionSkillOutputSchema = z.object({ facts: z.array(z.unknown()) }).strict();
+export const ExtractionSkillOutputSchema = z.preprocess(
+  // The skill documents a bare `Fact[]` (SKILL.md "Output shape") and Gemini follows it; accept that as well as `{facts:[...]}`.
+  (v) => (Array.isArray(v) ? { facts: v } : v),
+  z.object({ facts: z.array(z.unknown()) }).strict(),
+) as unknown as z.ZodType<{ facts: unknown[] }>;
 
 /** One model-proposed fact before citation checks. `source` is optional here ON PURPOSE: an
  * uncited fact must reach the citation guard and be dropped there (B2), not crash the parse. */
@@ -109,6 +113,9 @@ export const CandidateFactSchema = z.object({
   // candidate that omits it.
   kind: FactKindSchema.optional(),
   explains: z.string().min(1).optional(),
+  // t057 c6: some models echo `validFrom` (the SKILL once asked for it). It is accepted and IGNORED: nodes.ts always
+  // sets validFrom itself (never model-chosen), and a strict-parse drop here silently lost every fact.
+  validFrom: z.unknown().optional(),
 }).strict();
 export type CandidateFact = z.infer<typeof CandidateFactSchema>;
 

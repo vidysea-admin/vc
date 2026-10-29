@@ -1,0 +1,98 @@
+{
+  "frontend": {
+    "tools": 53,
+    "sections": 40,
+    "withComponent": 40,
+    "sidebar": 14,
+    "seeded": 46,
+    "routeTools": 13,
+    "diagnostics": [],
+    "source": {
+      "owner": "vidysea-admin",
+      "repo": "vidysea-user-frontend",
+      "branch": "prod",
+      "files": 3,
+      "commit": "0bb06693f977c0e535afe18246a7639b09b2c84e"
+    }
+  },
+  "backend": {
+    "tables": 294,
+    "withOwnerKey": 150,
+    "writers": 65,
+    "toolEdges": 59,
+    "edgesTableFound": 59,
+    "edgesWriterFound": 17,
+    "readEdges": 12,
+    "vcReadsTablesFound": 12,
+    "dangling": [],
+    "diagnostics": 0,
+    "source": {
+      "owner": "vidysea-admin",
+      "repo": "vidysea-main-service-backend",
+      "branch": "prod",
+      "files": 174,
+      "commit": "5d3217ad8da0ec3c0f698d0d2b11ec12900cdfb9"
+    }
+  },
+  "db": {
+    "dbTables": 349,
+    "modelTables": 294,
+    "modelTablesNotInDb": 2,
+    "dbTablesNotInModels": 57,
+    "seedTablesChecked": 46,
+    "seedTablesWithColumnDiff": 3,
+    "colDiff": {
+      "applications": {
+        "modelNotInDb": [],
+        "dbNotInModel": [
+          "application_status_legacy",
+          "commercial_snapshot"
+        ]
+      },
+      "students": {
+        "modelNotInDb": [],
+        "dbNotInModel": [
+          "target_intake_date",
+          "dashboard_cache",
+          "dashboard_cache_at"
+        ]
+      },
+      "pre_departure_checklists": {
+        "modelNotInDb": [],
+        "dbNotInModel": [
+          "visa_application_id"
+        ]
+      }
+    }
+  },
+  "inventory": {
+    "rows": 22,
+    "rowsAllToolsPresent": 22,
+    "rowsAllTablesCovered": 21,
+    "diff": [
+      {
+        "row": 21,
+        "name": "Pathlynks link",
+        "toolsExpected": 0,
+        "toolsPresent": 0,
+        "missingTools": [],
+        "tablesExpected": 1,
+        "missingTables": [
+          "pathlynks_student_snapshot"
+        ],
+        "extraTables": [],
+        "verifiedEdges": 0,
+        "unverifiedEdges": 0
+      }
+    ]
+  },
+  "sectionsWithoutSeed": [
+    "dashboard",
+    "research",
+    "subject-plan",
+    "ai",
+    "resources",
+    "support",
+    "change-password"
+  ]
+}

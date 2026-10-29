@@ -1,0 +1,48 @@
+✔ S13 DB writers refuse new text and voice on a permanently no-text thread (11.2278ms)
+✔ S13 DB completion refuses a claim after the thread becomes no-text; earlier completed history survives (20.2647ms)
+✔ S12: an obsolete unpublished answer is not history and an explicit retry can reclaim its exact turn (2.1245ms)
+✔ S12: an assistant staged while its final guard is pending cannot be read as a completed exchange (1.6925ms)
+✔ a student opening the chat gets a thread owned by them; another student cannot read it (0.8618ms)
+✔ a chat-store call on an unscoped Db is refused (tenant isolation fails closed) (0.7511ms)
+✔ a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim (1.8536ms)
+✔ a retry that arrives while the first attempt is still running is told it is in progress, not run twice (0.6274ms)
+✔ a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete (1.5408ms)
+✔ the same turn id sent again with different text is a conflict, not a silent replay of the old answer (1.1517ms)
+✔ when the model call fails the claim is abandoned so the student's retry runs again (1.1451ms)
+✔ a voice turn and a text turn land in one history in time order (A19) (2.1544ms)
+✔ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (0.8884ms)
+✔ a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write (3.5189ms)
+✔ an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored (0.4702ms)
+✔ usage counters add up per student per month and stay inside the tenant (0.7472ms)
+✔ U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time (1.3383ms)
+✔ U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count (0.5972ms)
+✔ U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db (0.6962ms)
+✔ U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it (4.8433ms)
+✔ U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row (1.3942ms)
+✔ Q10/Q11: bounded owned sessions and complete pairs exclude current/pending/orphan turns (7.5898ms)
+✔ Q12: corrected/forgotten memory rejects queued old extraction and strips unsupported provenance (11.239ms)
+✔ Q11: context honors character/lower-message caps and omits incomplete voice exchanges (4.2243ms)
+✔ Q12/Q14 repair1: paused correct never publishes old facts under a stable revision (3.8674ms)
+✔ Q12/Q14 repair1: paused erase never publishes old facts under a stable revision (4.1081ms)
+✔ Q12/Q14 repair1: overlapping decisions remain pending until every mutation completes (4.824ms)
+✔ Q12/Q14 repair1: failed mutation stays closed even after another decision succeeds (3.6974ms)
+✔ Q12/Q14 repair1: proposal paused before persistence is discarded when a decision starts (3.9653ms)
+✔ Q12/Q14 repair1: a proposal writing across pending mutation is removed on revision refusal (4.2275ms)
+✔ Q12/Q14 repair1: begin publication error cannot reopen unchanged memory (2.9668ms)
+✔ Q12/Q14 repair1: complete publication error cannot reopen unchanged memory (2.6802ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal legacy snapshot (6.007ms)
+✔ Q12/Q14 repair2 B1: pending confirm refuses a replaced proposal displayed value (4.9148ms)
+✔ Q12/Q14 repair2 B1: displayed value mismatch refuses before changing revision; legacy confirmation still works (2.9526ms)
+✔ Q12/Q14 repair2 B2: failed stale cleanup remains durably closed (4.4004ms)
+✔ Q12/Q14 repair2 B2: ambiguous stale cleanup remains durably closed (4.2083ms)
+✔ Q12/Q14 repair2 B1: confirm CAS conflict cannot release another pending decision (3.6197ms)
+✔ Q12/Q14 repair2 B2: failed cleanup reservation cannot expose or confirm an unpublished stale row (14.4222ms)
+✔ Q12/Q14 repair2 B1: explicit correction wins over an unpublished racing proposal (4.2343ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3093.5407

@@ -1,0 +1,19 @@
+{"cutoffBefore":"2026-11-01T10:00:02.000Z","cutoffAfter":"2026-11-01T10:00:00.000Z","historyBefore":0,"historyAfter":2,"forgottenPreferenceRestored":true}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: successful stale cleanup cannot restore pre-forget history
+
+2 !== 0
+
+    at file:///D:/vc/[eval1]:4:1086 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 2,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.1

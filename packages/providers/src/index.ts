@@ -11,9 +11,9 @@
  * Implementations:
  *   - `MockProvider`: deterministic canned outputs per skill, records every call. Used by every
  *     automated test (B8/B13: tests are offline).
- *   - `GeminiProvider`: a STUB selected by config. It holds the model name and key but has no
- *     network code yet; `generate` throws. The real call is a later unit, and live runs need
- *     synthetic fixtures or the recorded gate (B13, qa/gates/real-transcripts-gemini.md).
+ *   - `GeminiProvider`: T-057, a real text provider (REST generateContent in JSON mode, key in a header,
+ *     12 s default timeout, typed key-free errors). It was a stub that threw `ProviderNotWiredError`; live runs
+ *     still need synthetic fixtures or the recorded gate (B13, qa/gates/real-transcripts-gemini.md).
  *   - `LiteLlmProvider` (T-019): a SECOND real provider, so Gemini going away does not take the
  *     whole engine down ("Gemini dependence is not AI dependence" — the lead's 2026-09-25 review,
  *     qa/feedback-inbox.md). An OpenAI-compatible chat-completions client against a configurable
@@ -64,9 +64,8 @@ export interface GenerateRequest<T> {
    * sites) keeps compiling unchanged — neither passes one today. `FailoverProvider` is the first
    * producer: it binds one per attempt so a losing/timed-out chain member's request is actually
    * cancelled instead of abandoned (the bug this unit fixes). `MockProvider`/`RulesProvider`/
-   * `GeminiProvider` have nothing in-flight to cancel (synchronous/deterministic, or an unwired stub)
-   * so they accept and ignore it; `LiteLlmProvider` is the one implementation with a real network
-   * request to abort.
+   * have nothing in-flight to cancel (synchronous/deterministic), so they accept and ignore it;
+   * `LiteLlmProvider`, `OllamaProvider` and (T-057) `GeminiProvider` have a real network request to abort.
    */
   signal?: AbortSignal;
   /** Private per-disclosure authorization, bounded by this attempt's existing cancellation. */
@@ -276,6 +275,102 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
   );
 }
 
+/** tool-first T3 (spec (f)): the roles that may run on their own model. Each key is optional and falls back as `resolveRoleModel` says. */
+export type ModelRole = "summary" | "answer" | "router";
+export const ROLE_MODEL_ENV: Readonly<Record<ModelRole, string>> = {
+  summary: "VC_MODEL_SUMMARY",
+  answer: "VC_MODEL_ANSWER",
+  router: "VC_MODEL_ROUTER",
+};
+/** The gemini summary default: probed live as a fast model that takes `thinkingLevel: "minimal"` (see geminiThinkingConfig). Never an unprobed id. */
+export const SUMMARY_DEFAULT_MODEL = "gemini-3.5-flash-lite";
+// A model id: starts alphanumeric, then letters, digits and . _ : / -, at most 128 characters. Anchored on a single character class, so there is no backtracking.
+const ROLE_MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+
+/**
+ * The provider config for one role (summary, answer, router): `loadProviderConfig` with the model swapped for the role's
+ * `VC_MODEL_<ROLE>` when set. Unset (or empty) falls back to `VC_LLM_MODEL`; the one exception is `summary` under the gemini provider,
+ * which defaults to `SUMMARY_DEFAULT_MODEL`. A value that is not a plain model id is a config error naming the key, never the value.
+ * An overridden litellm role drops the `VC_LLM_MODELS` failover chain (the chain belongs to the answer model). `loadProviderConfig`
+ * itself is unchanged; building a provider from the result goes through `createProvider`, so a gemini role model is routed through
+ * `geminiThinkingConfig` like every other Gemini call.
+ */
+export function loadRoleProviderConfig(env: ProviderEnv, role: ModelRole): ProviderConfig {
+  const key = ROLE_MODEL_ENV[role];
+  const raw = env[key];
+  const trimmed = raw?.trim() ?? "";
+  if (raw !== undefined && trimmed === "" && raw !== "") {
+    throw new Error(`loadRoleProviderConfig: ${key} must be a model id (it was only whitespace)`);
+  }
+  if (trimmed !== "") {
+    if (!ROLE_MODEL_ID.test(trimmed) || trimmed.includes("//")) throw new Error(`loadRoleProviderConfig: ${key} must be a plain model id (letters, digits and . _ : / -, at most 128 characters)`);
+    return loadProviderConfig({ ...env, VC_LLM_MODEL: trimmed, VC_LLM_MODELS: undefined });
+  }
+  if (role === "summary" && env.VC_LLM_PROVIDER === "gemini") {
+    return loadProviderConfig({ ...env, VC_LLM_MODEL: SUMMARY_DEFAULT_MODEL, VC_LLM_MODELS: undefined });
+  }
+  return loadProviderConfig(env);
+}
+
+/** The model id a role runs on (see `loadRoleProviderConfig`). */
+export function resolveRoleModel(env: ProviderEnv, role: ModelRole): string {
+  return loadRoleProviderConfig(env, role).model;
+}
+
+/**
+ * S13 fix-b: which model calls belong to which role. `summary` is the scribe's session summary, `answer` the student's answer, guidance and coaching, `router` the
+ * language detection, query rewrite and follow-up resolver. A skill not listed here always runs on the base provider.
+ */
+export const ROLE_SKILLS: Readonly<Record<ModelRole, readonly string[]>> = {
+  summary: ["session-summary"],
+  answer: ["kb-answer", "kb-general-guidance", "vc-capabilities"],
+  router: ["lang-detect", "kb-query-rewrite", "student-public-followup"],
+};
+
+/** S13 fix-b: a provider that sends each role's skills to that role's own provider and everything else to the base. */
+export class RoleRoutedProvider implements LlmProvider {
+  readonly kind: ProviderKind;
+  readonly model: string;
+  readonly #base: LlmProvider;
+  readonly #bySkill: ReadonlyMap<string, LlmProvider>;
+
+  constructor(base: LlmProvider, bySkill: ReadonlyMap<string, LlmProvider>) {
+    this.#base = base;
+    this.#bySkill = bySkill;
+    this.kind = base.kind;
+    this.model = base.model;
+  }
+
+  /** The provider a skill runs on (the base when its role has no model of its own). */
+  providerFor(skillName: string): LlmProvider {
+    return this.#bySkill.get(skillName) ?? this.#base;
+  }
+
+  generate<T>(request: GenerateRequest<T>): Promise<T> {
+    return this.providerFor(request.skillName).generate(request);
+  }
+
+  toString(): string {
+    return `RoleRoutedProvider(base=${this.#base.model}, roles=${new Set(this.#bySkill.values()).size})`;
+  }
+}
+
+/**
+ * S13 fix-b: puts `VC_MODEL_<ROLE>` to work. For each listed role whose key is SET (non-blank), a provider is built from `loadRoleProviderConfig` (so a bad id is a
+ * startup error naming the key) and its skills (`ROLE_SKILLS`) run on it. When none of the listed roles' keys is set this returns `base` itself: behaviour is unchanged,
+ * and a model id is never invented (the summary-under-gemini default is NOT applied here, only an explicit key switches a model).
+ */
+export function withRoleModels(env: ProviderEnv, base: LlmProvider, roles: readonly ModelRole[], deps: CreateProviderDeps = {}): LlmProvider {
+  const bySkill = new Map<string, LlmProvider>();
+  for (const role of roles) {
+    const raw = env[ROLE_MODEL_ENV[role]];
+    if (raw === undefined || raw === "") continue;
+    const provider = createProvider(loadRoleProviderConfig(env, role), deps);
+    for (const skill of ROLE_SKILLS[role]) bySkill.set(skill, provider);
+  }
+  return bySkill.size === 0 ? base : new RoleRoutedProvider(base, bySkill);
+}
+
 /** P1 LK1 (D-105): the chain's product bound, so a student never waits through a second lap (design: 12 s). */
 export const TEXT_CHAIN_DEFAULT_DEADLINE_MS = 12_000;
 /** P1 LK1 (D-105): the documented default chain, selected with `VC_TEXT_CHAIN=default`. Order is Umesh's (GLM first); the LK9 streamed first-token probe reports whether to flip it. The Gemini Lite slot is reserved (LK3, held) and is not in it. */
@@ -427,7 +522,7 @@ export class MockProvider implements LlmProvider {
 }
 
 // ---------------------------------------------------------------------------
-// GeminiProvider (stub)
+// GeminiProvider (T-057: a real text provider; it was a stub that threw ProviderNotWiredError)
 // ---------------------------------------------------------------------------
 
 export class ProviderNotWiredError extends Error {
@@ -441,16 +536,152 @@ export class ProviderNotWiredError extends Error {
   }
 }
 
+/** T-057: per-call timeout of a Gemini text call. Well under the 30 s demo budget (C5): the caller's own bounds (the safety screen's 8 s race) sit inside it. */
+export const GEMINI_DEFAULT_TIMEOUT_MS = 12_000;
+const GEMINI_TEXT_MAX_OUTPUT_TOKENS = 4096;
+const GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+
+/**
+ * The thinking config a Gemini model accepts, so a flash model can skip hidden reasoning (short, fast, not cut off by the output limit).
+ * Proven live (2026-10-29): the 2.5 family, gemini-3.1-flash-lite and gemini-3.5-flash take `thinkingBudget: 0`; gemini-3.5-flash-lite rejects it
+ * (HTTP 400) and takes `thinkingLevel: "minimal"`. A model not proven here gets NO thinkingConfig, because a wrong one is a 400 on every call.
+ */
+export function geminiThinkingConfig(model: string): { thinkingBudget: 0 } | { thinkingLevel: "minimal" } | undefined {
+  if (/^gemini-3\.5-flash-lite(?![\w.])/i.test(model)) return { thinkingLevel: "minimal" };
+  // `(?!-lite)`: an id like "gemini-3.5-flash-lite2" must not fall back to the plain 3.5-flash match (a flash-lite id gets the flash-lite config or none; budget 0 is a 400 on 3.5-flash-lite).
+  if (/^gemini-(2\.5-flash(?:-lite)?|3\.1-flash-lite|3\.5-flash)(?![\w.])(?!-lite)/i.test(model)) return { thinkingBudget: 0 };
+  return undefined;
+}
+
+export class GeminiHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, model: string) {
+    super(`GeminiHttpError: the gemini provider (model "${model}") request failed with HTTP ${status}`);
+    this.name = "GeminiHttpError";
+    this.status = status;
+  }
+}
+
+export class GeminiTimeoutError extends Error {
+  constructor(model: string, timeoutMs: number) {
+    super(`GeminiTimeoutError: the gemini provider (model "${model}") did not respond within ${timeoutMs}ms`);
+    this.name = "GeminiTimeoutError";
+  }
+}
+
+/** The CALLER's `request.signal` fired (never this provider's own timer, that is `GeminiTimeoutError`). */
+export class GeminiAbortedError extends Error {
+  constructor(model: string) {
+    super(`GeminiAbortedError: the gemini provider (model "${model}") request was aborted by the caller's signal`);
+    this.name = "GeminiAbortedError";
+  }
+}
+
+export class GeminiMalformedResponseError extends Error {
+  constructor(model: string, reason: string) {
+    super(`GeminiMalformedResponseError: the gemini provider (model "${model}") returned an unusable response: ${reason}`);
+    this.name = "GeminiMalformedResponseError";
+  }
+}
+
+export class GeminiNetworkError extends Error {
+  constructor(model: string, reason: string) {
+    super(`GeminiNetworkError: the gemini provider (model "${model}") request could not be sent: ${reason}`);
+    this.name = "GeminiNetworkError";
+  }
+}
+
+export interface GeminiProviderOptions {
+  model: string;
+  apiKey: string;
+  /** Overridable for tests; production leaves this at GEMINI_DEFAULT_TIMEOUT_MS. */
+  timeoutMs?: number;
+  baseUrl?: string;
+  /** Tests inject a fake; the default resolves the global `fetch` at call time. */
+  fetchImpl?: typeof fetch;
+  /** S13 fix-b: called once per 2xx JSON response with the reported `usageMetadata` token counts (the same hook and shape the Ollama chain uses). A throw is swallowed. */
+  onUsage?: (usage: OllamaActualUsage) => void;
+  /** S13 fix-b: optional USD per million tokens; with it a reported usage carries `usd`, without it only tokens (a price is never invented). */
+  price?: OllamaPrice;
+}
+
+/** S13 fix-b: the env name of the optional Gemini price, "<input>,<output>" USD per million tokens. */
+export const GEMINI_PRICE_ENV = "GEMINI_PRICE_USD_PER_MTOK";
+
+/**
+ * S13 fix-b: the optional Gemini price from `GEMINI_PRICE_USD_PER_MTOK="<input>,<output>"`. Unset or blank is undefined (tokens are still metered, no dollar
+ * figure). A set value that is not two finite numbers, both >= OLLAMA_MIN_PRICE_USD_PER_MTOK, is a startup error naming the key, never the value.
+ */
+export function loadGeminiPrice(env: ProviderEnv): OllamaPrice | undefined {
+  const raw = env[GEMINI_PRICE_ENV];
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const parts = raw.split(",").map((p) => p.trim());
+  const [i, o] = parts.map((p) => (/^\d+(?:\.\d+)?$/.test(p) ? Number(p) : Number.NaN));
+  if (parts.length !== 2 || !Number.isFinite(i) || !Number.isFinite(o) || i! < OLLAMA_MIN_PRICE_USD_PER_MTOK || o! < OLLAMA_MIN_PRICE_USD_PER_MTOK) {
+    throw new Error(`${GEMINI_PRICE_ENV} must be "<input>,<output>" USD per million tokens, both finite and >= ${OLLAMA_MIN_PRICE_USD_PER_MTOK}`);
+  }
+  return { inputUsdPerMTok: i!, outputUsdPerMTok: o! };
+}
+
+/**
+ * S13 fix-b: turns a generateContent body's `usageMetadata` into the Ollama-shaped usage report and calls the hook. Output tokens are the candidate tokens
+ * plus any thinking tokens (both are billed as output). "reported" only when the prompt and candidate counts are non-negative safe integers; anything else is
+ * "unreported" and carries no figure. A throwing hook is swallowed: the tokens are already spent and the reply must not be lost.
+ */
+function reportGeminiUsage(
+  hook: ((usage: OllamaActualUsage) => void) | undefined,
+  info: { model: string; estimatedInputTokens: number; maxOutputTokens: number; price: OllamaPrice | undefined },
+  body: unknown,
+): void {
+  if (!hook) return;
+  const estimate: OllamaRequestEstimate = {
+    model: info.model,
+    estimatedInputTokens: info.estimatedInputTokens,
+    maxOutputTokens: info.maxOutputTokens,
+    estimatedCostUsd: info.price ? (info.estimatedInputTokens * info.price.inputUsdPerMTok + info.maxOutputTokens * info.price.outputUsdPerMTok) / 1e6 : 0,
+  };
+  const meta = (body as { usageMetadata?: { promptTokenCount?: unknown; candidatesTokenCount?: unknown; thoughtsTokenCount?: unknown } } | null)?.usageMetadata;
+  const valid = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+  let usage: OllamaActualUsage = { model: info.model, estimate, actual: "unreported" };
+  if (valid(meta?.promptTokenCount) && valid(meta?.candidatesTokenCount) && (meta?.thoughtsTokenCount === undefined || valid(meta.thoughtsTokenCount))) {
+    const inputTokens = meta.promptTokenCount;
+    const outputTokens = meta.candidatesTokenCount + (meta.thoughtsTokenCount ?? 0);
+    usage = {
+      model: info.model,
+      estimate,
+      actual: "reported",
+      inputTokens,
+      outputTokens,
+      ...(info.price ? { usd: (inputTokens * info.price.inputUsdPerMTok + outputTokens * info.price.outputUsdPerMTok) / 1e6 } : {}),
+    };
+  }
+  try {
+    hook(usage);
+  } catch {
+    // accounting must never fail or discard a paid reply
+  }
+}
+
 export class GeminiProvider implements LlmProvider {
   readonly kind = "gemini" as const;
   readonly model: string;
+  private readonly timeoutMs: number;
+  private readonly baseUrl: string;
+  private readonly fetchImpl: typeof fetch;
+  private readonly onUsage: ((usage: OllamaActualUsage) => void) | undefined;
+  private readonly price: OllamaPrice | undefined;
   // A private class field (#), so the key never shows up in JSON.stringify, String() or
   // util.inspect output (B11: no key value in logs or traces).
   readonly #apiKey: string;
 
-  constructor(options: { model: string; apiKey: string }) {
+  constructor(options: GeminiProviderOptions) {
     this.model = options.model;
+    this.onUsage = options.onUsage;
+    this.price = options.price;
     this.#apiKey = options.apiKey;
+    this.timeoutMs = options.timeoutMs ?? GEMINI_DEFAULT_TIMEOUT_MS;
+    this.baseUrl = (options.baseUrl ?? GEMINI_DEFAULT_BASE_URL).replace(/\/+$/, "");
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
   }
 
   /** True when a key is present; the value itself is never exposed. */
@@ -458,9 +689,76 @@ export class GeminiProvider implements LlmProvider {
     return this.#apiKey.length > 0;
   }
 
-  async generate<T>(_request: GenerateRequest<T>): Promise<T> {
-    await authorizeExecution(_request);
-    throw new ProviderNotWiredError(this.kind, this.model);
+  /**
+   * One request, JSON mode, no retries (a schema-invalid output is re-asked by the caller, like every other provider). The skill prompt is the
+   * system instruction and the typed input is the user turn. The key travels in a header, never in the URL. The caller's `signal` and this
+   * provider's own `timeoutMs` abort the SAME fetch; the timer stays armed until the body is read, so a stalled body is a timeout too.
+   * Every failure is a typed, key-free error; the caller's Zod schema is the only judge of the output (B5).
+   */
+  async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    if (request.signal?.aborted) throw new GeminiAbortedError(this.model);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const externalSignal = request.signal;
+    const onExternalAbort = (): void => controller.abort();
+    externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+    let phase: "pre" | "sent" = "pre";
+    let body: unknown;
+    const userContent = JSON.stringify(request.input);
+    try {
+      await authorizeExecution({ ...request, signal: controller.signal });
+      phase = "sent";
+      const res = await this.fetchImpl(`${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": this.#apiKey },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: request.skillPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userContent }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: GEMINI_TEXT_MAX_OUTPUT_TOKENS,
+            responseMimeType: "application/json",
+            // A proven flash model may skip thinking (fast and short); any other model is left on its own default.
+            ...(geminiThinkingConfig(this.model) ? { thinkingConfig: geminiThinkingConfig(this.model) } : {}),
+          },
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new GeminiHttpError(res.status, this.model);
+      try {
+        body = await res.json();
+      } catch (err) {
+        if ((err as { name?: unknown } | null)?.name === "AbortError") throw err;
+        throw new GeminiMalformedResponseError(this.model, "response body was not valid JSON");
+      }
+    } catch (err) {
+      if (err instanceof GeminiHttpError || err instanceof GeminiMalformedResponseError) throw err;
+      if ((err as { name?: unknown } | null)?.name === "AbortError") {
+        if (externalSignal?.aborted) throw new GeminiAbortedError(this.model);
+        throw new GeminiTimeoutError(this.model, this.timeoutMs);
+      }
+      if (phase === "pre") throw err; // authorization refusal: surface it unchanged
+      throw new GeminiNetworkError(this.model, err instanceof Error ? err.message : String(err));
+    } finally {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", onExternalAbort);
+    }
+    // S13 fix-b: the tokens were spent whether or not the reply turns out usable, so they are reported first (same order as the Ollama hook).
+    reportGeminiUsage(this.onUsage, { model: this.model, estimatedInputTokens: Buffer.byteLength(request.skillPrompt, "utf8") + Buffer.byteLength(userContent, "utf8"), maxOutputTokens: GEMINI_TEXT_MAX_OUTPUT_TOKENS, price: this.price }, body);
+    const candidate = (body as { candidates?: Array<{ finishReason?: unknown; content?: { parts?: Array<{ text?: unknown }> } }> } | null)?.candidates?.[0];
+    // A reply cut off by the token limit (or blocked) is never parsed as if it were whole.
+    if (candidate?.finishReason !== undefined && candidate.finishReason !== "STOP") {
+      throw new GeminiMalformedResponseError(this.model, `the reply did not finish normally (${typeof candidate.finishReason === "string" ? candidate.finishReason.slice(0, 40) : "unknown"})`);
+    }
+    const content = (candidate?.content?.parts ?? []).map((p) => (typeof p?.text === "string" ? p.text : "")).join("");
+    if (content.length === 0) throw new GeminiMalformedResponseError(this.model, "no candidates[0].content.parts text in the response");
+    let parsed: unknown;
+    try {
+      parsed = parseModelJson(content);
+    } catch {
+      throw new GeminiMalformedResponseError(this.model, "the reply text was not valid JSON");
+    }
+    return parseModelOutput(request.outputSchema, parsed);
   }
 
   toString(): string {
@@ -768,6 +1066,10 @@ export interface GeminiGroundedAnswererOptions {
   timeoutMs?: number;
   /** Tests inject a fake; production uses the global fetch. */
   fetchImpl?: typeof fetch;
+  /** S13 fix-b: per-call usage report from `usageMetadata` (see GeminiProviderOptions.onUsage). */
+  onUsage?: (usage: OllamaActualUsage) => void;
+  /** S13 fix-b: optional USD per million tokens (see GeminiProviderOptions.price). */
+  price?: OllamaPrice;
 }
 
 export class GeminiGroundedAnswerer implements GroundedAnswerer {
@@ -777,9 +1079,13 @@ export class GeminiGroundedAnswerer implements GroundedAnswerer {
   readonly #baseUrl: string;
   readonly #timeoutMs: number;
   readonly #fetch: typeof fetch;
+  readonly #onUsage: ((usage: OllamaActualUsage) => void) | undefined;
+  readonly #price: OllamaPrice | undefined;
 
   constructor(options: GeminiGroundedAnswererOptions) {
     this.model = options.model;
+    this.#onUsage = options.onUsage;
+    this.#price = options.price;
     this.#apiKey = options.apiKey;
     this.#baseUrl = (options.baseUrl ?? GROUNDING_DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.#timeoutMs = options.timeoutMs ?? GROUNDING_DEFAULT_TIMEOUT_MS;
@@ -810,8 +1116,8 @@ export class GeminiGroundedAnswerer implements GroundedAnswerer {
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: GROUNDING_MAX_OUTPUT_TOKENS,
-            // A flash model may skip thinking, which keeps the answer short and quick; other models are left on their own default.
-            ...(/flash/i.test(this.model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+            // A proven flash model may skip thinking, which keeps the answer short and quick; any other model is left on its own default.
+            ...(geminiThinkingConfig(this.model) ? { thinkingConfig: geminiThinkingConfig(this.model) } : {}),
           },
         }),
         signal: controller.signal,
@@ -834,6 +1140,8 @@ export class GeminiGroundedAnswerer implements GroundedAnswerer {
       clearTimeout(timer);
       request.signal?.removeEventListener("abort", onExternalAbort);
     }
+    // S13 fix-b: a grounded call is billed per prompt and per token whether or not its text is usable, so the usage is reported before any check.
+    reportGeminiUsage(this.#onUsage, { model: this.model, estimatedInputTokens: Buffer.byteLength(request.systemPrompt, "utf8") + Buffer.byteLength(request.question, "utf8"), maxOutputTokens: GROUNDING_MAX_OUTPUT_TOKENS, price: this.#price }, body);
     const candidate = (body as { candidates?: Array<{ finishReason?: unknown; content?: { parts?: Array<{ text?: unknown }> }; groundingMetadata?: { groundingChunks?: unknown } }> } | null)?.candidates?.[0];
     // A reply cut off by the token limit is never shown (it would end mid-sentence): the caller falls back to the model-only path.
     if (candidate?.finishReason !== undefined && candidate.finishReason !== "STOP") throw new GroundingFailedError(this.model, `the answer did not finish normally (${typeof candidate.finishReason === "string" ? candidate.finishReason.slice(0, 40) : "unknown"})`);
@@ -880,21 +1188,24 @@ export class GroundingConfigError extends Error {
  */
 export function loadGroundedAnswerer(
   env: { VC_GROUNDING?: string; VC_GROUNDING_MODEL?: string; GEMINI_API_KEY?: string },
-  options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
+  options: { fetchImpl?: typeof fetch; timeoutMs?: number; onUsage?: (usage: OllamaActualUsage) => void; price?: OllamaPrice } = {},
 ): GroundedAnswerer | undefined {
   const raw = env.VC_GROUNDING?.trim();
   if (raw === undefined || raw === "" || raw === "off") return undefined;
   if (raw !== "gemini") throw new GroundingConfigError('VC_GROUNDING must be unset, "off" or "gemini" (got a different value)');
   if (!env.GEMINI_API_KEY) throw new GroundingConfigError("VC_GROUNDING=gemini needs GEMINI_API_KEY");
   const model = env.VC_GROUNDING_MODEL?.trim() || GROUNDING_DEFAULT_MODEL;
-  // H6: `thinkingBudget: 0` (so the output limit is not eaten by hidden reasoning and the reply is not cut off) is only sent for flash models.
-  // Any other model is unproven here, so it is a startup error rather than a silently truncated or costlier answer.
+  // H6: only a flash model is accepted, so hidden reasoning cannot eat the output limit and cut the reply off. `geminiThinkingConfig` then picks the
+  // config each proven flash id takes (`thinkingBudget: 0`, or `thinkingLevel: "minimal"` for gemini-3.5-flash-lite); a flash id it has not proven gets
+  // none and runs on its own default. A non-flash model is a startup error rather than a silently truncated or costlier answer.
   if (!/flash/i.test(model)) throw new GroundingConfigError('VC_GROUNDING_MODEL must be a "flash" model: the thinking budget is only set (and proven) for those');
   return new GeminiGroundedAnswerer({
     model,
     apiKey: env.GEMINI_API_KEY,
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
     ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+    ...(options.onUsage ? { onUsage: options.onUsage } : {}),
+    ...(options.price ? { price: options.price } : {}),
   });
 }
 
@@ -1065,6 +1376,9 @@ export function isRetryableProviderError(err: unknown): boolean {
   if (err instanceof LiteLlmNetworkError) return true;
   if (err instanceof LiteLlmHttpError) return err.status === 429 || err.status >= 500;
   if (err instanceof ModelOutputSchemaError) return true;
+  // T-057: Gemini as a text provider. Same rule as LiteLLM: timeout, unusable body, unsendable request, 429 and 5xx are outages; auth/config 4xx and the caller's abort are not.
+  if (err instanceof GeminiTimeoutError || err instanceof GeminiMalformedResponseError || err instanceof GeminiNetworkError) return true;
+  if (err instanceof GeminiHttpError) return err.status === 429 || err.status >= 500;
   // P1 LK1 (D-105 Q5): the Ollama text chain. Same rule as LiteLLM: timeout, unusable body, unsendable
   // request, 429 and 5xx are outages and go to the next hop. 4xx other than 429 (config/auth), the caller's
   // own abort (OllamaAbortedError), a refusal (OllamaRefusedError) and a budget stop are NOT, so they surface.
@@ -1843,8 +2157,10 @@ export interface CreateProviderDeps {
   mockResponses?: Record<string, MockResponse>;
   /** P1 LK1, `provider: "ollama"` only. Charged on EVERY hop before its request is sent; a throw (a budget stop) stops the chain, it does not fail over. */
   beforeRequest?: (estimate: OllamaRequestEstimate) => void;
-  /** P1 LK1, `provider: "ollama"` only. Per-hop usage: the actual token counts the hop reported, or `actual: "unreported"`; called once per 2xx response, even when its content proves unusable. */
+  /** P1 LK1, `provider: "ollama"` (per hop) and, S13 fix-b, `provider: "gemini"`. Usage: the actual token counts the call reported, or `actual: "unreported"`; called once per 2xx response, even when its content proves unusable. */
   onUsage?: (usage: OllamaActualUsage) => void;
+  /** S13 fix-b, `provider: "gemini"` only: optional USD per million tokens (`loadGeminiPrice`). Without it a usage report carries tokens and no `usd`. */
+  geminiPrice?: OllamaPrice;
   /** P1 LK1, `provider: "ollama"` only. Replaces the default engineering alert when the whole chain is exhausted. */
   onExhausted?: (info: FailoverExhaustedInfo) => void;
   /** P1 LK1, `provider: "ollama"` only. Injected in tests; production uses the global fetch. */
@@ -1858,7 +2174,14 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps 
     case "mock":
       return new MockProvider({ model: parsed.model, responses: deps.mockResponses ?? {} });
     case "gemini":
-      return new GeminiProvider({ model: parsed.model, apiKey: parsed.apiKey });
+      return new GeminiProvider({
+        model: parsed.model,
+        apiKey: parsed.apiKey,
+        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+        // S13 fix-b: Gemini text calls reach the same per-turn usage meter as the Ollama chain.
+        ...(deps.onUsage ? { onUsage: deps.onUsage } : {}),
+        ...(deps.geminiPrice ? { price: deps.geminiPrice } : {}),
+      });
     case "litellm":
       // T-021 / D-020: only build the failover chain when the config actually carries one
       // (VC_LLM_MODELS). No `models` -> exactly the old single-attempt LiteLlmProvider, unchanged
@@ -1908,7 +2231,7 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps 
 }
 
 export function providersStatus(): string {
-  return "@vc/providers: provider seam (mock, gemini stub, litellm, rules), model chosen by config (B6)";
+  return "@vc/providers: provider seam (mock, gemini, litellm, rules), model chosen by config (B6)";
 }
 
 // P1 U9: Live (voice) session seam: Mock + Gemini (compile-only) implementations, crisis interrupt

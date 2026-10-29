@@ -1,0 +1,28 @@
+✖ S12: a completed memory decision during turn completion or usage never releases or replays the obsolete answer (188.5563ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3916.5656
+
+✖ failing tests:
+
+test at apps\api\tests\chat-rank.test.ts:86:1
+✖ S12: a completed memory decision during turn completion or usage never releases or replays the obsolete answer (188.5563ms)
+  AssertionError [ERR_ASSERTION]: completion/correct: {"turnId":"s12-publication-race","state":"ok","message":"Let me compare those options against the profile facts you have confirmed.","claims":[{"text":"Leeds engineering (synthetic): not ranked, missing data for fit","kind":"fact","sourceIds":["kb-node-leeds"],"status":"unverified"},{"text":"Munich engineering (synthetic): not ranked, missing data for fit","kind":"fact","sourceIds":["kb-node-munich"],"status":"unverified"},{"text":"Sydney business (synthetic): not ranked, missing data for fit","kind":"fact","sourceIds":["kb-node-sydney"],"status":"unverified"},{"text":"Toronto business (synthetic): not ranked, missing data for fit","kind":"fact","sourceIds":["kb-node-toronto"],"status":"unverified"}],"sources":[{"id":"kb-node-leeds","kind":"toc","title":"synthetic leeds node"},{"id":"kb-node-munich","kind":"internal-seminar","title":"synthetic munich node"},{"id":"kb-node-sydney","kind":"internal-seminar","title":"synthetic sydney node"},{"id":"kb-node-toronto","kind":"internal-seminar","title":"synthetic toronto node"}],"profileFactsUsed":[],"rankingProfile":"student-success"}
+  
+  200 !== 409
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-rank.test.ts:116:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 409,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

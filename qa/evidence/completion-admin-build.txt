@@ -1,0 +1,44 @@
+
+> @vc/web@0.1.0 build D:\vc\.worktrees\vc-completion\apps\web
+> next build --webpack
+
+▲ Next.js 16.3.6 (webpack)
+✓ Running next.config.ts took 431ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 58s
+  Running TypeScript ...
+  Finished TypeScript in 13.3s ...
+  Collecting page data using 19 workers ...
+  Generating static pages using 19 workers (0/5) ...
+  Generating static pages using 19 workers (1/5) 
+  Generating static pages using 19 workers (2/5) 
+  Generating static pages using 19 workers (3/5) 
+✓ Generating static pages using 19 workers (5/5) in 3.6s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /admin
+├ ƒ /admin/admins
+├ ƒ /admin/audit
+├ ƒ /admin/dashboard
+├ ƒ /admin/login
+├ ƒ /admin/sites
+├ ƒ /admin/sites/[id]
+├ ƒ /admin/sources
+├ ƒ /api/admin-session
+├ ƒ /api/admin-session/proxy/[...path]
+├ ƒ /api/approvals/[threadId]
+├ ƒ /api/demo/readback
+├ ƒ /api/sessions
+├ ƒ /approvals/[threadId]
+├ ○ /icon.svg
+└ ƒ /sessions/new
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

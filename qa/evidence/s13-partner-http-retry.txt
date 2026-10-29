@@ -1,0 +1,16 @@
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T17:58:24.843Z"}
+{"level":"info","event":"anonymous_partner_turn","partnerId":"vidysea-website","state":"no_sourced_answer","ts":"2026-10-27T17:58:24.989Z"}
+{"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \"tenant\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T17:58:25.004Z"}
+✔ wiring: over real HTTP through launch(), a keyed browser is answered with CORS for its own site only, a revoked key is refused within 60 s, and VC_PARTNER_KEY_REQUIRED refuses a keyless call (188.5899ms)
+{"level":"info","event":"anonymous_partner_turn","partnerId":"fine-site","state":"no_sourced_answer","ts":"2026-10-27T17:58:25.060Z"}
+✔ R2 wiring: through launch(), VC_RESERVED_TENANT_IDS and chat.sandboxTenantId both reach the running registry; a bad list refuses to start before connecting (48.0852ms)
+{"level":"info","event":"anonymous_partner_turn","partnerId":"pathlynks","state":"no_sourced_answer","ts":"2026-10-27T17:58:25.095Z"}
+✔ S2 wiring: through launch(), VC_PARTNER_OWN_TENANTS lets the bound partner (id = listed JWT tenant) in on the running server, and keeps every other listed tenant out (29.7681ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3142.477

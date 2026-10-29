@@ -1,0 +1,13 @@
+{
+  "synthetic": true,
+  "method": "Exact local HEAD overlay for two changed frontend sources; current deps/config/generated types",
+  "current": 94,
+  "baseline": 94,
+  "added": [],
+  "removed": [],
+  "baselineSources": [
+    "src/components/student/ChatWidget.tsx",
+    "src/app/student/(main)/ai-counsellor/page.tsx"
+  ],
+  "productionTypecheckStillFails": true
+}

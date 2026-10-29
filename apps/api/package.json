@@ -17,6 +17,7 @@
     "admin": "tsx scripts/admin.ts"
   },
   "dependencies": {
+    "@google/genai": "2.4.0",
     "@vc/db": "workspace:*",
     "@vc/engine": "workspace:*",
     "@vc/mcp-pathlynks": "workspace:*",

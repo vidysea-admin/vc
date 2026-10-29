@@ -1,0 +1,127 @@
+{
+  "synthetic": true,
+  "model": "gemini-3.1-flash-live-preview",
+  "runtimeModelConfigured": false,
+  "maxWallMs": 22000,
+  "priorReservationUsd": 0.09,
+  "maxAdditionalReservationUsd": 0.01,
+  "bill": "UNKNOWN",
+  "status": "finished",
+  "events": [
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "Should I",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "change",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "your current",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "preference",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "Should I change your current preference",
+      "final": true
+    },
+    {
+      "type": "transcript",
+      "role": "user",
+      "text": "Yes. Please confirm Canada.",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "Okay, Canada",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "is now",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "your preference.",
+      "final": false
+    },
+    {
+      "type": "transcript",
+      "role": "assistant",
+      "text": "Okay, Canada is now your preference.",
+      "final": true
+    }
+  ],
+  "audioBytes": 170404,
+  "rawFinalMarkers": [
+    {
+      "text": "Yes. Please confirm Canada."
+    }
+  ],
+  "usage": [
+    {
+      "promptTokenCount": 422,
+      "responseTokenCount": 51,
+      "totalTokenCount": 473,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 196
+        },
+        {
+          "modality": "AUDIO",
+          "tokenCount": 201
+        }
+      ],
+      "responseTokensDetails": [
+        {
+          "modality": "AUDIO",
+          "tokenCount": 51
+        }
+      ]
+    },
+    {
+      "promptTokenCount": 576,
+      "responseTokenCount": 51,
+      "totalTokenCount": 627,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 208
+        },
+        {
+          "modality": "AUDIO",
+          "tokenCount": 323
+        }
+      ],
+      "responseTokensDetails": [
+        {
+          "modality": "AUDIO",
+          "tokenCount": 51
+        }
+      ]
+    }
+  ],
+  "elapsedMs": 9180,
+  "syntheticAudioSent": true,
+  "questionObserved": false,
+  "finalSpeechObserved": false,
+  "ackObserved": true
+}

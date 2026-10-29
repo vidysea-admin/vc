@@ -1,0 +1,9 @@
+{
+  "uri": "mongodb://127.0.0.1:58049/virtual_counsellor",
+  "host": "127.0.0.1",
+  "port": 58049,
+  "database": "virtual_counsellor",
+  "ownerPid": 23400,
+  "dataPath": "D:\\vc\\.worktrees\\vc-completion\\qa\\.delivery\\completion-mongo-data",
+  "synthetic": true
+}

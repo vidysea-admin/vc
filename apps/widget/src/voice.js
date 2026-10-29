@@ -1,5 +1,5 @@
 /*! vc-widget voice add-on v1.0.0 (pc-voice V3, D-111). Loaded by vc-widget.js only when the page sets data-vc-voice="on".
- * A mic button starts and stops an anonymous voice session: the visitor's page key (X-VC-Key) mints a single-use token, the browser opens the
+ * A mic button starts/stops voice: a page key or explicit authenticated host proxy mints a single-use token, the browser opens the
  * WebSocket (token as a subprotocol, never in the URL), streams 16 kHz PCM16 mic audio and plays the counsellor's 24 kHz PCM16 reply.
  * This file holds the session logic and the browser audio glue. It draws nothing: vc-widget.js owns the DOM and passes handlers in.
  * Safety: nothing is stored (no localStorage, sessionStorage, cookies or IndexedDB); the mic is asked for BEFORE a session is minted and is
@@ -22,8 +22,12 @@
 
   // ---- pure helpers -----------------------------------------------------------------------------------------
 
-  // The voice session URL for a key-mode config, else "". Derived from the chat URL so data-vc-api and the script origin are honoured.
+  // Explicit same-origin proxy mint, or anonymous key mint derived from the chat URL. No identity comes from browser config.
   function sessionUrl(cfg) {
+    if (cfg && cfg.mode === "proxy") {
+      var p = cfg.voiceProxy;
+      return typeof p === "string" && p.length <= 2048 && /^\/(?![\/\\])[^\\?#\s]*$/.test(p) && !/[\u0000-\u001f\u007f]/.test(p) ? p : "";
+    }
     if (!cfg || cfg.mode !== "key" || !cfg.key || typeof cfg.turnUrl !== "string") return "";
     if (!TURN_PATH_RE.test(cfg.turnUrl)) return "";
     return cfg.turnUrl.replace(TURN_PATH_RE, "") + SESSION_PATH;
@@ -137,6 +141,7 @@
     var md = o.mediaDevices !== undefined ? o.mediaDevices : root.navigator && root.navigator.mediaDevices;
     var audio = o.audio || browserAudio(root);
 
+    var pendingConfirm = null, activeThread = null;
     var state = "idle"; // idle | connecting | listening
     var gen = 0; // bumps on every stop, so a start that was cancelled while waiting finds out
     var ws = null, stream = null, stopCapture = null, crisisShown = false, ended = false, opened = false;
@@ -160,6 +165,7 @@
       try { st.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* ignore */ }
     }
     function releaseMic() {
+      pendingConfirm = null; activeThread = null;
       if (stopCapture) { try { stopCapture(); } catch (e) { /* ignore */ } stopCapture = null; }
       if (stream) {
         stopTracks(stream);
@@ -215,10 +221,12 @@
       // A prompt that resolves after the visitor cancelled (or cancelled and restarted) stops its own tracks and nothing else.
       if (mine !== gen) { stopTracks(mic); return false; }
       stream = mic;
-      // 2. Mint the single-use token with the page key.
+      // 2. Mint after mic permission. Proxy authentication belongs to same-origin cookies or an injected host interceptor.
+      var proxy = cfg.mode === "proxy";
       var res;
       try {
-        res = await f(url, { method: "POST", headers: { "X-VC-Key": cfg.key }, credentials: "omit" });
+        res = await f(url, proxy ? { method: "POST", headers: {}, credentials: "same-origin", redirect: "error" } :
+          { method: "POST", headers: { "X-VC-Key": cfg.key }, credentials: "omit" });
       } catch (e) {
         if (mine !== gen) { stopTracks(mic); return false; }
         return fail({ reason: "network" });
@@ -248,13 +256,26 @@
       var body = null;
       try { body = await res.json(); } catch (e) { /* not JSON */ }
       if (mine !== gen) { stopTracks(mic); return false; }
-      if (!res.ok || res.status !== 201) {
+      if (!res.ok || (res.status !== 201 && !(proxy && res.status === 200))) {
         var d = { reason: "error", status: res.status };
         if (body && typeof body.helpline === "string") d.helpline = body.helpline.slice(0, 300);
         return fail(d);
       }
       if (!body || typeof body !== "object" || typeof body.token !== "string" || !body.token || typeof body.wsUrl !== "string" || !/^wss?:\/\/[^\s/]+/.test(body.wsUrl)) {
         return fail({ reason: "error", status: res.status });
+      }
+      var threadId = THREAD_ID;
+      if (proxy) {
+        // Bind start only to the trusted mint response, never cfg.threadId/studentId. Credentials stay in the socket protocol.
+        var socketUrl;
+        try { socketUrl = new URL(body.wsUrl); } catch (e) { return fail({ reason: "error", status: res.status }); }
+        if (!socketUrl.hostname || socketUrl.username || socketUrl.password || socketUrl.search || socketUrl.hash ||
+          !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(body.token) ||
+          typeof body.threadId !== "string" || !body.threadId || body.threadId === THREAD_ID || body.threadId.length > 200 || /[\s\u0000-\u001f\u007f]/.test(body.threadId) ||
+          typeof body.expiresAt !== "string" || !(Date.parse(body.expiresAt) > Date.now())) {
+          return fail({ reason: "error", status: res.status });
+        }
+        threadId = body.threadId;
       }
       // 3. Open the socket. Audio starts only once it is open.
       var sock;
@@ -264,11 +285,12 @@
         return fail({ reason: "network" });
       }
       ws = sock;
+      activeThread = threadId;
       try { sock.binaryType = "arraybuffer"; } catch (e) { /* fake sockets */ }
       sock.onopen = function () {
         if (ws !== sock) return;
         opened = true;
-        try { sock.send(JSON.stringify({ type: "start", threadId: THREAD_ID })); } catch (e) { /* closing */ }
+        try { sock.send(JSON.stringify({ type: "start", threadId: threadId })); } catch (e) { /* closing */ }
         stopCapture = audio.capture(stream, function (chunk) {
           if (ws === sock && sock.readyState === 1) {
             try { sock.send(chunk); } catch (e) { /* closing */ }
@@ -333,8 +355,18 @@
             emit("error", { code: m.code.slice(0, 64), message: typeof m.message === "string" ? m.message.slice(0, 500) : "", help: HELP });
           }
           return;
+        case "confirm":
+          // This is a server prompt hint, never approval. The authenticated widget re-reads its owned profile.
+          if (cfg && cfg.mode === "proxy" && cfg.authenticated && m.fact && typeof m.fact.key === "string" && typeof m.fact.value === "string") {
+            pendingConfirm = null;
+            if (typeof m.fact.candidateId === "string" && typeof m.fact.expectedVersion === "string" && m.threadId === activeThread && typeof m.promptId === "string") {
+              pendingConfirm = { key: m.fact.key, value: m.fact.value, candidateId: m.fact.candidateId, expectedVersion: m.fact.expectedVersion, threadId: m.threadId, promptId: m.promptId };
+            }
+            emit("confirm", m);
+          }
+          return;
         default:
-          return; // confirm (no profile for a visitor) and anything unknown are ignored
+          return; // visitors have no profile; unknown events never authorize a decision
       }
     }
 
@@ -352,7 +384,15 @@
       if (wasOpen && !ended) { ended = true; emit("ended", { reason: "stopped" }); }
     }
 
-    return { start: start, stop: stop, state: function () { return state; } };
+    return { start: start, stop: stop, state: function () { return state; }, confirm: function (choice, accepted) {
+      if (!pendingConfirm || !ws || ws.readyState !== 1 || typeof accepted !== "boolean" || !choice) return false;
+      var p = pendingConfirm;
+      if (["key", "value", "candidateId", "expectedVersion", "threadId", "promptId"].some(function (k) { return choice[k] !== p[k]; })) return false;
+      try { ws.send(JSON.stringify({ type: "confirm", key: p.key, value: p.value, candidateId: p.candidateId, expectedVersion: p.expectedVersion, threadId: p.threadId, promptId: p.promptId, accepted: accepted })); }
+      catch (e) { return false; }
+      pendingConfirm = null;
+      return true;
+    } };
   }
 
   var api = {

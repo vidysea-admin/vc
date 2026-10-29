@@ -179,6 +179,7 @@ export async function voiceWorld(opts: VoiceWorldOptions = {}): Promise<VoiceWor
     timers,
     pruneTimers,
     log: (line) => logs.push(line),
+    memoryPolicyForTenant: async () => ({ shortTermEnabled: true, longTermEnabled: true, learningEnabled: true, contextMessages: 12, maxFacts: 20 }),
     ...opts.deps,
   };
   const built = createVoiceApi(deps, { enabled: true, gatesDir: gates.gates, now: NOW, approver: APPROVER, env: {} });

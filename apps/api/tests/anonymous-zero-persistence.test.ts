@@ -48,7 +48,7 @@ function fiftyTurns(): { text: string; expect: "answered" | "sign_in_required" |
     "Can I get into TU Munich with 72 percent?",
   ]) out.push({ text: t, expect: "sign_in_required" });
   // 8 borderline personal/generic
-  for (const t of ["Germany", "tell me", "which one is best for me", "Should I choose Canada or Australia?", "Am I eligible for a DAAD scholarship?", "UK?", "help", "kya mujhe milegi scholarship"]) out.push({ text: t, expect: "sign_in_required" });
+  for (const t of ["Germany", "tell me", "which one is best for me", "Should I choose Canada or Australia?", "Am I eligible for a DAAD scholarship?", "UK?", "help", "kya mujhe milegi scholarship"]) out.push({ text: t, expect: t === "help" ? "answered" : "sign_in_required" });
   // 8 generic with an empty KB answer set (no sourced answer)
   for (let i = 0; i < 8; i++) out.push({ text: `What is the visa processing time for study permit variant ${i} in Canada?`, expect: "no_answer" });
   return out;
@@ -220,7 +220,7 @@ const BORDERLINE_PERSONAL = [
   "Germany",
   "UK?",
   "tell me",
-  "hello",
+  "hello", // Q9: deterministic public greeting, retained here as a zero-persistence control.
   "ok",
   "???",
   "study",
@@ -244,12 +244,15 @@ test("A15b: >= 40 borderline cases (English, Hinglish, Hindi) through the route:
     for (const text of BORDERLINE_PERSONAL) {
       const res = await ask(w, text, { ip: `192.0.2.${(n++ % 200) + 1}` });
       assert.equal(res.status, 200, text);
-      assert.equal(res.json.state, "sign_in_required", text);
-      assert.equal(res.json.message, ANONYMOUS_SIGN_IN_TEXT);
+      assert.equal(res.json.state, text === "hello" ? "ok" : "sign_in_required", text);
+      if (text === "hello") {
+        assert.ok(res.json.message.length > 0);
+        assert.notEqual(res.json.message, ANONYMOUS_SIGN_IN_TEXT);
+      } else assert.equal(res.json.message, ANONYMOUS_SIGN_IN_TEXT);
     }
     assert.equal(w.provider.calls.length, 0, "no model call decides or answers a personal question");
     assert.equal(w.kb.calls.length, 0, "no KB call for a personal question");
-    assert.deepEqual(w.counterCalls, BORDERLINE_PERSONAL.map(() => "sign_in_required"));
+    assert.deepEqual(w.counterCalls, BORDERLINE_PERSONAL.map(text => text === "hello" ? "answered" : "sign_in_required"));
   } finally {
     w.cleanup();
   }

@@ -1,0 +1,33 @@
+✖ S13 committed publication survives lost acknowledgement; cleanupFails=false (6.6152ms)
+✖ S13 committed publication survives lost acknowledgement; cleanupFails=true (0.9863ms)
+✔ S13 expired lease takeover while an old assistant is staged preserves only the new attempt (11.8195ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 1
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 811.8528
+
+✖ failing tests:
+
+test at packages\db\tests\chat-threads.test.ts:1:44105
+✖ S13 committed publication survives lost acknowledgement; cleanupFails=false (6.6152ms)
+  Error: synthetic lost acknowledgement
+      at FakeCollection.turns.updateOne (D:\vc\.worktrees\vc-completion\packages\db\tests\chat-threads.test.ts:700:164)
+      at async Proxy.updateOne (D:\vc\.worktrees\vc-completion\packages\db\src\tenant.ts:322:19)
+      at async completeChatTurn (D:\vc\.worktrees\vc-completion\packages\db\src\chat-threads.ts:420:20)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\chat-threads.test.ts:702:2)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+
+test at packages\db\tests\chat-threads.test.ts:1:44105
+✖ S13 committed publication survives lost acknowledgement; cleanupFails=true (0.9863ms)
+  Error: synthetic lost acknowledgement
+      at FakeCollection.turns.updateOne (D:\vc\.worktrees\vc-completion\packages\db\tests\chat-threads.test.ts:700:164)
+      at async Proxy.updateOne (D:\vc\.worktrees\vc-completion\packages\db\src\tenant.ts:322:19)
+      at async completeChatTurn (D:\vc\.worktrees\vc-completion\packages\db\src\chat-threads.ts:420:20)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\packages\db\tests\chat-threads.test.ts:702:2)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)

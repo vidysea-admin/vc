@@ -119,7 +119,7 @@ test("D1: every partner route in the partner, anonymous and chat code is documen
     ...ANONYMOUS_ROUTES.map((r) => key(r.method, r.path)),
     key("GET", PARTNER_OPENAPI_PATH),
   ]);
-  assert.equal(code.size, 7, "5 chat routes + the public turn + the openapi route");
+  assert.equal(code.size, 8, "6 chat routes + the public turn + the openapi route");
   const documented = new Set(operations().map((o) => key(o.method, o.path)));
   assert.deepEqual([...documented].sort(), [...code].sort());
   for (const v of VOICE_ROUTES) assert.equal(documented.has(key(v.method, v.path)), false, `${v.path} (voice) arrives with pc-voice`);
@@ -166,7 +166,7 @@ test("D1: scope rule: the page key opens only the public turn; the server key op
   const openapi = find("get", PARTNER_OPENAPI_PATH);
   assert.deepEqual(openapi.security, []);
   const studentOps = operations().filter((o) => o.path.startsWith("/v1/students/"));
-  assert.equal(studentOps.length, 5);
+  assert.equal(studentOps.length, 6);
   for (const { method, path, op } of studentOps) assert.deepEqual(op.security, [{ serverKey: [] }], `${method} ${path}: server key only`);
   const onlyPage = operations().filter((o) => JSON.stringify(o.op.security ?? []).includes("pageKey"));
   assert.deepEqual(onlyPage.map((o) => o.path), ["/v1/public/chat/turns"]);
@@ -258,6 +258,9 @@ test("D1: component schemas match the Zod shapes (names, required, strictness) a
   parity("Source", S.SourceSchema);
   parity("ProfileFact", S.ProfileFactSchema);
   parity("ProposedFact", S.ProposedFactSchema);
+  parity("PendingProfileChange", S.PendingProfileChangeSchema);
+  parity("MemoryPrompt", S.MemoryPromptSchema);
+  parity("MemoryConfirmation", S.TurnRequestSchema.shape.memoryConfirmation.unwrap());
   parity("ProfileResponse", S.ProfileResponseSchema);
   parity("FactDecisionRequest", S.FactDecisionRequestSchema);
   parity("TurnRequest", S.TurnRequestSchema);
@@ -270,7 +273,7 @@ test("D1: component schemas match the Zod shapes (names, required, strictness) a
   const draft = STUDENT_API_DRAFT.components.schemas as unknown as Json;
   for (const name of Object.keys(schemas).filter((n) => n !== "Error")) assert.equal(schemas[name], draft[name], `${name} is derived from the draft, not copied`);
   assert.deepEqual(schemas.Error, OPENAPI_DOCUMENT.components.schemas.Error);
-  assert.deepEqual(Object.keys(schemas).sort(), ["AnonymousError", "AnonymousTurnRequest", "AnonymousTurnResponse", "Claim", "Error", "FactDecisionRequest", "ProfileFact", "ProfileResponse", "ProposedFact", "Source", "Thread", "ThreadCreated", "ThreadTurn", "TurnRequest", "TurnResponse"]);
+  assert.deepEqual(Object.keys(schemas).sort(), ["AnonymousError", "AnonymousTurnRequest", "AnonymousTurnResponse", "Claim", "Error", "FactDecisionRequest", "MemoryConfirmation", "MemoryGraph", "MemoryItem", "MemoryPrompt", "PendingProfileChange", "ProfileFact", "ProfileResponse", "ProposedFact", "QuestContext", "Source", "Thread", "ThreadCreateRequest", "ThreadCreated", "ThreadList", "ThreadMetadata", "ThreadTurn", "TurnRequest", "TurnResponse"]);
 });
 
 test("D1: enums and bounds are the exact Zod values", () => {

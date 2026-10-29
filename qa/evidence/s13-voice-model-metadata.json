@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-28T00:19:12.935Z",
+  "operation": "read-only model metadata; no generation/live session",
+  "requestedModel": "gemini-3.8-live",
+  "status": 200,
+  "name": "models/gemini-3.8-live",
+  "supportedGenerationMethods": [
+    "bidiGenerateContent"
+  ]
+}

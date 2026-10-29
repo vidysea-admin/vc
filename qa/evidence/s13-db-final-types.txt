@@ -1,0 +1,4 @@
+
+> @vc/db@0.1.0 typecheck D:\vc\.worktrees\vc-completion\packages\db
+> tsc --noEmit
+

@@ -1,0 +1,460 @@
+{
+  "previousEvidence": {
+    "at": "2026-10-27T18:50:45Z",
+    "scope": "Unauthenticated public homepages only; not full host journeys or deployment identity",
+    "pathlynks": {
+      "url": "https://pathlynks.vidysea.com/",
+      "title": "School",
+      "buttons": [
+        "Career Guidance",
+        "Further Studies",
+        "Know Yourself",
+        "Profile Building",
+        "Career Selection",
+        "University Selection",
+        "Play Intro",
+        "Know Yourself",
+        "Profile Building",
+        "Career Selection",
+        "University Selection",
+        "Student",
+        "School",
+        "Counsellor",
+        "Parent",
+        "Personalized dashboardTrack your progress and goals in one place.",
+        "Explore careersAI-powered suggestions for careers & courses.",
+        "Milestone trackingStay on track with goals and deadlines.",
+        "Resource LibraryAccess guides, tools & learning resources.",
+        "Start Your Journey",
+        "Contact"
+      ],
+      "links": [
+        {
+          "text": "Log in",
+          "href": "/signin"
+        },
+        {
+          "text": "Sign Up",
+          "href": "/signup"
+        },
+        {
+          "text": "Sign Up",
+          "href": "/signup"
+        },
+        {
+          "text": "Get Started Free",
+          "href": "/signup"
+        },
+        {
+          "text": "Sign In",
+          "href": "/signin"
+        }
+      ],
+      "scripts": [
+        "https://pathlynks.vidysea.com/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/1255-c3eac4a11d392a0d.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/main-app-f3336e172256d2ab.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/5125-f64922302e738a1a.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/6471-f683126e5790b9d7.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/2793-756628a5014d17bb.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/9501-974eb3935b8761f4.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/app/layout-d3b9d9a2f399e86e.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/1356-6900f8a8b6ac9b42.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/5000-c5b49f4aea06a766.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/app/not-found-fa84350c95536cfe.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/1523-b4d7278f1dfb16b1.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/5582-af37af53b71ab1bd.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/5889-2250f65e3c6717a3.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/7382-1ec84d5442d37654.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/polyfills-42372ed130431b0a.js",
+        "https://pathlynks.vidysea.com/_next/static/chunks/webpack-efd2f1f49fe7fedf.js",
+        "https://www.googletagmanager.com/gtag/js?id=G-P29S87CMT8"
+      ],
+      "widgetNodes": [],
+      "nextBuild": null
+    },
+    "vidysea": {
+      "url": "https://www.vidysea.com/",
+      "title": "Vidysea: Overseas Education Consultant | Further Studies Services Provider",
+      "buttons": [
+        {
+          "text": "",
+          "label": "Search by voice"
+        },
+        {
+          "text": "Services",
+          "label": null
+        },
+        {
+          "text": "For Masters",
+          "label": null
+        },
+        {
+          "text": "For Bachelors",
+          "label": null
+        },
+        {
+          "text": "Universities",
+          "label": null
+        },
+        {
+          "text": "Log in",
+          "label": null
+        },
+        {
+          "text": "Sign UpSign Up",
+          "label": null
+        },
+        {
+          "text": "For Masters",
+          "label": null
+        },
+        {
+          "text": "For Bachelors",
+          "label": null
+        },
+        {
+          "text": "Universities",
+          "label": null
+        },
+        {
+          "text": "Log in",
+          "label": null
+        },
+        {
+          "text": "Sign UpSign Up",
+          "label": null
+        },
+        {
+          "text": "Career Guidance",
+          "label": null
+        },
+        {
+          "text": "Further Studies",
+          "label": null
+        },
+        {
+          "text": "Or use filters",
+          "label": "Open explore filters"
+        },
+        {
+          "text": "✕",
+          "label": "Close explore"
+        },
+        {
+          "text": "placeholder",
+          "label": "Select a country"
+        },
+        {
+          "text": "Explore",
+          "label": null
+        },
+        {
+          "text": "Explore",
+          "label": "Explore universities"
+        },
+        {
+          "text": "",
+          "label": "Explore and enroll"
+        },
+        {
+          "text": "",
+          "label": "Pre-departure and settle"
+        },
+        {
+          "text": "",
+          "label": "Jump to Discover & Evaluate"
+        },
+        {
+          "text": "",
+          "label": "Jump to Shortlist & Strategy"
+        },
+        {
+          "text": "",
+          "label": "Jump to Tests & Documents"
+        },
+        {
+          "text": "",
+          "label": "Jump to Apply & Finance"
+        },
+        {
+          "text": "",
+          "label": "Jump to Visa & Arrival"
+        },
+        {
+          "text": "Acing Your Tests",
+          "label": "Switch to Tests"
+        },
+        {
+          "text": "Crafting Your Application",
+          "label": "Apply - active"
+        },
+        {
+          "text": "Securing Scholarships & Loans",
+          "label": "Switch to Funding"
+        },
+        {
+          "text": "",
+          "label": "Previous service"
+        },
+        {
+          "text": "",
+          "label": "Next service"
+        },
+        {
+          "text": "",
+          "label": "Show Find Fit"
+        },
+        {
+          "text": "",
+          "label": "Show Tests"
+        },
+        {
+          "text": "",
+          "label": "Show Apply"
+        },
+        {
+          "text": "",
+          "label": "Show Funding"
+        },
+        {
+          "text": "",
+          "label": "Show Visa"
+        },
+        {
+          "text": "",
+          "label": "Show Ready"
+        },
+        {
+          "text": "Shivank NandanwarUNSW, Australia",
+          "label": "Show Shivank Nandanwar's story"
+        },
+        {
+          "text": "MaitreeVilnius, Lithuania",
+          "label": "Show Maitree's story"
+        },
+        {
+          "text": "Anjini JaganiUniversity, UK",
+          "label": "Show Anjini Jagani's story"
+        },
+        {
+          "text": "Tanvi KejriwalImperial, UK",
+          "label": "Show Tanvi Kejriwal's story"
+        },
+        {
+          "text": "Aarushi MalhotraThe, UK",
+          "label": "Show Aarushi Malhotra's story"
+        },
+        {
+          "text": "Shivank NandanwarUNSW, Australia",
+          "label": "Show Shivank Nandanwar's story"
+        },
+        {
+          "text": "MaitreeVilnius, Lithuania",
+          "label": "Show Maitree's story"
+        },
+        {
+          "text": "Anjini JaganiUniversity, UK",
+          "label": "Show Anjini Jagani's story"
+        },
+        {
+          "text": "Tanvi KejriwalImperial, UK",
+          "label": "Show Tanvi Kejriwal's story"
+        },
+        {
+          "text": "Aarushi MalhotraThe, UK",
+          "label": "Show Aarushi Malhotra's story"
+        },
+        {
+          "text": "Shivank NandanwarUNSW, Australia",
+          "label": "Show Shivank Nandanwar's story"
+        },
+        {
+          "text": "MaitreeVilnius, Lithuania",
+          "label": "Show Maitree's story"
+        },
+        {
+          "text": "Anjini JaganiUniversity, UK",
+          "label": "Show Anjini Jagani's story"
+        }
+      ],
+      "links": [
+        {
+          "text": "Country Guides",
+          "href": "/country-guide"
+        },
+        {
+          "text": "Log in",
+          "href": "/login"
+        },
+        {
+          "text": "Sign UpSign Up",
+          "href": "/signup"
+        },
+        {
+          "text": "Log in",
+          "href": "/login"
+        },
+        {
+          "text": "Sign UpSign Up",
+          "href": "/signup"
+        },
+        {
+          "text": "Log in",
+          "href": "/login"
+        },
+        {
+          "text": "Sign UpSign Up",
+          "href": "/signup"
+        },
+        {
+          "text": "Step 1Explore & EnrollFind the right fit. Start your journey.",
+          "href": "/signup"
+        },
+        {
+          "text": "Step 2Pre-Departure & SettleWe've got you, every step ahead.",
+          "href": "/services/counselling-for-study-abroad"
+        },
+        {
+          "text": "Get in touch",
+          "href": "/student/contact"
+        },
+        {
+          "text": "",
+          "href": "/mbbs/student"
+        },
+        {
+          "text": "Find your Path",
+          "href": "https://pathlynks.vidysea.com/signup"
+        },
+        {
+          "text": "Loan Assistance",
+          "href": "/services/study-abroad-student-loan-assistance"
+        },
+        {
+          "text": "Counselling",
+          "href": "/services/counselling-for-study-abroad"
+        },
+        {
+          "text": "Scholarship Assistance",
+          "href": "/services/scholarship-assistance-for-students-studying-abroad"
+        },
+        {
+          "text": "PathLynks Assessments",
+          "href": "https://pathlynks.vidysea.com/signup"
+        }
+      ],
+      "scripts": [
+        "https://www.vidysea.com/_next/static/chunks/4bd1b696-158a8c057ff34a21.js",
+        "https://www.vidysea.com/_next/static/chunks/79826-a0a93ce784938699.js",
+        "https://www.vidysea.com/_next/static/chunks/main-app-565630ef40b7c48f.js",
+        "https://www.vidysea.com/_next/static/chunks/99345-99f643aa830118a3.js",
+        "https://www.vidysea.com/_next/static/chunks/14499-b5b428494f4b8ff5.js",
+        "https://www.vidysea.com/_next/static/chunks/6325-4667536569e21d90.js",
+        "https://www.vidysea.com/_next/static/chunks/58189-7557f60d567813df.js",
+        "https://www.vidysea.com/_next/static/chunks/polyfills-42372ed130431b0a.js",
+        "https://www.vidysea.com/_next/static/chunks/webpack-3e6c763379a618f6.js"
+      ],
+      "widgetNodes": [],
+      "shadowHosts": [
+        {
+          "tag": "NEXT-ROUTE-ANNOUNCER",
+          "id": ""
+        }
+      ],
+      "frames": [],
+      "nextBuild": null
+    }
+  },
+  "realAccountProbe20261028": [
+    {
+      "site": "vidysea",
+      "at": "2026-10-28T00:59:32.582Z",
+      "loginSucceeded": true,
+      "url": "https://www.vidysea.com/student/dashboard",
+      "headings": [
+        "Premium feature locked",
+        "Get a Dedicated Counsellor",
+        "Quick Actions",
+        "Your further studies journey, organized.",
+        "Services",
+        "Quick Links",
+        "Contact Info",
+        "Your cookie choices"
+      ],
+      "facts": {
+        "user_type": "student",
+        "is_verified": true
+      },
+      "bridge": {
+        "tested": true,
+        "status": 404,
+        "code": "Not Found",
+        "mode": null
+      },
+      "widgets": {
+        "sdkLoaded": false,
+        "voiceSdkLoaded": false,
+        "widgetScripts": []
+      },
+      "screenshot": "D:/vc/.worktrees/vc-completion/qa/evidence/s13-real-account-vidysea-20261028.png"
+    },
+    {
+      "site": "pathlynks",
+      "at": "2026-10-28T00:59:39.728Z",
+      "loginSucceeded": true,
+      "url": "https://pathlynks.vidysea.com/dashboard",
+      "headings": [
+        "",
+        "Find your direction, UMESH RATAN SINGH.",
+        "Build toward your goal",
+        "Find your career guide",
+        "Your journey",
+        "Know Yourself",
+        "Career Selection",
+        "Profile Building",
+        "University Selection",
+        "Your academicsAdded",
+        "Parent consentAction needed",
+        "A little curious? Explore the world of careers."
+      ],
+      "facts": {
+        "role": "student"
+      },
+      "bridge": {
+        "tested": true,
+        "status": 404,
+        "code": null,
+        "mode": null
+      },
+      "widgets": {
+        "sdkLoaded": false,
+        "voiceSdkLoaded": false,
+        "widgetScripts": []
+      },
+      "screenshot": "D:/vc/.worktrees/vc-completion/qa/evidence/s13-real-account-pathlynks-20261028.png"
+    }
+  ],
+  "realVidyseaReadOnly20261028": {
+    "at": "2026-10-28T01:03:32.923Z",
+    "site": "vidysea",
+    "environment": "production",
+    "tlsVerified": true,
+    "readOnly": "on",
+    "testAccountMatches": 1,
+    "profileRows": 1,
+    "profile": {
+      "academic_level": null,
+      "field_of_interest": null,
+      "target_intake": null,
+      "preferred_countries": null,
+      "preferred_courses": null,
+      "data_sharing_consent": true
+    },
+    "activeShortlistCountUpTo51": 0,
+    "shortlist": [],
+    "assessmentRows": 0,
+    "assessment": null,
+    "privilegedRole": true
+  }
+}

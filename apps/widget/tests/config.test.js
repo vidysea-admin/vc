@@ -71,8 +71,33 @@ test("contrastText picks readable text for the bubble colour", () => {
   assert.equal(W.contrastText("#1f5fbf"), "#ffffff");
 });
 
+test("Q5: explicit same-origin voice proxy enables authenticated voice without retaining browser identity or keys", () => {
+  const c = W.parseConfig({ vcProxy: "/api/vc", vcVoice: "on", vcVoiceProxy: "/api/pathlynks-quest/ai/voice/session", vcKey: "ignored", vcStudentId: "spoof", vcThreadId: "spoof" }, SRC);
+  assert.equal(c.ok, true);
+  assert.equal(c.voiceProxy, "/api/pathlynks-quest/ai/voice/session");
+  assert.equal(c.key, "");
+  assert.equal(c.studentId, undefined);
+  assert.equal(c.threadId, undefined);
+  assert.equal(W.voiceAvailable(c), true);
+  for (const voiceProxy of ["//evil.test/mint", "/\\evil.test/mint", "/api\\mint", "https://evil.test/mint", "javascript:bad", "/mint?token=bad", "/mint#bad", "/mint\npath"]) {
+    const bad = W.parseConfig({ vcProxy: "/api/vc", vcVoice: "on", vcVoiceProxy: voiceProxy }, SRC);
+    assert.equal(bad.ok, false, JSON.stringify(voiceProxy));
+    assert.equal(W.voiceAvailable(bad), false);
+  }
+  assert.equal(W.voiceAvailable(W.parseConfig({ vcVoice: "on", vcVoiceProxy: "/mint" }, SRC)), false, "a proxy endpoint alone does not enable authenticated mode");
+});
+
 test("the file version matches package.json; the hosted name carries the major (vc-widget.v1.js)", () => {
   const pkg = require("../package.json");
   assert.equal(W.VERSION, pkg.version);
   assert.equal("vc-widget.v" + W.VERSION.split(".")[0] + ".js", "vc-widget.v1.js");
+});
+
+test('S12 manual SDK loading exports library without an automatic anonymous mount', () => {
+  const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+  const document={currentScript:{getAttribute:name=>name==='data-vc-manual'?'true':null}};const window={document};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/vc-widget.js'),'utf8'),{window,URL});
+  assert.equal(typeof window.VCWidget.mount,'function');assert.equal(window.__vcWidgetMounted,undefined);
+  const config=window.VCWidget.parseConfig({vcProxy:'/api/v1/student/ai-counsellor/vc',vcVoice:'on'});
+  assert.equal(config.mode,'proxy');assert.equal(config.voice,true);
 });

@@ -1,0 +1,58 @@
+{
+  "status": 200,
+  "response": {
+    "turnId": "s12-public-grounding-one",
+    "state": "ok",
+    "message": "The Technical University of Munich is in Munich, Germany. The University of Toronto is in Toronto, Ontario, Canada.",
+    "claims": [
+      {
+        "text": "The Technical University of Munich is in Munich, Germany.",
+        "kind": "country",
+        "sourceIds": [
+          "tum-location"
+        ],
+        "status": "verified"
+      },
+      {
+        "text": "The University of Toronto is in Toronto, Ontario, Canada.",
+        "kind": "country",
+        "sourceIds": [
+          "uoft-location"
+        ],
+        "status": "verified"
+      }
+    ],
+    "sources": [
+      {
+        "id": "tum-location",
+        "kind": "toc",
+        "title": "TUM Contact and Directions"
+      },
+      {
+        "id": "uoft-location",
+        "kind": "toc",
+        "title": "University of Toronto Contacts"
+      }
+    ],
+    "profileFactsUsed": []
+  },
+  "model": "deepseek-v4.1-flash",
+  "synthetic": true,
+  "fixtureSources": [
+    {
+      "id": "tum-location",
+      "url": "https://www.tum.de/en/about-tum/contact-directions/"
+    },
+    {
+      "id": "uoft-location",
+      "url": "https://www.utoronto.ca/contacts"
+    }
+  ],
+  "transportOk": true,
+  "factualCorrect": true,
+  "attributionValid": true,
+  "elapsedMs": 2214,
+  "usage": "see provider usage metadata; bill unverified",
+  "liveStudentData": false,
+  "productionKb": false
+}

@@ -17,7 +17,7 @@ import { escalateTurns, loadConcernClassifierConfig, loadSkill, CONCERN_CLASSIFI
 import { MockLiveProvider, type LiveProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
-import { startApi } from "../src/index.js";
+import { startApi, createQuestVoiceTools } from "../src/index.js";
 import { VoiceConfigError, voiceEnabledFromEnv, type VoiceApiDeps } from "../src/voice.js";
 import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, adult, newThread, studentToken, until, voiceWorld, type VoiceWorld, type VoiceWorldOptions } from "./voice-fixtures.js";
 import { SKILLS_DIR, SPEAKERS, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, studentVerifier } from "./chat-fixtures.js";
@@ -35,6 +35,32 @@ async function withWorld(fn: (w: VoiceWorld, threadId: string) => Promise<void>,
 }
 const speak = (w: VoiceWorld, idx: number, text: string) => w.provider.backends[idx]!.emitInputTranscript(text, true);
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+test("Q5: Quest voice tools use the verified tenant/student, redact columns and reject identity arguments", async () => {
+  const seen: string[] = [];
+  const tools = createQuestVoiceTools("pathlynks", {
+    kb: recordingKb(), provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS,
+    hasPriorFlag: async () => false,
+    pathlynks: {
+      getStudentProfile: async (id) => { seen.push(id); return { status: "ok", data: { grade: "12", email: "SECRET@private.test" } }; },
+      getSavedCareers: async (id) => { seen.push(id); return { status: "ok", data: [] }; },
+      getCompareList: async () => ({ status: "ok", data: [] }),
+      getAssessmentStatus: async () => ({ status: "ok", data: { completed: 4, inProgress: 0, reportsAvailable: 4, totalResponses: 4, status: "completed" } }),
+    },
+    navCatalogue: async () => ({ routes: [{ path: "/career-quest/career-selection" }, { path: "/career-repository" }] }),
+  });
+  const who = { tenantId: "pathlynks", studentId: "stu-A", threadId: "th-A" };
+  const profile = await tools.run({ id: "1", name: "pathlynks_profile", args: {} }, who);
+  assert.match(JSON.stringify(profile.result), /12/);
+  assert.doesNotMatch(JSON.stringify(profile), /SECRET|private.test/);
+  const assessment = await tools.run({ id: "2", name: "pathlynks_assessment", args: {} }, who);
+  assert.match(JSON.stringify(assessment.result), /4 completed/);
+  const nav = await tools.run({ id: "3", name: "navigate_steps", args: { intent: "mujhe career select karna hai" } }, who);
+  assert.match(JSON.stringify(nav.result), /career-quest\/career-selection/);
+  await tools.run({ id: "4", name: "pathlynks_profile", args: { studentId: "stu-B" } }, who);
+  await tools.run({ id: "5", name: "pathlynks_profile", args: {} }, { ...who, tenantId: "other" });
+  assert.deepEqual(seen, ["stu-A"]);
+});
 
 // ---------------------------------------------------------------------------
 // (A1) W1: a writer-deadline error on the crisis write is not a fence
@@ -577,4 +603,87 @@ test("W9: with chat off, a voice crisis goes through the engine's escalateTurns 
   } finally {
     await b.stop();
   }
+});
+
+test("S12 runtime voice tools: verified tenant selects native data and navigation without cross-platform fallback", async () => {
+ const seen:string[]=[];
+ const common={kb:recordingKb(),provider:kbAnswerProvider(),skillsDir:SKILLS_DIR,speakers:SPEAKERS,hasPriorFlag:async()=>false};
+ const tools=createQuestVoiceTools(tenant=>tenant==="vidysea"?{...common,vidysea:{
+  getStudentProfile:async(id)=>{seen.push(id);return {ok:true,rows:[{academic_level:"Undergraduate"}],truncated:false};},
+  getShortlistedProgrammes:async(id)=>{seen.push(id);return {ok:true,rows:[{programme_name:"Native MSc",university_name:"Native University"}],truncated:false};},
+  getProfileAssessment:async()=>({ok:true,rows:[],truncated:false})
+ },navCatalogue:async()=>({routes:[{path:"/student/shortlist"}]})}:undefined,common);
+ const who={tenantId:"vidysea",studentId:"synthetic-owner",threadId:"owned"};
+ const out=await tools.run({id:"s12",name:"vidysea_shortlisted_programmes",args:{}},who);
+ assert.match(JSON.stringify(out.result),/Native MSc/);assert.doesNotMatch(JSON.stringify(out.result),/career|Pathlynks/);
+ const before=seen.length;await tools.run({id:"other",name:"vidysea_profile",args:{}},{...who,tenantId:"pathlynks"});assert.equal(seen.length,before);
+ await tools.run({id:"bad",name:"vidysea_profile",args:{studentId:"other"}},who);assert.equal(seen.length,before);
+ const unsupported=await tools.run({id:"career",name:"pathlynks_saved_careers",args:{}},who);assert.match(JSON.stringify(unsupported.result),/can't see/);assert.equal(seen.length,before);
+ assert.deepEqual(seen,["synthetic-owner"]);
+});
+
+// ---------------------------------------------------------------------------
+// wire-fix-1 (D-134): the Vidysea tracking tools and the Career Quest tools are voice tools too, with the same owner binding as chat.
+// ---------------------------------------------------------------------------
+
+test("wire-fix-1: voice declares and runs the vidysea_* tracking tools and the pathlynks_* Career Quest tools, bound to the verified student; an identity argument or a foreign tenant reads nothing", async () => {
+  const seen: string[] = [];
+  const common = { kb: recordingKb(), provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, hasPriorFlag: async () => false };
+  const rows = (tag: string, row: Record<string, unknown>) => async (id: string) => { seen.push(`${tag}:${id}`); return { ok: true, rows: [row], truncated: false }; };
+  const vidysea = {
+    getStudentProfile: rows("profile", { academic_level: "Undergraduate" }),
+    getShortlistedProgrammes: rows("shortlist", { programme_name: "Synthetic MSc", university_name: "Synthetic University" }),
+    getProfileAssessment: async () => ({ ok: true, rows: [], truncated: false }),
+    getJourneyMaps: rows("journey", { program_name: "Synthetic Journey MSc", university_name: "Journey University", country_name: "Canada" }),
+    getApplications: rows("applications", { program_name: "Synthetic App MSc", university_name: "App University", application_status: "submitted" }),
+    getVisaApplications: rows("visa", { visa_type: "Study permit", country: "Canada", status: "in_progress" }),
+    getFavourites: rows("favourites", { item_type: "university", item_name: "Favourite Synthetic University" }),
+    getSavedScholarships: rows("scholarships", { name: "Synthetic Scholarship", provider: "Synthetic Trust", country: "Canada" }),
+  };
+  const quest = {
+    getStudentProfile: async () => ({ status: "ok" as const, data: { grade: "11" } }),
+    getSavedCareers: async () => ({ status: "ok" as const, data: [] }),
+    getCompareList: async () => ({ status: "ok" as const, data: [] }),
+    getAssessmentStatus: async () => ({ status: "ok" as const, data: { completed: 1, inProgress: 0, reportsAvailable: 1, totalResponses: 1, status: "completed" } }),
+    getQuestProfile: async (id: string) => { seen.push(`quest:${id}`); return { status: "ok" as const, data: { gradeLabel: "Grade 11", level: 3, xp: 240, shareToken: "SECRET-SHARE" } }; },
+    getQuestGoals: async (id: string) => { seen.push(`goals:${id}`); return { status: "ok" as const, data: [{ title: "Win a synthetic science fair", status: "active" }] }; },
+    getQuestPlan: async (id: string) => { seen.push(`plan:${id}`); return { status: "ok" as const, data: { planTitle: "Synthetic year plan", stepsTotal: 4, stepsCompleted: 1 } }; },
+  };
+  const tools = createQuestVoiceTools((tenant) => (tenant === "vidysea" ? { ...common, vidysea } : tenant === "pathlynks" ? { ...common, pathlynks: quest } : undefined), common);
+  const wanted = ["vidysea_journey_maps", "vidysea_applications", "vidysea_visa", "vidysea_favourites", "vidysea_saved_scholarships", "vidysea_progress", "pathlynks_quest_progress", "pathlynks_goals", "pathlynks_year_plan"];
+  const declared = new Set(tools.declarations.map((d) => d.name));
+  for (const name of wanted) assert.ok(declared.has(name), `${name} is declared`);
+  for (const d of tools.declarations.filter((x) => wanted.includes(x.name))) assert.deepEqual(d.parameters, { type: "object", properties: {}, additionalProperties: false }, `${d.name} accepts no arguments, so no identity`);
+
+  const v = { tenantId: "vidysea", studentId: "synthetic-owner", threadId: "t-v" };
+  const expectV: [string, RegExp][] = [
+    ["vidysea_journey_maps", /Synthetic Journey MSc/],
+    ["vidysea_applications", /Synthetic App MSc/],
+    ["vidysea_visa", /Study permit/],
+    ["vidysea_favourites", /Favourite Synthetic University/],
+    ["vidysea_saved_scholarships", /Synthetic Scholarship/],
+  ];
+  for (const [name, re] of expectV) assert.match(JSON.stringify((await tools.run({ id: name, name, args: {} }, v)).result), re, name);
+  const progress = await tools.run({ id: "p", name: "vidysea_progress", args: {} }, v);
+  assert.doesNotMatch(JSON.stringify(progress.result), /can't see/, "vidysea_progress reaches the graph, not the outage line");
+  assert.match(JSON.stringify(progress.result), /journey|application|visa|shortlist/i);
+
+  const p = { tenantId: "pathlynks", studentId: "synthetic-student", threadId: "t-p" };
+  const qp = await tools.run({ id: "q1", name: "pathlynks_quest_progress", args: {} }, p);
+  assert.match(JSON.stringify(qp.result), /Level 3/);
+  assert.doesNotMatch(JSON.stringify(qp), /SECRET-SHARE/);
+  assert.match(JSON.stringify((await tools.run({ id: "q2", name: "pathlynks_goals", args: {} }, p)).result), /Win a synthetic science fair/);
+  assert.match(JSON.stringify((await tools.run({ id: "q3", name: "pathlynks_year_plan", args: {} }, p)).result), /Synthetic year plan/);
+
+  assert.deepEqual(seen.filter((x) => /^(quest|goals|plan):/.test(x)), ["quest:synthetic-student", "goals:synthetic-student", "plan:synthetic-student"]);
+  assert.ok(seen.every((x) => x.endsWith(":synthetic-owner") || x.endsWith(":synthetic-student")), "every read used the verified student id");
+  const before = seen.length;
+  for (const name of wanted) {
+    await tools.run({ id: "x", name, args: { studentId: "someone-else" } }, v);
+    await tools.run({ id: "y", name, args: {} }, { ...v, tenantId: "unknown-tenant" });
+  }
+  assert.equal(seen.length, before, "an identity argument, or a tenant with no platform, reads nothing");
+  const crossed = await tools.run({ id: "z", name: "pathlynks_goals", args: {} }, v);
+  assert.match(JSON.stringify(crossed.result), /Career Quest is part of Pathlynks/, "a quest tool on a Vidysea tenant says so and reads nothing");
+  assert.equal(seen.length, before);
 });

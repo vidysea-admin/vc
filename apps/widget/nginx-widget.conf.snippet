@@ -30,6 +30,14 @@ location = /widget/vc-widget-voice.v1.js {
     add_header X-Content-Type-Options "nosniff" always;
 }
 
+# Deploy all files for a reviewed commit together; never replace that directory.
+location ~ "^/widget/releases/([a-f0-9]{40})/(vc-widget(?:\.v1)?\.js|vc-widget-voice\.v1\.js)$" {
+    alias /opt/vc/releases/$1/widget/$2;
+    default_type application/javascript;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    add_header X-Content-Type-Options "nosniff" always;
+}
+
 # Nothing else is published under /widget/.
 location /widget/ {
     return 404;

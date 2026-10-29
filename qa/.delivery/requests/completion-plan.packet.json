@@ -1,0 +1,105 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-completion-plan-20261027",
+  "root_run_id": "vc-completion-plan-20261027",
+  "feature": "quest-successor",
+  "cycle": 2,
+  "parent_run_id": "T-057-S12-user-approved-recovery",
+  "run_id": "completion-plan",
+  "session": "vc-completion-20261027",
+  "retry_of": "attempt1",
+  "candidate": {
+    "head": "184b6a583eaf0ec11a8bf5b2295e84e90f8be15f",
+    "files": [
+      {
+        "path": "docs/features/vc-admin-control/plan.md",
+        "sha256": "0e32081cad1a875de49503ce3dce1d376855f81b88d2c682c9ff76513b7de02c"
+      },
+      {
+        "path": "qa/contracts/quest-successor.md",
+        "sha256": "c19d55f535cf36237fafa4a38a305d77f0f81146271b09ea491a21934d2feb88"
+      }
+    ],
+    "dirty_inputs": [
+      "docs/features/vc-admin-control/plan.md",
+      "qa/contracts/quest-successor.md"
+    ]
+  },
+  "policy_id": "236bc0e7c075f9729ef464dbd8aa2bdbec02754e95e228c936480c96d4c8fe39",
+  "protocol_id": "835d6a2764c50567b4573c7aa8f4f991430e2240a46107256b4a07d934799cf1",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "236bc0e7c075f9729ef464dbd8aa2bdbec02754e95e228c936480c96d4c8fe39"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "835d6a2764c50567b4573c7aa8f4f991430e2240a46107256b4a07d934799cf1"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "b04eb2bcaf5f7d01be5c8d737a00fe1bdb09d42664a887e3575c9189384b443e"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "b344f406e0b6c4beb3df693b1e67cfc7b867afd3970c580207e4203d13a1de4d"
+    }
+  },
+  "config_id": "b04eb2bcaf5f7d01be5c8d737a00fe1bdb09d42664a887e3575c9189384b443e",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "b344f406e0b6c4beb3df693b1e67cfc7b867afd3970c580207e4203d13a1de4d",
+  "budget": {
+    "deadline": "2026-10-27T12:47:13.959Z",
+    "closeout_ms": 30000,
+    "no_progress_ms": 720000,
+    "estimate_ms": 720000,
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Fresh independent plan review of explicit user-approved S12 recovery and both-platform extension; preserves original T057 cycle2 and all historical receipts, not product acceptance."
+  },
+  "resource_caps": {
+    "agent": 8
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "PLAN",
+      "description": "Independent S12 plan approval only",
+      "check_task_id": "completion-plan"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "completion-plan",
+      "owner": "independent-plan-reviewer",
+      "kind": "integration",
+      "depends_on": [],
+      "owns": [
+        "qa/verdicts/quest-successor-plan.md",
+        "qa/contracts/quest-successor.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "timeout_ms": 720000,
+      "max_output_bytes": 1048576,
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "exec",
+        "--approve-for-me",
+        "--json",
+        "-"
+      ],
+      "handoff": {
+        "path": "qa/.delivery/context/d06b60cb7a51be560cab314e3190859ec5ef3da3618ae4568f5714bbe1f276ef.handoff.json",
+        "sha256": "d06b60cb7a51be560cab314e3190859ec5ef3da3618ae4568f5714bbe1f276ef"
+      }
+    }
+  ],
+  "dispatch": {
+    "task_id": "completion-plan",
+    "attempt_id": "attempt2"
+  }
+}

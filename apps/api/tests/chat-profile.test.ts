@@ -7,9 +7,11 @@ import assert from "node:assert/strict";
 import { COLLECTION_NAMES, VC_DB_NAME, confirmErasure, requestErasure } from "@vc/db";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
+import { DEFAULT_MEMORY_POLICY, NO_MEMORY_POLICY } from "../src/partners.js";
 import { ChatConfigError } from "../src/chat.js";
 import { JwtConfigError } from "../src/auth.js";
 import { startApi } from "../src/index.js";
+import { MASTER_KEY } from "./admin-fixtures.js";
 import { API_ROUTES } from "../src/server.js";
 import { SignJWT, type JWTPayload } from "jose";
 import { addPartner, createMongoPartnerStore } from "../src/partners.js";
@@ -18,9 +20,10 @@ import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, ga
 import { generateKeyPairSync } from "node:crypto";
 import { CHAIN_ENV, GOOD_CLAIM, assertRefusedNamingB13, chainRequestInput, realB13IsSigned, realGatesWithB13Pending, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
 import { MockProvider, RulesProvider, isRetryableProviderError } from "@vc/providers";
-import { PROVIDER_APOLOGY_TEXT, STUDENT_CRISIS_MESSAGE, createStudentFactExtractor, detectLanguageOffline } from "@vc/engine";
+import { PROVIDER_APOLOGY_TEXT, STUDENT_CRISIS_MESSAGE, createStudentFactExtractor, detectLanguageOffline, loadSkill } from "@vc/engine";
 import { CHAIN_MONTHLY_CAP_ENV, ChainBudgetExhaustedError, ChainSpendCapError, createChainSpendGuard, parseChainMonthlyCap } from "../src/index.js";
 
+const enabledPolicy=async()=>({...DEFAULT_MEMORY_POLICY});
 const PATHLYNKS = [{ key: "grade", value: "Grade 12, CBSE", source: "pathlynks" as const }];
 const proposeGermany = () => [{ key: "target_country", value: "Germany" }];
 
@@ -46,19 +49,20 @@ async function askOnce(w: ReturnType<typeof chatWorld>, token: string, threadId:
 }
 
 test("A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable", async () => {
-  const w = chatWorld({ deps: { profile: { facts: async () => PATHLYNKS } } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, profile: { facts: async () => PATHLYNKS } } });
   try {
     const token = await studentToken(adult());
     const res = await call(w, "GET", profilePath("stu-1"), { token });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.json, { facts: PATHLYNKS, proposed: [] });
+    assert.deepEqual({facts:res.json.facts,proposed:res.json.proposed}, { facts: PATHLYNKS, proposed: [] });
+    assert.equal(res.json.memory.items[0].readOnly,true);
   } finally {
     w.cleanup();
   }
 });
 
 test("A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it", async () => {
-  const w = chatWorld({ deps: { profile: { facts: async () => PATHLYNKS }, extractFacts: async () => proposeGermany() } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, profile: { facts: async () => PATHLYNKS }, extractFacts: async () => proposeGermany() } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -67,18 +71,19 @@ test("A16b: a fact heard in chat is proposed back, is NOT in the facts in use, a
     assert.deepEqual(before.json.facts, PATHLYNKS, "an unconfirmed chat fact is never in use");
     assert.equal(before.json.proposed.length, 1);
     const proposed = before.json.proposed[0];
-    assert.deepEqual([proposed.key, proposed.value, proposed.status], ["target_country", "Germany", "proposed"]);
+    assert.deepEqual([proposed.key, proposed.value, proposed.status], ["target-country", "Germany", "proposed"]);
+    assert.equal(proposed.pendingChange.value,"Germany");assert.ok(proposed.pendingChange.candidateId);assert.ok(proposed.pendingChange.version);
     const done = await call(w, "POST", `/v1/students/stu-1/chat/profile/facts/${proposed.factId}/decision`, { token, body: { action: "confirm" } });
     assert.equal(done.status, 200);
     assert.deepEqual(done.json.proposed, []);
-    assert.deepEqual(done.json.facts, [...PATHLYNKS, { key: "target_country", value: "Germany", source: "student-confirmed" }]);
+    assert.deepEqual(done.json.facts, [...PATHLYNKS, { key: "target-country", value: "Germany", source: "student-confirmed" }]);
   } finally {
     w.cleanup();
   }
 });
 
 test("A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another", async () => {
-  const w = chatWorld({ deps: { extractFacts: async () => [{ key: "budget", value: "10 lakh" }, { key: "city", value: "Pune" }] } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: async () => [{ key: "budget", value: "10 lakh" }, { key: "city", value: "Pune" }] } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -98,7 +103,7 @@ test("A16b: a student corrects a wrongly heard fact (the corrected value is reda
 });
 
 test("A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400", async () => {
-  const w = chatWorld({ deps: { extractFacts: async () => proposeGermany() } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: async () => proposeGermany() } });
   try {
     const t1 = await studentToken(adult("stu-1"));
     const t2 = await studentToken(adult("stu-2"));
@@ -118,7 +123,7 @@ test("A16b: a decision on a fact that does not exist, or on another student's fa
 
 test("D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created", async () => {
   let extractCalls = 0;
-  const w = chatWorld({ deps: { extractFacts: async () => (extractCalls++, proposeGermany()) } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: async () => (extractCalls++, proposeGermany()) } });
   try {
     const token = await studentToken(minor());
     const threadId = await newThread(w, token);
@@ -131,7 +136,7 @@ test("D-093 4A: for an under-18 student without consent nothing is extracted or 
 });
 
 test("a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body", async () => {
-  const w = chatWorld({ deps: { profile: { facts: async () => { throw new Error("pathlynks down: token=secret-123"); } } } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, profile: { facts: async () => { throw new Error("pathlynks down: token=secret-123"); } } } });
   try {
     const token = await studentToken(adult());
     const res = await call(w, "GET", profilePath("stu-1"), { token });
@@ -151,11 +156,32 @@ const counsellorKeys = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const counsellorVerifier = createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_PUBLIC_KEY: counsellorKeys.publicKey.export({ type: "spki", format: "pem" }).toString() }));
 const httpBase = (extra: Record<string, unknown> = {}) => ({ port: 0, verifier: counsellorVerifier, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, ...extra });
 
+test("Q1/Q14: default live profile grounds ordinary guidance, projects grade only and never looks up an unconsented student", async () => {
+  const fake=createFakeMongoClient(), f=gatesFixture(), provider=kbAnswerProvider(), calls:string[]=[];
+  const api=await startApi({MONGODB_URL:"mongodb://fake-host/ignored",VC_GATE_APPROVER:"Umesh",VC_CHAT_ENABLED:"true",VC_ADMIN_MASTER_KEY:MASTER_KEY},{clientFactory:()=>fake.client,admin:{sources:{siteId:"pathlynks",sources:[]},pathlynks:{
+    getStudentProfile:async(id)=>{calls.push(id);return {status:"ok",data:{name:"Synthetic Name",grade:"12",date_of_birth:"DOB-PROFILE-CANARY",detailed_report:"REPORT-PROFILE-CANARY"}};},
+    getSavedCareers:async()=>({status:"ok",data:[]}),getCompareList:async()=>({status:"ok",data:[]}),getAssessmentStatus:async()=>({status:"ok",data:null}),
+  }},http:httpBase({provider,chat:{memoryPolicyForTenant:enabledPolicy,kb:recordingKb(),speakers:SPEAKERS,gatesDir:f.gates,verifier:studentVerifier()}})});
+  try{
+    const base=`http://127.0.0.1:${api.port}`;
+    for(const person of [adult("live-profile","pathlynks"),minor("no-consent-profile","pathlynks")]){
+      const headers={authorization:`Bearer ${await studentToken(person)}`,"content-type":"application/json"};
+      const created=await fetch(`${base}${threadsPath(person.studentId as string)}`,{method:"POST",headers});assert.equal(created.status,201);
+      const {threadId}=await created.json() as {threadId:string};
+      const response=await fetch(`${base}${turnsPath(person.studentId as string,threadId)}`,{method:"POST",headers,body:JSON.stringify({text:GERMANY_QUESTION,clientTurnId:"live-profile-1"})});assert.equal(response.status,200);
+    }
+    const sent=JSON.stringify(provider.calls.filter(c=>c.skillName==="kb-answer").at(-1)?.input);
+    assert.match(sent,/"key":"grade","value":"12","source":"pathlynks"/);
+    assert.doesNotMatch(sent,/Synthetic Name|DOB-PROFILE-CANARY|REPORT-PROFILE-CANARY/);
+    assert.ok(calls.length>0);assert.ok(calls.every(id=>id==="live-profile"));
+  }finally{await api.stop();cleanupGates(f);}
+});
+
 test("startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read", async () => {
   const fake = createFakeMongoClient();
   const api = await startApi(
     { MONGODB_URL: "mongodb://fake-host/ignored" },
-    { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: "Z:/does/not/exist", verifier: studentVerifier() } }) },
+    { clientFactory: () => fake.client, http: httpBase({ chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: "Z:/does/not/exist", verifier: studentVerifier() } }) },
   );
   try {
     const token = await studentToken(adult());
@@ -181,7 +207,7 @@ test("startApi: flag on with a temp copy of the real repo gates (B13 set back to
     await mustRefuse(
       startApi(
         { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
-        { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: g.gates, verifier: studentVerifier() } }) },
+        { clientFactory: () => fake.client, http: httpBase({ chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: g.gates, verifier: studentVerifier() } }) },
       ),
       GoLiveRefusedError,
       assertRefusedNamingB13, // pc-hardening-8 S2 (ISS-pc-hardening-7-2): B13 is the reason, not some other closed gate in the copy
@@ -203,7 +229,7 @@ test("startApi: chat flag on, NO gatesDir and VC_GATE_APPROVER unset -> the defa
   await mustRefuse(
     startApi(
       { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
-      { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, verifier: studentVerifier() } }) },
+      { clientFactory: () => fake.client, http: httpBase({ chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, verifier: studentVerifier() } }) },
     ),
     GoLiveRefusedError,
     (e) => {
@@ -225,7 +251,7 @@ test("startApi: flag on with the gate open but no student JWT configuration is a
     await mustRefuse(
       startApi(
         { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_AUDIENCE: "vc-api", VC_JWT_ALGORITHMS: "HS256", VC_JWT_HS256_SECRET: "synthetic-counsellor-secret-0123456789abcdef" },
-        { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates } }) },
+        { clientFactory: () => fake.client, http: httpBase({ chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates } }) },
       ),
       JwtConfigError,
     );
@@ -247,7 +273,7 @@ test("startApi: flag on and gate open -> a student creates a thread and asks a q
   const f = gatesFixture();
   const api = await startApi(
     { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
-    { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+    { clientFactory: () => fake.client, http: httpBase({ chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
   );
   try {
     const base = `http://127.0.0.1:${api.port}`;
@@ -294,7 +320,7 @@ async function chatTurnOverHttp(env: Record<string, string | undefined>, scribe:
   const f = gatesFixture();
   const api = await startApi(
     { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", ...env },
-    { clientFactory: () => fake.client, http: httpBase({ provider: scribe, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+    { clientFactory: () => fake.client, http: httpBase({ provider: scribe, chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
   );
   try {
     const base = `http://127.0.0.1:${api.port}`;
@@ -372,7 +398,7 @@ function lk6Provider(candidates: (turnId: string) => unknown[], onExtract?: () =
 
 test("p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact is English with the Devanagari quote kept as its source", async () => {
   const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId), lk6Cand("intended_degree", "MBA", "एमबीए करना चाहता हूँ", turnId)]);
-  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  const w = chatWorld({ provider, deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -387,8 +413,10 @@ test("p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact
     const user = w.fakeDb.collection<any>("chat_turns").all().find((t) => t.role === "user");
     assert.equal(user.text, HINDI_Q, "the original message is stored as written, not translated");
     const view = (await call(w, "GET", profilePath("stu-1"), { token })).json;
-    assert.deepEqual(view.proposed.map((p: any) => [p.key, p.value]).sort(), [["intended_degree", "MBA"], ["target_country", "Germany"]]);
-    assert.ok(!JSON.stringify(view).includes("जर्मनी में"), "the student-facing profile view is unchanged: English key and value only");
+    assert.deepEqual(view.proposed.map((p: any) => [p.key, p.value]).sort(), [["intended_degree", "MBA"], ["target-country", "Germany"]]);
+    assert.ok(view.proposed.every((p:any)=>p.quote===undefined), "legacy proposed fields remain unchanged");
+    assert.ok(view.proposed.some((p:any)=>p.pendingChange?.quote==="जर्मनी में"&&p.pendingChange.sourceLang==="hi"&&p.pendingChange.candidateId&&p.pendingChange.version),"candidate metadata carries its original provenance");
+    assert.ok(view.memory.items.some((i:any)=>i.quote==="जर्मनी में"&&i.sourceLang==="hi"),"additive memory projection exposes truthful original-language provenance");
   } finally {
     w.cleanup();
   }
@@ -396,7 +424,7 @@ test("p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact
 
 test("p1-lk6: a fact whose quote is not in the student's words is never proposed", async () => {
   const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "I want to study in Germany", turnId)]);
-  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  const w = chatWorld({ provider, deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -411,7 +439,7 @@ test("p1-lk6: a fact whose quote is not in the student's words is never proposed
 test("p1-lk6: an under-18 student without guardian consent makes no extraction call", async () => {
   let calls = 0;
   const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)], () => void (calls += 1));
-  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  const w = chatWorld({ provider, deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
   try {
     const token = await studentToken(minor());
     const threadId = await newThread(w, token);
@@ -428,7 +456,7 @@ test("p1-lk6: extraction failure never fails the turn; the log has the event nam
   const provider = lk6Provider(() => {
     throw new Error(`upstream echoed: ${HINDI_Q} 9876543210`);
   });
-  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  const w = chatWorld({ provider, deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -451,7 +479,7 @@ test("p1-lk6: startApi wires the default extractor for chat when none is injecte
   const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)]);
   const api = await startApi(
     { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
-    { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+    { clientFactory: () => fake.client, http: httpBase({ provider, chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
   );
   try {
     const base = `http://127.0.0.1:${api.port}`;
@@ -474,7 +502,7 @@ test("p1-lk6: an injected extractFacts still wins over the default", async () =>
   const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)]);
   const api = await startApi(
     { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
-    { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), extractFacts: async () => [{ key: "city", value: "Pune" }] } }) },
+    { clientFactory: () => fake.client, http: httpBase({ provider, chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), extractFacts: async () => [{ key: "city", value: "Pune" }] } }) },
   );
   try {
     const base = `http://127.0.0.1:${api.port}`;
@@ -493,7 +521,7 @@ test("p1-lk6: an injected extractFacts still wins over the default", async () =>
 test("p1-lk6: a crisis turn is answered with the fixed helpline text and is never sent to the fact extractor model", async () => {
   let calls = 0;
   const provider = lk6Provider((turnId) => [lk6Cand("feeling", "wants to die", "kill myself", turnId)], () => void (calls += 1));
-  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  const w = chatWorld({ provider, deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -534,7 +562,7 @@ function deferred() {
 
 test("p1-lk9 C2: an extractor that never resolves does not block the reply, and the reply is complete", async () => {
   let started = 0;
-  const w = chatWorld({ deps: { extractFacts: () => (started++, new Promise(() => undefined)) } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: () => (started++, new Promise(() => undefined)) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -545,7 +573,7 @@ test("p1-lk9 C2: an extractor that never resolves does not block the reply, and 
     await settle();
     assert.equal(started, 1, "control: the extractor was started (this is not a turn that skipped extraction)");
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 2, "the turn was stored");
-    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_usage).all().length, 1, "and counted");
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_usage).all().filter(row => row.month !== undefined).length, 1, "and counted once in the monthly usage row");
   } finally {
     w.cleanup();
   }
@@ -555,6 +583,7 @@ test("p1-lk9 C2: an extractor that rejects is logged text-free and is never an u
   const watch = watchUnhandled();
   const w = chatWorld({
     deps: {
+      memoryPolicyForTenant:enabledPolicy,
       extractFacts: async () => {
         throw new Error(`extractor echoed: ${GERMANY_QUESTION} 9876543210`);
       },
@@ -580,6 +609,7 @@ test("p1-lk9 C2: a throwing logger and a synchronous extractor throw are also ne
   const watch = watchUnhandled();
   const w = chatWorld({
     deps: {
+      memoryPolicyForTenant:enabledPolicy,
       extractFacts: (() => {
         throw new Error("sync boom");
       }) as never,
@@ -604,7 +634,7 @@ test("p1-lk9 C2: a throwing logger and a synchronous extractor throw are also ne
 test("p1-lk9 C2: an erasure that starts after the reply but before extraction resolves still prevents the fact write (StudentFencedError on the detached path)", async () => {
   const watch = watchUnhandled();
   const d = deferred();
-  const w = chatWorld({ deps: { extractFacts: async () => (await d.gate, proposeGermany()) } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: async () => (await d.gate, proposeGermany()) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -625,7 +655,7 @@ test("p1-lk9 C2: an erasure that starts after the reply but before extraction re
 
 test("p1-lk9 C2: proposed facts are absent from GET chat/profile while extraction is pending and appear once it resolves", async () => {
   const d = deferred();
-  const w = chatWorld({ deps: { extractFacts: async () => (await d.gate, proposeGermany()) } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: async () => (await d.gate, proposeGermany()) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -637,7 +667,7 @@ test("p1-lk9 C2: proposed facts are absent from GET chat/profile while extractio
     const after = (await call(w, "GET", profilePath("stu-1"), { token })).json;
     assert.deepEqual(
       after.proposed.map((p: { key: string; value: string; status: string }) => [p.key, p.value, p.status]),
-      [["target_country", "Germany", "proposed"]],
+      [["target-country", "Germany", "proposed"]],
     );
   } finally {
     w.cleanup();
@@ -646,7 +676,7 @@ test("p1-lk9 C2: proposed facts are absent from GET chat/profile while extractio
 
 test("p1-lk9 C2: extraction still happens only in the stores-text branch (a replay and an unconsented minor never start it)", async () => {
   let started = 0;
-  const w = chatWorld({ deps: { extractFacts: async () => (started++, proposeGermany()) } });
+  const w = chatWorld({ deps: { memoryPolicyForTenant:enabledPolicy, extractFacts: async () => (started++, proposeGermany()) } });
   try {
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
@@ -676,7 +706,7 @@ async function lk7Session(env: Record<string, string | undefined>, scribe: MockP
   const f = gatesFixture();
   const api = await startApi(
     { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", ...env },
-    { clientFactory: () => fake.client, http: httpBase({ provider: scribe, ...(extra.http ?? {}), chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...(extra.chat ?? {}) } }) },
+    { clientFactory: () => fake.client, http: httpBase({ provider: scribe, ...(extra.http ?? {}), chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...(extra.chat ?? {}) } }) },
   );
   const base = `http://127.0.0.1:${api.port}`;
   const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
@@ -978,7 +1008,7 @@ async function startOverBase(provider: MockProvider | RulesProvider, extraChat: 
   try {
     const api = await startApi(
       { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", ...env },
-      { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...extraChat } }) },
+      { clientFactory: () => fake.client, http: httpBase({ provider, chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...extraChat } }) },
     );
     return { api, connected: () => connected, done: async () => { await api.stop(); cleanupGates(f); } };
   } catch (e) {
@@ -1083,7 +1113,7 @@ test("K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant
     await addPartner(createMongoPartnerStore(fake.client.db(VC_DB_NAME)), { name: "Pathlynks" }, { pepper: PEPPER, now: () => new Date() });
     const api = await startApi(
       { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", VC_PARTNER_KEY_PEPPER: PEPPER, ...extraEnv },
-      { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), profile: { facts: async () => [] } } }) },
+      { clientFactory: () => fake.client, http: httpBase({ chat: { memoryPolicyForTenant:enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), profile: { facts: async () => [] } } }) },
     );
     try {
       const base = `http://127.0.0.1:${api.port}`;
@@ -1200,4 +1230,432 @@ test("w1-counsellor-tenant-guard T2 startApi: with the partner registry off (pep
   } finally {
     await api.stop();
   }
+});
+
+
+test("Q10-Q14: actual handler passes only owned completed context and confirmed memory; missing/off policy stops retrieval and extraction",async()=>{
+ const {proposeProfileFact,decideProfileFact}=await import("@vc/db");
+ let policy={...DEFAULT_MEMORY_POLICY};let extracted=0;
+ const w=chatWorld({deps:{memoryPolicyForTenant:async()=>policy,extractFacts:async()=>{extracted++;return[];}}});
+ try{const token=await studentToken(adult());const threadId=await newThread(w,token);
+ const own=w.deps.dbForTenant("tenant-a");const f=await proposeProfileFact(own,{studentId:"stu-1",key:"goal",value:"Japan"});assert.ok(f);
+ await decideProfileFact(own,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+ await askOnce(w,token,threadId,"memory-1");w.clock.ms+=1000;
+ await askOnce(w,token,threadId,"memory-2");
+ const requests=(w.provider as any).calls;
+ assert.ok(requests.some((r:any)=>r.skillName==="kb-answer"&&r.input.memory?.facts.some((f:any)=>f.value==="Japan")));
+ assert.ok(requests.some((r:any)=>r.skillName==="kb-answer"&&r.input.memory?.messages.length===2));
+ const other=await newThread(w,token);await askOnce(w,token,other,"memory-new");
+ const last=requests.filter((r:any)=>r.skillName==="kb-answer").at(-1);assert.equal(last.input.memory.messages.length,0);assert.equal(last.input.memory.facts[0].value,"Japan");
+ const list=await call(w,"GET",threadsPath("stu-1")+"?limit=1",{token});assert.equal(list.status,200);assert.equal(list.json.threads.length,1);assert.ok(list.json.nextCursor);
+ assert.equal((await call(w,"GET",threadsPath("other"),{token})).status,404);
+ policy={...NO_MEMORY_POLICY};const before=extracted;await askOnce(w,token,threadId,"off");assert.equal(extracted,before);
+ const off=requests.filter((r:any)=>r.skillName==="kb-answer").at(-1);assert.deepEqual(off.input.memory.facts,[]);assert.deepEqual(off.input.memory.messages,[]);
+ }finally{w.cleanup();}
+});
+
+test("Q12/Q14: queued extraction is discarded after erase or policy disable",async()=>{
+ const {proposeProfileFact,decideProfileFact,listProfileFacts}=await import("@vc/db");let release!:()=>void;const pending=new Promise<void>(r=>release=r);
+ const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy,extractFacts:async()=>{await pending;return[{key:"goal",value:"Germany"}];}}});
+ try{const token=await studentToken(adult());const threadId=await newThread(w,token);const db=w.deps.dbForTenant("tenant-a");const f=await proposeProfileFact(db,{studentId:"stu-1",key:"goal",value:"Germany"});assert.ok(f);
+ await askOnce(w,token,threadId,"queued");await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action:"erase"});release();await settle();assert.deepEqual(await listProfileFacts(db,{studentId:"stu-1"}),[]);
+ }finally{release();w.cleanup();}
+});
+
+
+test("Q12/Q14: correction clears stale history, proposed memories never personalize, and missing policy fails off",async()=>{
+ const {proposeProfileFact,decideProfileFact}=await import("@vc/db");
+ const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}});
+ try{const token=await studentToken(adult());const threadId=await newThread(w,token);const db=w.deps.dbForTenant("tenant-a");
+ const f=await proposeProfileFact(db,{studentId:"stu-1",key:"goal",value:"Germany"});assert.ok(f);await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+ await proposeProfileFact(db,{studentId:"stu-1",key:"private_proposed",value:"Unconfirmed"});
+ await askOnce(w,token,threadId,"before-correction");
+ await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action:"correct",value:"Japan"},{now:new Date(w.clock.ms+1)});w.clock.ms+=1000;await askOnce(w,token,threadId,"after-correction");
+ const answer=w.provider.calls.filter(c=>c.skillName==="kb-answer").at(-1)!.input as any;assert.deepEqual(answer.memory.facts.map((f:any)=>f.value),["Japan"]);assert.deepEqual(answer.memory.messages,[]);
+ }finally{w.cleanup();}
+ let calls=0;const off=chatWorld({deps:{extractFacts:async()=>{calls++;return[];}}});
+ try{const token=await studentToken(adult());const thread=await newThread(off,token);await askOnce(off,token,thread,"no-policy");assert.equal(calls,0);const answer=off.provider.calls.find(c=>c.skillName==="kb-answer")!.input as any;assert.deepEqual(answer.memory.facts,[]);assert.deepEqual(answer.memory.messages,[]);}finally{off.cleanup();}
+});
+
+test("Q12/I1: confirmed sensitive field labels are never included in answer-provider memory", async () => {
+ const {proposeProfileFact,decideProfileFact,COLLECTION_NAMES}=await import("@vc/db");
+ const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}});
+ try {
+  const token=await studentToken(adult()), thread=await newThread(w,token), db=w.deps.dbForTenant("tenant-a");
+  for(const [key,value] of [["interest","biology"],["date_of_birth","DOB-EGRESS-CANARY"],["detailed_report","REPORT-EGRESS-CANARY"],["api_key","CREDENTIAL-EGRESS-CANARY"]]){
+   if(key==="date_of_birth"){
+    await assert.rejects(proposeProfileFact(db,{studentId:"stu-1",key,value:value!}),/authoritative account field/);
+    const factId="00000000000000000000000000000001";
+    await db.collection(COLLECTION_NAMES.profile_facts).insertOne({_id:factId,factId,studentId:"stu-1",key,value,status:"confirmed",source:"chat",proposedAt:"2026-10-26T00:00:00.000Z"} as never);
+    continue; // Legacy data must remain excluded even though new writes now refuse it.
+   }
+   const f=await proposeProfileFact(db,{studentId:"stu-1",key:key!,value:value!});assert.ok(f);await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+  }
+  await askOnce(w,token,thread,"sensitive-memory");
+  const sent=JSON.stringify(w.provider.calls.filter(c=>c.skillName==="kb-answer").at(-1)!.input);
+  assert.match(sent,/biology/);assert.doesNotMatch(sent,/DOB-EGRESS-CANARY|REPORT-EGRESS-CANARY|CREDENTIAL-EGRESS-CANARY/);
+ } finally {w.cleanup();}
+});
+
+test("Q14: a policy disabled during a memory-bearing answer prevents release of the stale model result",async()=>{
+ let policy={...DEFAULT_MEMORY_POLICY};const provider=kbAnswerProvider();
+ provider.setResponse("kb-answer",()=>{policy={...NO_MEMORY_POLICY};return{claims:[{text:"Public universities in Germany charge no tuition for most programmes.",kind:"fact",sourceIds:["t-sem-1"]}]};});
+ const w=chatWorld({provider,deps:{memoryPolicyForTenant:async()=>policy}});
+ try{const token=await studentToken(adult());const thread=await newThread(w,token);const reply=await askOnce(w,token,thread,"disable-race");assert.equal(reply.json.message,PROVIDER_APOLOGY_TEXT);assert.deepEqual(reply.json.claims,[]);}finally{w.cleanup();}
+});
+
+
+test("I1 repair2: memory fallback never swallows an erasure fence", async () => {
+ const {StudentFencedError}=await import("@vc/db");const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}});
+ try{
+  const token=await studentToken(adult()),thread=await newThread(w,token);
+  w.fakeDb.collection(COLLECTION_NAMES.student_usage).findOne=async()=>{throw new StudentFencedError();};
+  const response=await call(w,"POST",turnsPath("stu-1",thread),{token,body:{text:GERMANY_QUESTION,clientTurnId:"memory-fenced"}});
+  assert.equal(response.status,409);assert.equal(response.json.error,"student_fenced");assert.equal(w.provider.calls.length,0);
+ }finally{w.cleanup();}
+});
+
+test("Q12 repair2: displayed confirmation value must match the current proposal", async () => {
+ const {proposeProfileFact}=await import("@vc/db");const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}});
+ try{
+  const token=await studentToken(adult()),db=w.deps.dbForTenant("tenant-a");
+  const fact=await proposeProfileFact(db,{studentId:"stu-1",key:"interest",value:"Biology"});assert.ok(fact);
+  const path=`/v1/students/stu-1/chat/profile/facts/${fact.factId}/decision`;
+  const changed=await call(w,"POST",path,{token,body:{action:"confirm",value:"Chemistry"}});
+  assert.equal(changed.status,409,"stale displayed proposal is a conflict, not a confirmation or internal error");
+  const profile=await call(w,"GET",profilePath("stu-1"),{token});assert.equal(profile.status,200);
+  assert.equal(profile.json.proposed[0].value,"Biology");assert.equal(profile.json.facts.length,0);
+  const confirmed=await call(w,"POST",path,{token,body:{action:"confirm",value:"Biology"}});
+  assert.equal(confirmed.status,200);assert.equal(confirmed.json.facts[0].value,"Biology");
+ }finally{w.cleanup();}
+});
+
+test("I1 repair2: pending or uncertain memory never suppresses a deterministic crisis response", async () => {
+ for(const claims of [adult(),minor()]) {
+  let extractions=0;
+  const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy,extractFacts:async()=>{extractions++;return[];}}});
+  try{
+   const token=await studentToken(claims),thread=await newThread(w,token),db=w.deps.dbForTenant("tenant-a");
+   await db.collection(COLLECTION_NAMES.student_usage).updateOne({_id:"memory:stu-1",studentId:"stu-1"} as never,{$set:{pendingDecisions:1,revision:"2026-10-27T11:00:00Z|uncertain"}} as never,{upsert:true});
+   const result=await call(w,"POST",turnsPath("stu-1",thread),{token,body:{text:CRISIS_TEXT,clientTurnId:"pending-crisis"}});
+   assert.equal(result.status,200,"memory availability is not crisis eligibility");
+   assert.equal(result.json.state,"escalated");
+   assert.equal(result.json.message,STUDENT_CRISIS_MESSAGE);
+   assert.equal(w.provider.calls.length,0);
+   await settle();assert.equal(extractions,0,"crisis cannot start memory learning");
+  }finally{w.cleanup();}
+ }
+});
+
+test("Q12/Q14 repair1: text opened during a paused correction or erase cannot consume the former memory", async () => {
+ const {proposeProfileFact,decideProfileFact}=await import("@vc/db");
+ for (const action of ["correct","erase"] as const) {
+  const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}});
+  let release!:()=>void;
+  const paused=new Promise<void>(r=>release=r);
+  let entered!:()=>void;const mutationEntered=new Promise<void>(r=>entered=r);
+  try {
+   const token=await studentToken(adult()), thread=await newThread(w,token), db=w.deps.dbForTenant("tenant-a");
+   const fact=await proposeProfileFact(db,{studentId:"stu-1",key:"interest",value:"robotics"});assert.ok(fact);
+   await decideProfileFact(db,{studentId:"stu-1",factId:fact.factId,action:"confirm"});
+   const collection=w.fakeDb.collection(COLLECTION_NAMES.profile_facts);
+   if(action==="correct") {
+    const original=collection.updateOne.bind(collection);
+    collection.updateOne=(async(...args:Parameters<typeof original>)=>{if((args[1] as any).$set?.value==="astronomy"){entered();await paused;}return original(...args);}) as typeof collection.updateOne;
+   } else {
+    const original=collection.deleteMany.bind(collection);
+    collection.deleteMany=(async(...args:Parameters<typeof original>)=>{entered();await paused;return original(...args);}) as typeof collection.deleteMany;
+   }
+   const decision=decideProfileFact(db,{studentId:"stu-1",factId:fact.factId,action,...(action==="correct"?{value:"astronomy"}:{})});
+   await mutationEntered;
+   const during=await call(w,"POST",turnsPath("stu-1",thread),{token,body:{text:GERMANY_QUESTION,clientTurnId:"during-"+action}});
+   const captured=JSON.stringify(w.provider.calls.map(c=>c.input));
+   release();await decision;
+   assert.doesNotMatch(captured,/robotics/,action+": in-progress snapshot must never reach a provider");
+   assert.doesNotMatch(JSON.stringify(during.json),/robotics/,action+": former memory must never be released");
+   w.clock.ms+=1000;await askOnce(w,token,thread,"after-"+action);
+   const memory=(w.provider.calls.filter(c=>c.skillName==="kb-answer").at(-1)!.input as any).memory;
+   assert.deepEqual(memory.facts.map((f:any)=>f.value),action==="correct"?["astronomy"]:[]);
+  }finally{release();w.cleanup();}
+ }
+});
+
+test("Q12: more than twenty stored memories remain inspectable through bounded owner-bound pages",async()=>{
+ const {proposeProfileFact}=await import("@vc/db");const w=chatWorld();
+ try{const token=await studentToken(adult());const db=w.deps.dbForTenant("tenant-a");
+ for(let i=0;i<45;i++)await proposeProfileFact(db,{studentId:"stu-1",key:"interest_"+i,value:"study area "+i});
+ let cursor:string|undefined;const ids:string[]=[];let pages=0;
+ do{const response=await call(w,"GET",profilePath("stu-1")+(cursor?"?cursor="+cursor:""),{token});assert.equal(response.status,200);assert.ok(response.json.memory.items.length<=20);ids.push(...response.json.memory.items.map((f:any)=>f.factId));cursor=response.json.memory.nextCursor;assert.ok(++pages<=3);}while(cursor);
+ assert.equal(ids.length,45);assert.equal(new Set(ids).size,45);
+ const first=await call(w,"GET",profilePath("stu-1"),{token});const other=await studentToken(adult("stu-2"));
+ assert.equal((await call(w,"GET",profilePath("stu-2")+"?cursor="+first.json.memory.nextCursor,{token:other})).status,400);
+ }finally{w.cleanup();}
+});
+
+
+test("S12 runtime: canonical latest confirmed preference wins while authoritative supplied grade remains", async () => {
+ const {proposeProfileFact,decideProfileFact}=await import("@vc/db");
+ const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy,profile:{facts:async()=>[
+  {key:"preferred_country",value:"Old supplied Germany",source:"vidysea" as const},{key:"grade",value:"12",source:"vidysea" as const}]}}});
+ try {const token=await studentToken(adult()),threadId=await newThread(w,token),db=w.deps.dbForTenant("tenant-a");
+ const f=await proposeProfileFact(db,{studentId:"stu-1",key:"target_country",value:"Canada"});assert.ok(f);
+ await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+ const p=await call(w,"GET",profilePath("stu-1"),{token});assert.equal(p.status,200);
+ assert.deepEqual(p.json.facts,[{key:"grade",value:"12",source:"vidysea"},{key:"target-country",value:"Canada",source:"student-confirmed"}]);
+ await askOnce(w,token,threadId,"s12-alias");const input=w.provider.calls.filter(c=>c.skillName==="kb-answer").at(-1)!.input as any;
+ assert.deepEqual(input.memory.facts,[{key:"target-country",value:"Canada",source:"student-confirmed"},{key:"grade",value:"12",source:"vidysea"}]);
+ }finally{w.cleanup();}
+});
+
+test("S12 runtime HTTP: exact old/new prompt, fresh owned yes/no, immutable history and intentional Retry", async () => {
+ const {proposeProfileFact,decideProfileFact}=await import("@vc/db");const {createApiServer}=await import("../src/server.js");
+ const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}}),server=createApiServer(w.handler);
+ await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));
+ try {const token=await studentToken(adult()),db=w.deps.dbForTenant("tenant-a");
+ const base="http://127.0.0.1:"+(server.address() as any).port;
+ const request=async(method:string,path:string,body?:unknown,bearer=token)=>{const res=await fetch(base+path,{method,headers:{authorization:"Bearer "+bearer,"content-type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});return {status:res.status,json:await res.json() as any};};
+ const threadId=(await request("POST",threadsPath("stu-1"))).json.threadId;
+ const otherThread=(await request("POST",threadsPath("stu-1"))).json.threadId;
+ const f=await proposeProfileFact(db,{studentId:"stu-1",key:"target_country",value:"Germany"});assert.ok(f);
+ await decideProfileFact(db,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+ await proposeProfileFact(db,{studentId:"stu-1",key:"preferred_country",value:"Canada",threadId});
+ const ask=await request("POST",turnsPath("stu-1",threadId),{text:GERMANY_QUESTION,clientTurnId:"s12-ask"});assert.equal(ask.status,200);
+ assert.match(ask.json.message,/from "Germany" to "Canada"/);const prompt=ask.json.memoryConfirmation;assert.ok(prompt?.candidateId);assert.equal(prompt.threadId,threadId);
+ const ref={factId:prompt.factId,promptId:prompt.promptId,candidateId:prompt.candidateId,expectedVersion:prompt.expectedVersion,value:prompt.value};
+ const beforeCalls=w.provider.calls.length;
+ const noRef=await request("POST",turnsPath("stu-1",threadId),{text:"yes",clientTurnId:"s12-unbound"});assert.equal(noRef.status,200);assert.match(noRef.json.message,/from "Germany" to "Canada"/);
+ assert.equal((await request("GET",profilePath("stu-1"))).json.facts[0].value,"Germany");assert.equal(w.provider.calls.length,beforeCalls);
+ const wrong=await request("POST",turnsPath("stu-1",otherThread),{text:"yes",clientTurnId:"s12-other",memoryConfirmation:ref});assert.equal(wrong.status,409);
+ const otherToken=await studentToken(adult("stu-2"));const otherOwn=(await request("POST",threadsPath("stu-2"),undefined,otherToken)).json.threadId;
+ assert.equal((await request("POST",turnsPath("stu-2",otherOwn),{text:"yes",clientTurnId:"s12-account",memoryConfirmation:ref},otherToken)).status,409);
+ const accepted=await request("POST",turnsPath("stu-1",threadId),{text:"yes",clientTurnId:"s12-yes",memoryConfirmation:ref});assert.equal(accepted.status,200);assert.match(accepted.json.message,/Saved.*Canada/);assert.equal(w.provider.calls.length,beforeCalls);
+ const history=(await request("GET",threadsPath("stu-1")+"/"+threadId)).json;
+ assert.equal((await request("POST",turnsPath("stu-1",threadId),{text:"yes",clientTurnId:"s12-stale",memoryConfirmation:ref})).status,409);
+ const obsolete=await request("POST",turnsPath("stu-1",threadId),{text:GERMANY_QUESTION,clientTurnId:"s12-ask"});assert.equal(obsolete.status,409,"stale cached answer refuses replay");assert.equal(obsolete.json.retryWithNewTurn,true);
+ assert.deepEqual((await request("GET",threadsPath("stu-1")+"/"+threadId)).json,history,"delivered history stays immutable");
+ await proposeProfileFact(db,{studentId:"stu-1",key:"target-country",value:"Japan",threadId});
+ const fresh=await request("POST",turnsPath("stu-1",threadId),{text:GERMANY_QUESTION,clientTurnId:"s12-manual-retry"});assert.equal(fresh.status,200);assert.match(fresh.json.message,/from "Canada" to "Japan"/);
+ const next=fresh.json.memoryConfirmation;const count=w.provider.calls.length;
+ const rejected=await request("POST",turnsPath("stu-1",threadId),{text:"no",clientTurnId:"s12-no",memoryConfirmation:{factId:next.factId,promptId:next.promptId,candidateId:next.candidateId,expectedVersion:next.expectedVersion,value:next.value}});
+ assert.equal(rejected.status,200);assert.match(rejected.json.message,/Kept Canada/);assert.equal(w.provider.calls.length,count);
+ const view=(await request("GET",profilePath("stu-1"))).json;assert.equal(view.facts[0].value,"Canada");assert.deepEqual(view.proposed,[]);
+ }finally{await new Promise<void>((r,j)=>server.close(e=>e?j(e):r()));w.cleanup();}
+});
+
+test("S12 runtime boot: exact enabled tenant selects its native text/profile adapter and never the bootstrap platform", async () => {
+ const fake=createFakeMongoClient(),f=gatesFixture(),seen:string[]=[];
+ const source=(siteId:string,platform:"pathlynks"|"vidysea",enabled=true)=>({kind:"postgres" as const,id:siteId+"-db",siteId,platform,enabled,host:siteId+".synthetic.test",port:5432,database:"synthetic",user:"readonly",sslmode:"verify-full" as const,passwordRef:platform==="vidysea"?"VIDYSEA_DB_PASSWORD":"PATHLYNKS_DB_PASSWORD",tables:["users","students","student_shortlisted_courses","ai_profile_assessments"]});
+ const api=await startApi({MONGODB_URL:"mongodb://fake-host/ignored",VC_GATE_APPROVER:"Umesh",VC_CHAT_ENABLED:"true",VC_ADMIN_MASTER_KEY:MASTER_KEY},{clientFactory:()=>fake.client,admin:{sources:{version:1,siteId:"pathlynks",sources:[source("pathlynks","pathlynks"),source("vidysea","vidysea"),source("disabled","vidysea",false)]},pathlynks:{
+  getStudentProfile:async(id)=>{seen.push("path:"+id);return {status:"ok",data:{grade:"12"}};},
+  getSavedCareers:async(id)=>{seen.push("careers:"+id);return {status:"ok",data:[{career:"Marine Biologist"}]};},getCompareList:async()=>({status:"ok",data:[]}),getAssessmentStatus:async()=>({status:"ok",data:null})
+ },vidysea:{
+  getStudentProfile:async(id)=>{seen.push("vid:"+id);return {ok:true,rows:[{academic_level:"Undergraduate",field_of_interest:"Physics",preferred_countries:["Canada"],email:"PRIVATE-CANARY"}],truncated:false};},
+  getShortlistedProgrammes:async(id)=>{seen.push("programmes:"+id);return {ok:true,rows:[{programme_name:"Synthetic MSc",university_name:"Synthetic University"}],truncated:false};},
+  getProfileAssessment:async()=>({ok:true,rows:[],truncated:false}),
+ }},http:httpBase({chat:{memoryPolicyForTenant:enabledPolicy,kb:recordingKb(),speakers:SPEAKERS,gatesDir:f.gates,verifier:studentVerifier(),extractFacts:async()=>[],safetyScreen:false}})});
+ try{const base="http://127.0.0.1:"+api.port;
+ for(const tenant of ["pathlynks","vidysea","disabled","other"]){
+  const headers={authorization:"Bearer "+await studentToken(adult("stu-1",tenant)),"content-type":"application/json"};
+  const created=await fetch(base+threadsPath("stu-1"),{method:"POST",headers});assert.equal(created.status,201);const {threadId}=await created.json() as any;
+  const before=seen.length;
+  const question=tenant==="pathlynks"?"show my saved careers":"show my shortlisted programmes";
+  const res=await fetch(base+turnsPath("stu-1",threadId),{method:"POST",headers,body:JSON.stringify({text:question,clientTurnId:"s12-"+tenant})});assert.equal(res.status,200);const answer=await res.json() as any;
+  if(tenant==="pathlynks")assert.match(answer.message,/Marine Biologist/);
+  else if(tenant==="vidysea"){assert.match(answer.message,/Synthetic MSc/);assert.doesNotMatch(answer.message,/career|Pathlynks/i);}
+  else {assert.match(answer.message,/can't see/);assert.equal(seen.length,before);}
+  const p=await fetch(base+profilePath("stu-1"),{headers});assert.equal(p.status,200);const profile=await p.json() as any;
+  if(tenant==="vidysea"){assert.ok(profile.facts.length>0);assert.ok(profile.facts.every((x:any)=>x.source==="vidysea"));assert.doesNotMatch(JSON.stringify(profile),/PRIVATE-CANARY/);}
+  if(tenant==="pathlynks")assert.deepEqual(profile.facts,[{key:"grade",value:"12",source:"pathlynks"}]);
+  if(tenant==="disabled"||tenant==="other")assert.deepEqual(profile.facts,[]);
+ }
+ assert.ok(seen.includes("programmes:stu-1"));assert.ok(seen.includes("careers:stu-1"));
+ }finally{await api.stop();cleanupGates(f);}
+});
+
+test("S12 runtime: real preferences remain reachable past excluded legacy account rows", async () => {
+ const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}});
+ try{const db=w.deps.dbForTenant("tenant-a"),token=await studentToken(adult());
+ const keys=["student","account","user","tenant","school","profile"].flatMap(p=>["name","grade","email","phone"].map(k=>p+"_"+k));
+ for(const [i,key] of keys.entries()){const factId=(i+1).toString(16).padStart(32,"0");await db.collection(COLLECTION_NAMES.profile_facts).insertOne({_id:factId,factId,studentId:"stu-1",key,value:"Legacy account canary",source:"chat",status:"confirmed",proposedAt:"2026-10-26T00:00:00.000Z"} as never);}
+ const visibleId="f".repeat(32);await db.collection(COLLECTION_NAMES.profile_facts).insertOne({_id:visibleId,factId:visibleId,studentId:"stu-1",key:"interest",value:"Physics",source:"chat",status:"confirmed",proposedAt:"2026-10-26T00:00:00.000Z"} as never);
+ let view=await call(w,"GET",profilePath("stu-1"),{token});const cursors=new Set<string>();
+ for(let page=0;page<3;page++){assert.equal(view.status,200);assert.ok(view.json.memory.items.every((x:any)=>!keys.includes(x.key)),"legacy account fields never become editable memories");
+ if(view.json.memory.items.some((x:any)=>x.key==="interest"&&x.value==="Physics"))break;
+ const cursor=view.json.memory.nextCursor;assert.ok(cursor,"a real preference beyond legacy account rows must remain reachable");assert.ok(!cursors.has(cursor),"cursor must advance");cursors.add(cursor);view=await call(w,"GET",profilePath("stu-1")+"?cursor="+encodeURIComponent(cursor),{token});}
+ assert.ok(view.json.memory.items.some((x:any)=>x.key==="interest"&&x.value==="Physics"),"the real preference remains inspectable");
+ }finally{w.cleanup();}
+});
+
+test("S12 HTTP memory controls bind a replacement to its originating owned thread",async()=>{
+ const w=chatWorld({deps:{memoryPolicyForTenant:enabledPolicy}});
+ try{const {proposeProfileFact,decideProfileFact}=await import("@vc/db"),token=await studentToken(adult()),db=w.deps.dbForTenant("tenant-a"),threadId=await newThread(w,token),other=await newThread(w,token);
+ const first=await proposeProfileFact(db,{studentId:"stu-1",key:"interest",value:"Physics",threadId});assert.ok(first);await decideProfileFact(db,{studentId:"stu-1",factId:first.factId,action:"confirm"});
+ const row=await proposeProfileFact(db,{studentId:"stu-1",key:"interest",value:"Biology",threadId});assert.ok(row?.pendingChange);const p=row.pendingChange;
+ const path=profilePath("stu-1")+"/facts/"+row.factId+"/decision",body={action:"confirm",value:p.value,candidateId:p.candidateId,expectedVersion:p.version};
+ for(const selected of [undefined,other]){const r=await call(w,"POST",path,{token,body:{...body,...(selected?{threadId:selected}:{})}});assert.equal(r.status,409);assert.equal(r.json.retryWithNewTurn,undefined);}
+ assert.equal((await call(w,"POST",path,{token,body:{...body,threadId}})).status,200);
+ assert.equal((await call(w,"POST",path,{token,body:{...body,threadId}})).status,409);
+ assert.equal((await call(w,"GET",profilePath("stu-1"),{token})).json.facts[0].value,"Biology");
+ }finally{w.cleanup();}
+});
+
+// ---------------------------------------------------------------------------
+// T-057 (gemini-safety-extract): VC_LLM_PROVIDER=gemini moves EVERY student-facing model role (safety screen, fact extraction, answer) onto Gemini.
+// A VC_TEXT_CHAIN left in the environment is not a silent fallback: nothing goes to Ollama.
+// ---------------------------------------------------------------------------
+
+const GEMINI_HOST = "https://generativelanguage.googleapis.com/";
+const GEMINI_ENV = { VC_LLM_PROVIDER: "gemini", VC_LLM_MODEL: "gemini-synth-flash", GEMINI_API_KEY: "synthetic-gemini-key-not-real" };
+
+/** Replaces globalThis.fetch: the Gemini host is answered per skill (told apart by the system prompt), every other URL goes to the real fetch. */
+function stubGeminiFetch(routes: { screen?: unknown; extract?: (turnId: string) => unknown; answer?: unknown; usage?: { promptTokenCount: number; candidatesTokenCount: number; thoughtsTokenCount?: number } } = {}) {
+  const real = globalThis.fetch;
+  const calls: { url: string; skill: "concern-classifier" | "fact-extraction" | "other"; model: string; keyInUrl: boolean }[] = [];
+  const screenPrompt = loadSkill(SKILLS_DIR, "concern-classifier");
+  const extractPrompt = loadSkill(SKILLS_DIR, "fact-extraction");
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (!url.startsWith(GEMINI_HOST)) return real(input, init);
+    const body = JSON.parse(String(init?.body ?? "{}")) as { systemInstruction: { parts: { text: string }[] }; contents: { parts: { text: string }[] }[] };
+    const system = body.systemInstruction.parts[0]!.text;
+    const skill = system === screenPrompt ? "concern-classifier" : system === extractPrompt ? "fact-extraction" : "other";
+    calls.push({ url, skill, model: /\/models\/([^:]+):generateContent/.exec(url)?.[1] ?? "", keyInUrl: url.includes(GEMINI_ENV.GEMINI_API_KEY) });
+    const userInput = JSON.parse(body.contents[0]!.parts[0]!.text) as { turns?: { turnId: string }[] };
+    const content =
+      skill === "concern-classifier" ? (routes.screen ?? { severity: "none", likelyBenign: true, rationale: "synthetic" })
+      : skill === "fact-extraction" ? (routes.extract ?? ((turnId: string) => ({ facts: [lk6Cand("target_country", "Germany", "universities in Germany", turnId)] })))(userInput.turns![0]!.turnId)
+      : (routes.answer ?? { claims: [GOOD_CLAIM] });
+    return new Response(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(content) }] } }], ...(routes.usage ? { usageMetadata: routes.usage } : {}) }), { status: 200 });
+  }) as typeof fetch;
+  return { calls, restore: () => { globalThis.fetch = real; } };
+}
+
+test("T-057: VC_LLM_PROVIDER=gemini (with a VC_TEXT_CHAIN still in the env) serves the safety screen, the answer and the fact extraction from Gemini with VC_LLM_MODEL, and sends nothing to Ollama", async () => {
+  const gem = stubGeminiFetch();
+  const oll = stubOllamaRouted();
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", ...GEMINI_ENV, ...CHAIN_ENV },
+    { clientFactory: () => fake.client, http: httpBase({ provider: undefined, chat: { memoryPolicyForTenant: enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+  );
+  try {
+    const base = `http://127.0.0.1:${api.port}`;
+    const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
+    const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
+    const res = await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: GERMANY_QUESTION, clientTurnId: "t057-1" }) });
+    assert.equal(res.status, 200);
+    assert.equal(((await res.json()) as { state: string }).state, "ok", "the screen cleared and the sourced answer was released");
+    await settle(40);
+    const skills = new Set(gem.calls.map((c) => c.skill));
+    assert.ok(skills.has("concern-classifier"), "the safety screen ran on Gemini");
+    assert.ok(skills.has("fact-extraction"), "the fact extraction ran on Gemini");
+    assert.ok(skills.has("other"), "the answer call ran on Gemini");
+    assert.ok(gem.calls.every((c) => c.model === GEMINI_ENV.VC_LLM_MODEL), "every role uses VC_LLM_MODEL, never the classifier's 'flash-lite' default tier name");
+    assert.ok(gem.calls.every((c) => !c.keyInUrl), "the key travels in a header, never the URL");
+    assert.equal(oll.calls.length, 0, "no silent fallback to the Ollama chain");
+    const facts = fake.dbFor(VC_DB_NAME).collection<any>(COLLECTION_NAMES.profile_facts).all();
+    assert.ok(facts.some((r) => r.key === "target_country" && r.status === "proposed"), "the stated preference became a PROPOSED fact (C6)");
+  } finally {
+    await api.stop();
+    cleanupGates(f);
+    gem.restore();
+    oll.restore();
+  }
+});
+
+test("T-057: with VC_LLM_PROVIDER=gemini a Gemini safety-screen outage still fails closed to the fixed crisis message and is never answered by Ollama", async () => {
+  const real = globalThis.fetch;
+  const oll = stubOllamaRouted();
+  const stubbed = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => (String(input).startsWith(GEMINI_HOST) ? new Response("{}", { status: 503 }) : stubbed(input, init))) as typeof fetch;
+  const s = await lk7Session({ ...GEMINI_ENV, ...CHAIN_ENV }, kbAnswerProvider(), { http: { provider: undefined } });
+  try {
+    const out = await s.ask(GERMANY_QUESTION);
+    assert.equal(out.json.state, "escalated");
+    assert.equal(out.json.message, STUDENT_CRISIS_MESSAGE);
+    assert.equal(oll.calls.length, 0, "a Gemini outage is never answered by Ollama");
+  } finally {
+    await s.close();
+    globalThis.fetch = real;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// S13 fix-b item 3: Gemini calls reach the per-turn usage meter, and VC_MODEL_<ROLE> keys switch the model for that role only
+// ---------------------------------------------------------------------------
+
+async function geminiTurnWorld(extraEnv: Record<string, string>, routes: Parameters<typeof stubGeminiFetch>[0]) {
+  const gem = stubGeminiFetch(routes);
+  const oll = stubOllamaRouted();
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", VC_ADMIN_MASTER_KEY: MASTER_KEY, ...GEMINI_ENV, ...extraEnv },
+    { clientFactory: () => fake.client, http: httpBase({ provider: undefined, chat: { memoryPolicyForTenant: enabledPolicy, kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+  );
+  const base = `http://127.0.0.1:${api.port}`;
+  const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
+  const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
+  const res = await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: GERMANY_QUESTION, clientTurnId: "s13b-1" }) });
+  assert.equal(res.status, 200);
+  await settle(40);
+  return { gem, fake, state: ((await res.json()) as { state: string }).state, close: async () => { await api.stop(); cleanupGates(f); gem.restore(); oll.restore(); } };
+}
+
+test("S13 fix-b: Gemini usageMetadata reaches the per-turn usage row (every Gemini call of the turn is summed; thought tokens count as output)", async () => {
+  const w = await geminiTurnWorld({}, { usage: { promptTokenCount: 100, candidatesTokenCount: 30, thoughtsTokenCount: 5 } });
+  try {
+    assert.equal(w.state, "ok");
+    const rows = w.fake.dbFor(VC_DB_NAME).collection<any>("turn_usage").all();
+    assert.equal(rows.length, 1, "one usage row for the turn");
+    assert.ok(w.gem.calls.length >= 3, "screen, answer and extraction all ran on Gemini");
+    // the safety screen and the answer run inside the metered turn; the fact extraction runs after it, outside the window, so it is not in this row
+    const metered = rows[0].inputTokens / 100;
+    assert.ok(Number.isInteger(metered) && metered >= 2 && metered <= w.gem.calls.length, `the turn's Gemini calls were metered: ${JSON.stringify(rows[0])}`);
+    assert.equal(rows[0].outputTokens, 35 * metered, "candidate + thought tokens count as output");
+  } finally {
+    await w.close();
+  }
+});
+
+test("S13 fix-b: with GEMINI_PRICE_USD_PER_MTOK set the per-turn row carries a cost, without it tokens only (no invented price)", async () => {
+  const priced = await geminiTurnWorld({ GEMINI_PRICE_USD_PER_MTOK: "1,2" }, { usage: { promptTokenCount: 1_000_000, candidatesTokenCount: 500_000 } });
+  try {
+    const row = priced.fake.dbFor(VC_DB_NAME).collection<any>("turn_usage").all()[0];
+    assert.ok(row.costUsd > 0, JSON.stringify(row));
+  } finally {
+    await priced.close();
+  }
+  const unpriced = await geminiTurnWorld({}, { usage: { promptTokenCount: 1000, candidatesTokenCount: 500 } });
+  try {
+    const row = unpriced.fake.dbFor(VC_DB_NAME).collection<any>("turn_usage").all()[0];
+    assert.ok(row.inputTokens > 0);
+    assert.equal(row.costUsd, 0);
+  } finally {
+    await unpriced.close();
+  }
+});
+
+test("S13 fix-b: VC_MODEL_ANSWER switches only the answer call's model; unset keeps every call on VC_LLM_MODEL; a bad id is a startup error naming the key", async () => {
+  const keyed = await geminiTurnWorld({ VC_MODEL_ANSWER: "gemini-synth-answer" }, undefined);
+  try {
+    assert.equal(keyed.state, "ok");
+    const onRole = keyed.gem.calls.filter((c) => c.model === "gemini-synth-answer");
+    assert.ok(onRole.length >= 1, "the answer skill ran on the role model");
+    assert.ok(onRole.every((c) => c.skill === "other"), "only answer-role calls moved");
+    assert.ok(keyed.gem.calls.filter((c) => c.skill !== "other").every((c) => c.model === GEMINI_ENV.VC_LLM_MODEL), "screen and extraction stay on the base model");
+  } finally {
+    await keyed.close();
+  }
+  const plain = await geminiTurnWorld({}, undefined);
+  try {
+    assert.ok(plain.gem.calls.every((c) => c.model === GEMINI_ENV.VC_LLM_MODEL), "unset role keys: behaviour unchanged");
+  } finally {
+    await plain.close();
+  }
+  await assert.rejects(
+    startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...GEMINI_ENV, VC_MODEL_ROUTER: "bad id//x" }, { clientFactory: () => createFakeMongoClient().client, http: httpBase({ provider: undefined }) }),
+    (e: unknown) => /VC_MODEL_ROUTER/.test(String(e)) && !/bad id/.test(String(e)),
+  );
 });

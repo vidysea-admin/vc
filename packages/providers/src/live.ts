@@ -47,6 +47,8 @@ export interface LiveToolDeclaration {
   description: string;
   /** JSON Schema of the arguments. */
   parameters?: Record<string, unknown>;
+  /** Server-only opt-in: this tool returns factual KB evidence, never conversation/memory context. Omitted is false. */
+  factualEvidence?: boolean;
 }
 
 export interface LiveToolCall {
@@ -85,7 +87,7 @@ export interface LiveCrisisDetection {
  */
 export type LiveCrisisDetector = (text: string) => boolean | LiveCrisisDetection;
 
-/** Injected output auditor. `sourcedText` is every tool result sent in this session so far. */
+/** Injected output auditor. `sourcedText` contains only explicitly eligible factual-evidence tool results. */
 export type LiveOutputAuditor = (input: { text: string; sourcedText: readonly string[] }) => LiveAuditFinding[];
 
 export interface LiveFinalTranscript {
@@ -100,6 +102,9 @@ export interface LiveFinalTranscript {
   fixed?: boolean;
   /** True when the model turn was cut off before it finished. */
   interrupted?: boolean;
+  /** Only explicit finalized microphone transcription can authorize a memory decision. */
+  inputFinal?: boolean;
+  inputContext?: string;
 }
 
 export interface LiveAuditRecord {
@@ -142,11 +147,13 @@ export interface LiveSessionConfig {
   voiceName?: string;
   onEvent: (event: LiveEvent) => void;
   sink?: LiveTranscriptSink;
+  /** Opaque server context captured when a microphone utterance starts, never from model output. */
+  captureInputContext?: () => string | undefined;
   detectCrisis?: LiveCrisisDetector;
   /** Required whenever `detectCrisis` is set: a detector with nothing to play is a silent no-op. */
   crisisMessage?: LiveCrisisMessage;
   auditOutput?: LiveOutputAuditor;
-  /** Runs a model tool call; the result is sent back to the model and counted as "sourced" for the audit. */
+  /** Runs a model tool call; all results reach the model, but only server-declared factual evidence sources the audit. */
   toolHandler?: (call: LiveToolCall) => Promise<unknown> | unknown;
   /** Injected clock for deterministic tests. */
   now?: () => number;
@@ -344,7 +351,9 @@ export class LiveSession implements LiveBackendSink {
 
   async sendToolResult(call: LiveToolCall, result: unknown): Promise<void> {
     this.assertOpen();
-    this.sourced.push(stringifyForAudit(result));
+    if (this.config.tools?.some((tool) => tool.name === call.name && tool.factualEvidence === true)) {
+      this.sourced.push(stringifyForAudit(result));
+    }
     this.backend!.sendToolResponse(call, result);
   }
 
@@ -378,8 +387,11 @@ export class LiveSession implements LiveBackendSink {
 
   // -- model -> client (LiveBackendSink) ----------------------------------------
 
+  private inputContext: string | undefined;
+
   inputTranscript(text: string, final: boolean): void {
-    if (this.closedFlag || !text) return;
+    if (this.closedFlag || (!text && !final)) return;
+    if (!this.userBuf) this.inputContext = this.config.captureInputContext?.();
     const at = this.monotonicNow();
     const gapMs = this.lastStudentChunkAt === undefined ? Infinity : at - this.lastStudentChunkAt;
     this.lastStudentChunkAt = at;
@@ -402,7 +414,7 @@ export class LiveSession implements LiveBackendSink {
     this.emit({ type: "transcript", role: "user", text, final });
     this.scanForCrisis(this.userBuf);
     // During a crisis mute a final flag does not end the crisis utterance (only the rule above does).
-    if (final) this.flushUser(!this.crisisMute);
+    if (final) this.flushUser(!this.crisisMute, true);
   }
 
   outputTranscript(text: string): void {
@@ -582,14 +594,16 @@ export class LiveSession implements LiveBackendSink {
    * arrives, the turn completes, or the transcript is final). Only then may a new crisis fire:
    * later chunks of the SAME utterance must not play the fixed message twice.
    */
-  private flushUser(endOfUtterance: boolean): void {
+  private flushUser(endOfUtterance: boolean, inputFinal = false): void {
     const text = this.userBuf.trim();
+    const inputContext = this.inputContext;
+    this.inputContext = undefined;
     this.userBuf = "";
     if (endOfUtterance) this.crisisFiredForUtterance = false;
     if (!text) return;
     const ts = new Date(this.now()).toISOString();
     const seq = ++this.seq;
-    this.writeSink((sink) => sink.onFinalTranscript({ seq, role: "user", text, channel: "voice", ts }));
+    this.writeSink((sink) => sink.onFinalTranscript({ seq, role: "user", text, channel: "voice", ts, ...(inputFinal ? { inputFinal: true, ...(inputContext ? { inputContext } : {}) } : {}) }));
   }
 
   private flushAssistant(interrupted: boolean): void {
@@ -649,7 +663,7 @@ function numberTokens(text: string): string[] {
 }
 
 /**
- * Flags (a) any figure in the spoken text that appears in no tool result of this session and (b)
+ * Flags (a) any figure in the spoken text that appears in no eligible factual tool result of this session and (b)
  * any listed speaker named. Heuristic by design: it can over-flag, never silently pass a number.
  */
 export function createSimpleOutputAuditor(options: SimpleOutputAuditorOptions = {}): LiveOutputAuditor {
@@ -895,8 +909,8 @@ export function translateGeminiMessage(raw: unknown, sink: LiveBackendSink): voi
   const content = msg.serverContent;
   if (!content || typeof content !== "object") return;
 
-  if (typeof content.inputTranscription?.text === "string" && content.inputTranscription.text.trim()) {
-    sink.inputTranscript(content.inputTranscription.text.trim(), false);
+  if (typeof content.inputTranscription?.text === "string" || content.inputTranscription?.finished === true) {
+    sink.inputTranscript(typeof content.inputTranscription.text === "string" ? content.inputTranscription.text.trim() : "", content.inputTranscription.finished === true);
   }
   if (typeof content.outputTranscription?.text === "string" && content.outputTranscription.text.trim()) {
     sink.outputTranscript(content.outputTranscription.text.trim());

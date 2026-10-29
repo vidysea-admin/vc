@@ -1,0 +1,19 @@
+{"status":200,"eraseCompletedBeforeReply":true,"oldRankingFactsReleased":true,"rankingProfile":"student-success"}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: final response must not release ranking from forgotten facts
+
+true !== false
+
+    at file:///D:/vc/[eval1]:3:1177 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: true,
+  expected: false,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.1

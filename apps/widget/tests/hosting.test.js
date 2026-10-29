@@ -27,7 +27,18 @@ test("the alias vc-widget.js is the same file with a short cache", () => {
   assert.match(b, /Cache-Control "public, max-age=300"/);
 });
 
-test("a location /widget/ exists and publishes nothing else; nosniff on every file (the widget twice, the voice add-on once)", () => {
+test("the catch-all publishes nothing else; all four asset locations use nosniff", () => {
   assert.match(block("location /widget/ {"), /return 404;/);
-  assert.equal((snippet.match(/X-Content-Type-Options "nosniff"/g) || []).length, 3);
+  assert.equal((snippet.match(/X-Content-Type-Options "nosniff"/g) || []).length, 4);
+});
+
+test("S13 release URLs keep the widget and voice on one immutable commit and reject other paths", () => {
+  const pattern=snippet.match(/location ~ "([^"\n]+)"/)[1];
+  const re=new RegExp(pattern),sha='a'.repeat(40),base='https://vc.example.org/widget/releases/'+sha+'/';
+  for(const file of ['vc-widget.js','vc-widget.v1.js','vc-widget-voice.v1.js'])assert.ok(re.test(new URL(base+file).pathname));
+  assert.equal(W.voiceScriptUrl(base+'vc-widget.v1.js'),base+'vc-widget-voice.v1.js');
+  for(const p of ['/widget/releases/../.env','/widget/releases/'+sha+'/secret.txt','/widget/releases/abc/vc-widget.js','/widget/releases/'+sha+'/nested/vc-widget.js'])assert.equal(re.test(p),false,p);
+  assert.match(snippet,/alias \/opt\/vc\/releases\/\$1\/widget\/\$2;/);
+  const deployed=fs.readFileSync(path.join(__dirname,'../../../infra/ubuntu/nginx-vc.conf'),'utf8');
+  assert.ok(deployed.includes('location ~ "'+pattern+'"'));
 });

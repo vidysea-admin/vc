@@ -1,0 +1,322 @@
+
+> vidysea-frontend-phase2@0.1.0 prebuild
+> node scripts/review-student-translations.cjs --check && node scripts/service-translations.cjs --check
+
+{
+  "de": {
+    "entries": 8977,
+    "edited": 1440,
+    "terms": 0,
+    "technical": 135,
+    "changed": 0,
+    "unsafe": [],
+    "warnings": []
+  },
+  "nl": {
+    "entries": 8968,
+    "edited": 1435,
+    "terms": 0,
+    "technical": 135,
+    "changed": 0,
+    "unsafe": [],
+    "warnings": []
+  }
+}
+{"phrases":873,"languages":["hi","de","nl"],"missing":0}
+
+> vidysea-frontend-phase2@0.1.0 build
+> next build --webpack
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of D:\vc\pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * D:\vc\.worktrees\vc-vidysea-frontend\package-lock.json
+
+   ▲ Next.js 16.0.10 (webpack)
+
+   Creating an optimized production build ...
+Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of D:\vc\.worktrees\vc-vidysea-frontend\node_modules\next-intl\dist\esm\production\extractor\format\index.js for build dependencies failed at 'import(t)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of D:\vc\.worktrees\vc-vidysea-frontend\node_modules\next-intl\dist\esm\production\extractor\format\index.js for build dependencies failed at 'import(t)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+
+warn - The class `duration-[220ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;220ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[250ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;250ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[450ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;450ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[900ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;900ms&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(.4,0,.2,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(.4,0,.2,1)&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(0.22,1,0.36,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(0.22,1,0.36,1)&rsqb;` to silence this warning.
+
+warn - The class `lg:duration-[650ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `lg:duration-&lsqb;650ms&rsqb;` to silence this warning.
+
+warn - The class `lg:ease-[cubic-bezier(0.22,1,0.36,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `lg:ease-&lsqb;cubic-bezier(0.22,1,0.36,1)&rsqb;` to silence this warning.
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Parsing of D:\vc\.worktrees\vc-vidysea-frontend\node_modules\next-intl\dist\esm\production\extractor\format\index.js for build dependencies failed at 'import(t)'.
+<w> Build dependencies behind this expression are ignored and might cause incorrect cache invalidation.
+ ✓ Compiled successfully in 3.1min
+   Skipping validation of types
+   Collecting page data using 19 workers ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Error: Failed to collect configuration for /faqs
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\faqs\page.js:1:2509)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\faqs\page.js:1:2569)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\faqs\page.js:1:3155)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 69929 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\faqs\page.js:250:1342)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /country
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:120)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:180)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:554)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 75780 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\country\page.js:2:11806)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /country/[slug]
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:120)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:180)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:554)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 99922 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\country\[slug]\page.js:2:19179)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /links/page/[page]
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9085)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9145)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:10594)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:250:2157)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 35027 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\links\page\[page]\page.js:2:10317)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 94061 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\links\page\[page]\page.js:2:19559)
+}
+Error: Failed to collect configuration for /blogs/page/[page]
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9085)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9145)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:10594)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:250:2157)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 96818 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\86434.js:1:2129)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 30685 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\blogs\page\[page]\page.js:1:2373)
+}
+Error: Failed to collect configuration for /
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:120)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:180)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\94357.js:1:554)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 2833 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\page.js:1:1155)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /blogs
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9085)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9145)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:10594)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:250:2157)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 96818 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\86434.js:1:2129)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /blogs/[slug]
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:1:1550)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:1:1610)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:1:5616)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:250:1750)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 80641 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\blogs\[slug]\page.js:1:52992)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /links/[slug]
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:1:1550)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:1:1610)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:1:5616)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\76150.js:250:1750)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 77020 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\links\[slug]\page.js:1:2885)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /news/page/[page]
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9085)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9145)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:10594)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:250:2157)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 27702 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\72262.js:1:309)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 32533 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\news\page\[page]\page.js:1:4035)
+}
+Error: Failed to collect configuration for /news
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9085)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9145)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:10594)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:250:2157)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 27702 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\72262.js:1:309)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /links
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9085)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:9145)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:1:10594)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\40308.js:250:2157)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 35027 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\links\page.js:1:2299)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+}
+Error: Failed to collect configuration for /services/scholarship-assistance-for-students-studying-abroad
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:9808)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:9868)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:14473)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:22053)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 41145 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:4985)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 61603 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:13686)
+}
+Error: Failed to collect configuration for /services/board-recommender
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\board-recommender\page.js:2:12898)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\board-recommender\page.js:2:12958)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\board-recommender\page.js:2:15810)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\board-recommender\page.js:2:18273)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 41145 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\board-recommender\page.js:2:9730)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 61603 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\board-recommender\page.js:2:14253)
+}
+Error: Failed to collect configuration for /services/test-preparation-to-study-abroad
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:9808)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:9868)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:14473)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:22053)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 41145 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:4985)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 61603 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\chunks\25305.js:1:13686)
+}
+Error: Failed to collect configuration for /services/overseas-education-consultant
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\overseas-education-consultant\page.js:1:27692)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\overseas-education-consultant\page.js:1:27752)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\overseas-education-consultant\page.js:1:37301)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\overseas-education-consultant\page.js:1:57905)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 41145 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\overseas-education-consultant\page.js:1:23210)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 61603 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\overseas-education-consultant\page.js:1:30919)
+}
+Error: Failed to collect configuration for /services
+    at ignore-listed frames {
+  [cause]: Error: Missing environment variable: NEXT_PUBLIC_SANITY_DATASET
+      at d (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\page.js:2:15480)
+      at 45484 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\page.js:2:15540)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 66721 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\page.js:2:20346)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 88700 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\page.js:2:23435)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 41145 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\page.js:2:11674)
+      at g (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\webpack-runtime.js:1:136)
+      at 61603 (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\services\page.js:2:17704)
+}
+
+> Build error occurred
+Error: Failed to collect page data for /faqs
+    at ignore-listed frames {
+  type: 'Error'
+}

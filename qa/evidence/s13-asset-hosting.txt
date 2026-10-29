@@ -1,0 +1,12 @@
+✔ the versioned name comes from the file's major version (0.6734ms)
+✔ the alias vc-widget.js is the same file with a short cache (0.1199ms)
+✔ the catch-all publishes nothing else; all four asset locations use nosniff (0.6998ms)
+✔ S13 release URLs keep the widget and voice on one immutable commit and reject other paths (0.6864ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 99.8763

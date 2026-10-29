@@ -1,0 +1,5 @@
+Scope: 2 of 12 workspace projects
+packages/db typecheck$ tsc --noEmit
+packages/db typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/api typecheck: Done

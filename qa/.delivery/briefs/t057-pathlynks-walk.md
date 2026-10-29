@@ -1,0 +1,6 @@
+# t057-pathlynks-walk
+
+Run the first T-057 headed walk on Pathlynks. The Pathlynks frontend is live on localhost:5000 (backend 5001). The script hardcodes 3000 (t057-walk.mjs:52), so add an env override (e.g. VC_WALK_PATHLYNKS_BASE) and run with http://localhost:5000. The VC API on 8787 was just restarted with all the fixes; the widget server is on 8790. The test login comes from env VC_TEST_PATHLYNKS_EMAIL plus its password key; never print values. Vidysea walk 6 passed 10/10; see its log for the step set.
+Command: node qa/.delivery/requests/t057-walk.mjs pathlynks > qa/evidence/t057/walk-pathlynks-run1.log 2>&1. Run it in the background and poll; long waits are normal. If the scripted login is refused, the script waits 5 min for a hand login: report that rather than hacking auth.
+After the scripted steps, if the script allows (or via the same thread API the walk uses), also ask the widget "how far am I in Career Quest", "mere goals dikhao" and "what should I do next". Report the reply kinds and lengths only.
+The walk must not create rows on production Pathlynks other than the VC thread and turn writes (D-133). Close the browser when done. Write qa/evidence/t057/walk-pathlynks-run1.md with a step table and a diagnosis for each failure (file:line, proposed fix). Do not edit product code.

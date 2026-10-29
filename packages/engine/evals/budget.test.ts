@@ -3,7 +3,7 @@
  *  temp ledger only (never the repo's real spend ledger). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, appendFileSync, writeFileSync, rmSync, mkdirSync, utimesSync } from "node:fs";
+import { mkdtempSync, existsSync, appendFileSync, writeFileSync, readFileSync, rmSync, mkdirSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
@@ -180,6 +180,60 @@ test("a body that throws a non-budget error still records an end entry and rethr
   assert.equal(entries.at(-1)?.kind, "end");
   assert.equal(entries.at(-1)?.status, "error");
   assert.equal(monthSpendUsd(entries, JULY()), 2);
+});
+
+test("ISS-133: malformed timestamps refuse ledger and direct month reads, including non-charge rows", () => {
+  const ledgerPath = tmpLedger();
+  try {
+    for (const ts of ["", " ", "invalid-timestamp", "+999999-01-01T00:00:00Z", 123, null]) {
+      for (const kind of ["start", "charge", "end"] as const) {
+        const entry = { ts, kind, runId: "timestamp-fixture", runner: "run-probes", usd: 199 };
+        writeFileSync(ledgerPath, JSON.stringify(entry) + "\n");
+        assert.throws(() => readLedger(ledgerPath), /is corrupt/, `${kind}: ${JSON.stringify(ts)}`);
+        assert.throws(() => monthSpendUsd([entry as never], AUG()), /timestamp/, `direct ${kind}: ${JSON.stringify(ts)}`);
+      }
+    }
+  } finally {
+    rmSync(dirname(ledgerPath), { recursive: true, force: true });
+  }
+});
+
+test("ISS-133: valid offset timestamps count reservations in the actual UTC month", () => {
+  const ledgerPath = tmpLedger();
+  try {
+    const entries = [
+      { ts: "2026-07-31T23:30:00-02:00", kind: "charge" as const, runId: "offset-a", runner: "run-probes", usd: 199 },
+      { ts: "2026-08-01T00:30:00+02:00", kind: "charge" as const, runId: "offset-b", runner: "run-probes", usd: 2 },
+      { ts: "2026-08-01T00:00:00Z", kind: "start" as const, runId: "offset-c", runner: "run-probes", usd: 9 },
+    ];
+    writeFileSync(ledgerPath, entries.map(e => JSON.stringify(e)).join("\n") + "\n");
+    assert.equal(monthSpendUsd(readLedger(ledgerPath), AUG()), 199);
+    assert.equal(monthSpendUsd(readLedger(ledgerPath), JULY()), 2);
+    const guard = new BudgetGuard({ ledgerPath, now: AUG });
+    const run = guard.startRun({ runner: "run-probes" });
+    assert.throws(() => run.charge(2), (e: unknown) => e instanceof BudgetExceededError && e.cap === "per-month");
+    assert.equal(monthSpendUsd(readLedger(ledgerPath), AUG()), 199);
+  } finally {
+    rmSync(dirname(ledgerPath), { recursive: true, force: true });
+  }
+});
+
+test("ISS-133: a corrupt timestamp prevents provider execution and leaves the ledger unchanged", async () => {
+  const ledgerPath = tmpLedger();
+  const original = JSON.stringify({ ts: "invalid-timestamp", kind: "charge", runId: "bad-ts", runner: "run-probes", usd: 199 }) + "\n";
+  writeFileSync(ledgerPath, original);
+  let providerCalls = 0;
+  try {
+    await assert.rejects(executeReal({ runner: "run-probes", ledgerPath, env: { VC_G_REAL: "1" }, gateFile: GATE_OK, now: AUG }, async (run) => {
+      run.charge(2);
+      providerCalls++;
+    }), /is corrupt/);
+    assert.equal(providerCalls, 0);
+    assert.equal(readFileSync(ledgerPath, "utf8"), original);
+    assert.equal(existsSync(ledgerPath + ".lock"), false);
+  } finally {
+    rmSync(dirname(ledgerPath), { recursive: true, force: true });
+  }
 });
 
 test("a corrupt ledger line fails closed (refuses to run) rather than undercounting spend", () => {

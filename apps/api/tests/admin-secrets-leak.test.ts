@@ -99,13 +99,13 @@ test("VA9: the secret route never answers the secret and the sources list says o
 test("VA9 static: nothing outside the admin store calls readSecret, and the routes file never logs a request body or a thrown message", () => {
   const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
   const routes = read("../src/admin-routes.ts");
-  // Exactly two readers of a stored secret, each inside a named function: the source-credential lookup for test/sync, and the lazy live Pathlynks port.
+  // Only named server readers: test/sync and the two platform-bound live factories.
   const callers = [...routes.matchAll(/readSecret\(/g)].map((m) => {
     const before = routes.slice(0, m.index);
     const fns = [...before.matchAll(/(?:async )?function (\w+)/g)];
     return fns[fns.length - 1]?.[1];
   });
-  assert.deepEqual(callers, ["credentialFor", "build"], "readSecret is called only in credentialFor and in the live port's build()");
+  assert.deepEqual(callers, ["credentialFor", "build", "createLiveVidyseaPort"], "readSecret is called only in the credential lookup and named platform builders");
   assert.ok(/function createLivePathlynksPort[\s\S]*async function build\(\)/.test(routes), "build() is the live Pathlynks port builder");
   assert.ok(!/log\([^)]*(\.message|body|req\.)/.test(routes.replace(/\/\*[\s\S]*?\*\//g, "")), "log lines carry labels, never a message or a body");
   const sigs = adminRouteSignatures();

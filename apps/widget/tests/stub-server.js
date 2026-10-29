@@ -39,6 +39,10 @@ function start(port) {
       res.writeHead(200, { "content-type": "application/javascript; charset=utf-8" });
       return res.end(fs.readFileSync(path.join(ROOT, "src", "vc-widget.js")));
     }
+    if (req.method === "GET" && /^\/widget\/vc-widget-voice(\.v1)?\.js$/.test(url.pathname)) {
+      res.writeHead(200, { "content-type": "application/javascript; charset=utf-8" });
+      return res.end(fs.readFileSync(path.join(ROOT, "src", "voice.js")));
+    }
     if (req.method === "GET" && url.pathname === "/__log") {
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(JSON.stringify(log));

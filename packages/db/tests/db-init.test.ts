@@ -349,7 +349,7 @@ function containsTtl(content: string): boolean {
 
 const TTL_SCAN_ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 const TTL_SCAN_DIRS = ["packages", "apps", "mcp"];
-const TTL_SKIP_DIRS = new Set(["node_modules", "dist", "tests", "evals"]);
+const TTL_SKIP_DIRS = new Set(["node_modules", ".next", "dist", "tests", "evals"]);
 
 function listSourceFilesForTtl(dir: string, out: string[] = []): string[] {
   let entries: string[];
@@ -371,6 +371,7 @@ test("ISS-t-013r-c0-3 scanner: no source file under packages/, apps/ or mcp/ dec
   const files = TTL_SCAN_DIRS.flatMap((d) => listSourceFilesForTtl(join(TTL_SCAN_ROOT, d)));
   assert.ok(files.some((f) => f.replace(/\\/g, "/").endsWith("packages/db/scripts/db-init.ts")), "sanity: the scanner reaches db-init.ts");
   assert.ok(files.some((f) => f.replace(/\\/g, "/").endsWith("packages/engine/src/scribe/checkpointer.ts")), "sanity: the scanner reaches checkpointer.ts");
+  assert.ok(files.every(f => !f.replace(/\\/g, "/").includes("/.next/")), "generated Next vendor output is not product source");
   const offenders = files.filter((f) => containsTtl(readFileSync(f, "utf8")));
   assert.deepEqual(offenders, [], `a TTL was declared; D-020 keeps the full chat until a B15 erasure: ${offenders.join(", ")}`);
 });
@@ -409,4 +410,15 @@ test("T-025: the fake enforces the tenant-led facts index: the same open (studen
     (err: { code?: number }) => err.code === 11000,
   );
   assert.equal(coll.size(), 2);
+});
+
+// S13 fix A item 4 (data review, low-medium): invalidatePendingPublications scans chat_turns by { tenantId, role, publication: "pending" }.
+// Without a tenant-led partial index on the "pending" state that is a collection scan per partner policy change.
+test("S13 fixA-4: chat_turns has a tenant-led partial index on publication \"pending\" (not unique, server-creatable)", () => {
+  const spec = INDEX_PLAN.find((s) => s.collection === COLLECTION_NAMES.chat_turns && JSON.stringify(s.keys) === JSON.stringify({ tenantId: 1, publication: 1 }));
+  assert.ok(spec, "expected a { tenantId: 1, publication: 1 } index on chat_turns");
+  assert.deepEqual(spec.partialFilterExpression, { publication: "pending" });
+  assert.notEqual(spec.unique, true);
+  assert.match(spec.name, /tenantId/);
+  assert.doesNotThrow(() => assertSupportedPartialFilter(spec.partialFilterExpression!));
 });

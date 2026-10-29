@@ -1,0 +1,45 @@
+TAP version 13
+# {"level":"warn","event":"reserved_tenant_ids_empty","message":"VC_RESERVED_TENANT_IDS is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every \\"tenant\\" your student JWTs carry in VC_RESERVED_TENANT_IDS.","ts":"2026-10-27T13:18:07.876Z"}
+# Subtest: K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant is (a case variant of) an existing partner id gets the uniform 401 on chat, thread and profile routes; the partner's bound tenant and an unrelated tenant pass
+not ok 1 - K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant is (a case variant of) an existing partner id gets the uniform 401 on chat, thread and profile routes; the partner's bound tenant and an unrelated tenant pass
+  ---
+  duration_ms: 43.4976
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\vc-completion\\apps\\api\\tests\\chat-profile.test.ts:1106:1'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    node:internal/deps/undici/undici:16416:13
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async run (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-profile.test.ts:1119:22)
+    async TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-profile.test.ts:1129:15)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: Q12/I1: confirmed sensitive field labels are never included in answer-provider memory
+not ok 2 - Q12/I1: confirmed sensitive field labels are never included in answer-provider memory
+  ---
+  duration_ms: 22.7109
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\vc-completion\\apps\\api\\tests\\chat-profile.test.ts:1278:1'
+  failureType: 'testCodeFailure'
+  error: 'proposeProfileFact: authoritative account field'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    proposeProfileFact (D:\vc\.worktrees\vc-completion\packages\db\src\profile-facts.ts:102:27)
+    TestContext.<anonymous> (D:\vc\.worktrees\vc-completion\apps\api\tests\chat-profile.test.ts:1284:18)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2963.6992

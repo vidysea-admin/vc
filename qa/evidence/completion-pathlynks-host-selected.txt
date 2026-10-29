@@ -1,0 +1,34 @@
+✔ Quest VC bridge real navigation distinguishes selection, repository and compare in English/Hindi/Hinglish (2.3606ms)
+✔ Quest VC bridge rejects nonstudent sends and voice before data/provider access (6.7445ms)
+✔ Quest VC bridge forwards only verified identity, bounded age, literal granted consent and typed context (7.9078ms)
+✔ Quest VC bridge concurrent Chat/Voice uses atomic winning mapping and reuses retry id after timeout (3.3149ms)
+✔ Quest VC bridge history reads central redaction, deduplicates turns, never falls back on textStored false (3.6403ms)
+✔ Quest VC bridge enabled missing config, invalid context or missing retry id fails without legacy calls (8.5523ms)
+Tue, 27 Oct 2026 16:04:11 GMT router deprecated handlers that are Promise-like are deprecated, use a native Promise instead at node_modules\router\lib\route.js:157:13
+✔ Quest VC bridge actual HTTP router preserves auth/history middleware and returns compatible chat/voice envelopes (136.8487ms)
+✔ Quest memory host owns session selectors before send and mint, refuses foreign and invalid selectors (8.7902ms)
+✔ Quest memory host student-only list create profile decisions validate and preserve legacy mapping (5.5594ms)
+✔ Quest memory host Q15 isolated falsifier detects removing selected ownership verification (7.1003ms)
+✔ Quest memory host rejects malformed creation and never exposes denied memory resources (2.6277ms)
+✔ Quest selection explicit reopen survives reload outside first page with opaque separate metadata (1.7809ms)
+✔ Quest selection new chat verifies ownership before persisting without overwriting default map (1.6701ms)
+✔ Quest selection denied foreign or stale selectors never persist or expose and failures preserve prior selection (2.9076ms)
+✔ Quest selection student staff and tenant boundaries leave no raw principal metadata or implicit writes (3.0219ms)
+✔ Quest selection corrupt metadata or mismatched central ownership response is omitted without mutation (6.4684ms)
+✔ Quest memory host cycle2 displayed confirmation value reaches central decision unchanged (1.4276ms)
+✔ Quest selection Q15 latest intent wins delayed history against reopen and New chat (4.579ms)
+✔ Quest S12 decision forwards candidate version reject and preserves memory_changed (11.4237ms)
+✔ Quest S12 malformed replacement decision refuses before upstream (1.4467ms)
+✔ Quest S12 prompt reference and decision thread forward unchanged without retry or fallback (1.9261ms)
+✔ Quest S12 strict prompt reference and decision thread reject malformed authority (1.7984ms)
+✔ Quest S12 chat preserves upstream forbidden missing and memory_changed without hidden regeneration (3.7267ms)
+✔ Quest S12 server prompt reaches host UI and malformed cross-thread prompts fail closed (13.3731ms)
+✔ S12 published Retry marker is literal and only forwarded with memory_changed (10.3068ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 436.4363

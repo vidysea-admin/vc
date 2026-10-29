@@ -1,0 +1,474 @@
+
+> vidysea-frontend-phase2@0.1.0 prebuild
+> node scripts/review-student-translations.cjs --check && node scripts/service-translations.cjs --check
+
+{
+  "de": {
+    "entries": 8977,
+    "edited": 1440,
+    "terms": 0,
+    "technical": 135,
+    "changed": 0,
+    "unsafe": [],
+    "warnings": []
+  },
+  "nl": {
+    "entries": 8968,
+    "edited": 1435,
+    "terms": 0,
+    "technical": 135,
+    "changed": 0,
+    "unsafe": [],
+    "warnings": []
+  }
+}
+{"phrases":873,"languages":["hi","de","nl"],"missing":0}
+
+> vidysea-frontend-phase2@0.1.0 build
+> next build --webpack
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of D:\vc\pnpm-lock.yaml as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * D:\vc\.worktrees\vc-vidysea-frontend\package-lock.json
+
+   ▲ Next.js 16.0.10 (webpack)
+
+   Creating an optimized production build ...
+Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+warn - The class `duration-[220ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;220ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[250ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;250ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[450ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;450ms&rsqb;` to silence this warning.
+
+warn - The class `duration-[900ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `duration-&lsqb;900ms&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(.4,0,.2,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(.4,0,.2,1)&rsqb;` to silence this warning.
+
+warn - The class `ease-[cubic-bezier(0.22,1,0.36,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(0.22,1,0.36,1)&rsqb;` to silence this warning.
+
+warn - The class `lg:duration-[650ms]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `lg:duration-&lsqb;650ms&rsqb;` to silence this warning.
+
+warn - The class `lg:ease-[cubic-bezier(0.22,1,0.36,1)]` is ambiguous and matches multiple utilities.
+warn - If this is content and not a class, replace it with `lg:ease-&lsqb;cubic-bezier(0.22,1,0.36,1)&rsqb;` to silence this warning.
+ ✓ Compiled successfully in 2.7min
+   Skipping validation of types
+   Collecting page data using 19 workers ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   Generating static pages using 19 workers (0/295) ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Events fetch failed: TypeError: fetch failed
+    at async s (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\page.js:1:1947)
+    at async u (D:\vc\.worktrees\vc-vidysea-frontend\.next\server\app\(public)\page.js:1:3252) {
+  [cause]: AggregateError: 
+      at ignore-listed frames {
+    code: 'ECONNREFUSED'
+  }
+}
+[
+  {
+    _id: '69d4d569-530e-4b96-9225-abd9c9d16c6b',
+    category: 'counselling_university_visas',
+    description: 'test description',
+    homepage: false,
+    title: 'Himanshu'
+  }
+]
+   Generating static pages using 19 workers (73/295) 
+   Generating static pages using 19 workers (147/295) 
+   Generating static pages using 19 workers (221/295) 
+ ✓ Generating static pages using 19 workers (295/295) in 8.4s
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[slug]
+├ ƒ /about
+├ ƒ /accept-invite
+├ ƒ /activate
+├ ƒ /admin/country-guide
+├ ƒ /admin/events
+├ ƒ /admin/schools
+├ ƒ /admin/university-manager
+├ ƒ /ai-university-finder-study-abroad
+├ ƒ /api/subject-guide
+├ ƒ /api/translate
+├ ƒ /api/vidysea-experience
+├ ƒ /auth/google/callback
+├ ƒ /blogs
+├ ƒ /blogs/[slug]
+├ ƒ /blogs/page/[page]
+├ ƒ /career-guidance-poc
+├ ƒ /career-interest
+├ ƒ /college-compare
+├ ƒ /contact
+├ ƒ /cookie-policy
+├ ƒ /counsellor
+├ ƒ /counsellor-playground/[[...slug]]
+├ ƒ /counsellor-sso
+├ ƒ /counsellor/activity
+├ ƒ /counsellor/agreement
+├ ƒ /counsellor/api-access
+├ ƒ /counsellor/application
+├ ƒ /counsellor/application/[id]
+├ ƒ /counsellor/application/offers
+├ ƒ /counsellor/approval-pending
+├ ƒ /counsellor/assignments
+├ ƒ /counsellor/assignments/[id]
+├ ƒ /counsellor/bulk-send
+├ ƒ /counsellor/bulk-sent-comments
+├ ƒ /counsellor/bulk-template
+├ ƒ /counsellor/business-profile
+├ ƒ /counsellor/career/[[...slug]]
+├ ƒ /counsellor/commissions
+├ ƒ /counsellor/configure-services
+├ ƒ /counsellor/contracts
+├ ƒ /counsellor/contracts/[id]
+├ ƒ /counsellor/counselling-profile
+├ ƒ /counsellor/counselor-profile
+├ ƒ /counsellor/counselor-requests
+├ ƒ /counsellor/dashboard
+├ ƒ /counsellor/financial-planning
+├ ƒ /counsellor/forms
+├ ƒ /counsellor/grow
+├ ƒ /counsellor/inbox
+├ ƒ /counsellor/invoices
+├ ƒ /counsellor/messages
+├ ƒ /counsellor/money
+├ ƒ /counsellor/my-verification
+├ ƒ /counsellor/onboarding
+├ ƒ /counsellor/onboarding-form-details
+├ ƒ /counsellor/onboarding-form-details/[id]
+├ ƒ /counsellor/opportunities
+├ ƒ /counsellor/overview
+├ ƒ /counsellor/payouts
+├ ƒ /counsellor/peer-requests
+├ ƒ /counsellor/pre-departure
+├ ƒ /counsellor/profile
+├ ƒ /counsellor/profile-building
+├ ƒ /counsellor/provider-catalogue
+├ ƒ /counsellor/quality
+├ ƒ /counsellor/queue
+├ ƒ /counsellor/receive-work
+├ ƒ /counsellor/report
+├ ƒ /counsellor/report/[studentId]
+├ ƒ /counsellor/reports
+├ ƒ /counsellor/representatives
+├ ƒ /counsellor/request-services
+├ ƒ /counsellor/resources-library
+├ ƒ /counsellor/samples
+├ ƒ /counsellor/sell/analytics
+├ ƒ /counsellor/sell/leads
+├ ƒ /counsellor/sell/multi-applications
+├ ƒ /counsellor/sell/resources
+├ ƒ /counsellor/sell/services
+├ ƒ /counsellor/sell/student-requests
+├ ƒ /counsellor/sell/support
+├ ƒ /counsellor/sell/university-search
+├ ƒ /counsellor/service-requests
+├ ƒ /counsellor/services
+├ ƒ /counsellor/sessions
+├ ƒ /counsellor/settings/automation
+├ ƒ /counsellor/settings/notifications
+├ ƒ /counsellor/settings/services
+├ ƒ /counsellor/setup
+├ ƒ /counsellor/students
+├ ƒ /counsellor/students/[id]
+├ ƒ /counsellor/students/[id]/journey
+├ ƒ /counsellor/students/activity
+├ ƒ /counsellor/subscription
+├ ƒ /counsellor/surveys
+├ ƒ /counsellor/tasks
+├ ƒ /counsellor/team
+├ ƒ /counsellor/tickets
+├ ƒ /counsellor/todos
+├ ƒ /counsellor/tools
+├ ƒ /counsellor/transfer-requests
+├ ƒ /counsellor/university-notes
+├ ƒ /counsellor/university-report
+├ ƒ /counsellor/university-search
+├ ƒ /counsellor/university-shortlists
+├ ƒ /counsellor/university-suggestion
+├ ƒ /counsellor/university-tracker
+├ ƒ /counsellor/verification
+├ ƒ /counsellor/visa/accommodation
+├ ƒ /counsellor/visa/accommodation/[id]
+├ ƒ /counsellor/visa/application
+├ ƒ /counsellor/visa/application/[id]
+├ ƒ /counsellor/visa/insurance
+├ ƒ /counsellor/visa/scholarship
+├ ƒ /country
+├ ƒ /country-guide
+├ ƒ /country-guide/[source]/[destination]/[level]
+├ ƒ /country/[slug]
+├ ƒ /course-compare
+├ ƒ /course/[...slug]
+├ ƒ /demand
+├ ƒ /demand-onboarding
+├ ƒ /demand/activity
+├ ƒ /demand/agreement
+├ ƒ /demand/ai-prediction
+├ ƒ /demand/api-access
+├ ƒ /demand/application
+├ ƒ /demand/application/[id]
+├ ƒ /demand/application/offers
+├ ƒ /demand/approval-pending
+├ ƒ /demand/bulk-send
+├ ƒ /demand/bulk-sent-comments
+├ ƒ /demand/bulk-template
+├ ƒ /demand/business-profile
+├ ƒ /demand/commission
+├ ƒ /demand/commissions
+├ ƒ /demand/contracts
+├ ƒ /demand/contracts/[id]
+├ ƒ /demand/counselor-profile
+├ ƒ /demand/counselor-requests
+├ ƒ /demand/dashboard
+├ ƒ /demand/invoices
+├ ƒ /demand/messages
+├ ƒ /demand/money
+├ ƒ /demand/my-assignments
+├ ƒ /demand/my-verification
+├ ƒ /demand/onboarding-form-details
+├ ƒ /demand/onboarding-form-details/[id]
+├ ƒ /demand/opportunities
+├ ƒ /demand/overview
+├ ƒ /demand/payouts
+├ ƒ /demand/pre-departure
+├ ƒ /demand/profile
+├ ƒ /demand/quality
+├ ƒ /demand/receive-work
+├ ƒ /demand/report
+├ ƒ /demand/report/[studentId]
+├ ƒ /demand/reports
+├ ƒ /demand/samples
+├ ƒ /demand/service-requests
+├ ƒ /demand/services
+├ ƒ /demand/settings/automation
+├ ƒ /demand/settings/notifications
+├ ƒ /demand/settings/services
+├ ƒ /demand/setup
+├ ƒ /demand/students
+├ ƒ /demand/students/[id]
+├ ƒ /demand/students/[id]/journey
+├ ƒ /demand/students/activity
+├ ƒ /demand/tasks
+├ ƒ /demand/team
+├ ƒ /demand/tickets
+├ ƒ /demand/tools
+├ ƒ /demand/transfer-requests
+├ ƒ /demand/university-report
+├ ƒ /demand/university-search
+├ ƒ /demand/university-shortlists
+├ ƒ /demand/university-suggestion
+├ ƒ /demand/university-tracker
+├ ƒ /demand/verification
+├ ƒ /demand/visa/accommodation
+├ ƒ /demand/visa/accommodation/[id]
+├ ƒ /demand/visa/application
+├ ƒ /demand/visa/application/[id]
+├ ƒ /demand/visa/insurance
+├ ƒ /demand/visa/scholarship
+├ ƒ /event/[slug]
+├ ƒ /explore
+├ ƒ /explore/[slug]
+├ ƒ /explore/universities
+├ ƒ /faqs
+├ ƒ /forgot-password
+├ ƒ /links
+├ ƒ /links/[slug]
+├ ƒ /links/page/[page]
+├ ƒ /login
+├ ƒ /login/admin
+├ ƒ /login/aggregator
+├ ƒ /login/counsellor
+├ ƒ /login/demand
+├ ƒ /login/student
+├ ƒ /login/supply
+├ ƒ /mbbs
+├ ƒ /mbbs/partner
+├ ƒ /mbbs/student
+├ ƒ /meet/[token]
+├ ƒ /news
+├ ƒ /news/page/[page]
+├ ƒ /packages
+├ ƒ /partner/signup
+├ ƒ /pathlynks/signup
+├ ƒ /preference-summary
+├ ƒ /privacy-policy
+├ ƒ /reset-password
+├ ƒ /school-fees/[schoolCode]
+├ ƒ /school-fees/[schoolCode]/failed
+├ ƒ /school-fees/[schoolCode]/success
+├ ƒ /school-fees/error
+├ ƒ /school/class-fees
+├ ƒ /school/dashboard
+├ ƒ /school/login
+├ ƒ /search
+├ ƒ /services
+├ ƒ /services/board-recommender
+├ ƒ /services/counselling-for-study-abroad
+├ ƒ /services/overseas-education-consultant
+├ ƒ /services/scholarship-assistance-for-students-studying-abroad
+├ ƒ /services/study-abroad-student-loan-assistance
+├ ƒ /services/study-visa-assistance
+├ ƒ /services/test-preparation-to-study-abroad
+├ ƒ /shared-history/[studentId]
+├ ƒ /signup
+├ ƒ /signup/admin
+├ ƒ /signup/aggregator
+├ ƒ /signup/counsellor
+├ ƒ /signup/demand
+├ ƒ /signup/supply
+├ ƒ /student-sso
+├ ƒ /student/accommodation/questionnaire
+├ ƒ /student/addCounselor
+├ ƒ /student/addCounselor/checkout
+├ ƒ /student/admin
+├ ƒ /student/ai-counsellor
+├ ƒ /student/applications
+├ ƒ /student/applications/college-compare
+├ ƒ /student/applications/journey
+├ ƒ /student/applications/journey/documents
+├ ƒ /student/applications/journey/drafts
+├ ƒ /student/applications/journey/offers
+├ ƒ /student/applications/journey/upload
+├ ƒ /student/counselor-picks
+├ ƒ /student/dashboard
+├ ƒ /student/destinations
+├ ƒ /student/destinations/[slug]
+├ ƒ /student/draft-messages
+├ ƒ /student/draft-messages/[id]
+├ ƒ /student/favourites
+├ ƒ /student/general-chat
+├ ƒ /student/health
+├ ƒ /student/information-form
+├ ƒ /student/journey
+├ ƒ /student/journey-dashboard
+├ ƒ /student/journey-details
+├ ƒ /student/login
+├ ƒ /student/market-compare
+├ ƒ /student/messages
+├ ƒ /student/my-services
+├ ƒ /student/payment-failed
+├ ƒ /student/payment-success
+├ ƒ /student/privacy-policy
+├ ƒ /student/recommendation
+├ ƒ /student/recommendation/programs
+├ ƒ /student/recommendation/university
+├ ƒ /student/report-preview
+├ ƒ /student/reports
+├ ƒ /student/services
+├ ƒ /student/services/study-abroad
+├ ƒ /student/session-recordings
+├ ƒ /student/shortlisted-programmes
+├ ƒ /student/shortlisted-programmes/generate-confirmation
+├ ƒ /student/shortlisted-programmes/test-requirements
+├ ƒ /student/signup
+├ ƒ /student/sop-architect
+├ ƒ /student/sop-architect/arena
+├ ƒ /student/sop-architect/dashboard
+├ ƒ /student/terms
+├ ƒ /student/test-requirements
+├ ƒ /student/testsanity
+├ ƒ /student/theme
+├ ƒ /student/tools/[code]
+├ ƒ /student/tos
+├ ƒ /student/u
+├ ƒ /student/u/profile
+├ ƒ /student/u/profile/academic-history
+├ ƒ /student/u/profile/change-password
+├ ƒ /student/u/profile/documents
+├ ƒ /student/u/profile/favourites
+├ ƒ /student/u/profile/more-about-you
+├ ƒ /student/u/profile/my-plan
+├ ƒ /student/u/profile/preferences
+├ ƒ /student/u/profile/sourceOfFunds
+├ ƒ /student/u/profile/support-required
+├ ƒ /student/universities/shortlist
+├ ƒ /student/user-delete
+├ ƒ /student/verified-universities
+├ ƒ /student/verify-mfa
+├ ƒ /student/verify-otp
+├ ƒ /student/visa-management
+├ ƒ /student/welcome
+├ ƒ /study-in-spain
+├ ƒ /supply
+├ ƒ /supply-onboarding
+├ ƒ /supply-onboarding/agreement
+├ ƒ /supply-onboarding/success
+├ ƒ /supply/analytics
+├ ƒ /supply/approval-pending
+├ ƒ /supply/assignments
+├ ƒ /supply/commission
+├ ƒ /supply/dashboard
+├ ƒ /supply/leads
+├ ƒ /supply/multi-applications
+├ ƒ /supply/onboarding
+├ ƒ /supply/onboarding-form-details
+├ ƒ /supply/onboarding-form-details/[id]
+├ ƒ /supply/profile
+├ ƒ /supply/resources
+├ ƒ /supply/services
+├ ƒ /supply/student-requests
+├ ƒ /supply/support
+├ ƒ /supply/team
+├ ƒ /supply/tickets
+├ ƒ /supply/university-search
+├ ƒ /survey/[token]
+├ ƒ /team-invitations
+├ ƒ /terms
+├ ƒ /thankyou
+├ ƒ /university/[...slug]
+└ ƒ /verify-mfa
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+

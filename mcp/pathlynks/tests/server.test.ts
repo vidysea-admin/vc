@@ -5,13 +5,13 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createPathlynksPort, createPathlynksServer } from "../src/index.js";
 import { createFakePg, type FakeOptions } from "./fakes.js";
 
-const ALLOW = ["students", "saved_careers", "compare_items", "assessments"];
+const ALLOW = ["users", "user_grade", "grade", "student_saved_careers", "student_career_compare", "career_option", "assessment_response"];
 
 async function connectClient(verified: string | undefined, fake: FakeOptions = {}) {
   const h = createFakePg(fake);
   const port = createPathlynksPort({
     allowedTables: ALLOW,
-    tables: { profile: "students", savedCareers: "saved_careers", compareList: "compare_items", assessment: "assessments" },
+    tables: { profile: "users", savedCareers: "student_saved_careers", compareList: "student_career_compare", assessment: "assessment_response", userGrade: "user_grade", grade: "grade", careerOption: "career_option" },
     connect: h.connect,
   });
   const server = createPathlynksServer(port, () => verified);

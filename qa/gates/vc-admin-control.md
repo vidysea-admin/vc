@@ -45,3 +45,16 @@ Answered: 2026-10-26T22:03:24+05:30 — ALLOW, minimal fields only: only the fie
 
 ## G7 — six spec details (rate-limit store, secret separation, pop-out history, raw-SQL migrations, privilege set, INR rate/percentiles)
 Answered: 2026-10-26T22:03:24+05:30 — DEFERRED: "ye sabb baad mai dekhenge like first buid the funcailtiy and once vo prooperly work krnee lgg jaaye tho ye sabb hum daal hi dengee". Build uses the simplest working behaviour now; refinements later — Umesh in chat
+
+G-RECOVERY-T057-S12-FINAL: OPEN owner disposition. Fresh blind A/B FAIL(Q21), SSE FAIL(no-text privacy), Data FAIL(limit20/50), AI BLOCKED(voice proof). Existing named S12 one-pass allowance consumed, originalcycle2 preserved. No further repair/checker/push/deploy cycle is authorized implicitly; user latest request asks to understand status first. Full24item matrix in completion-root-integration.md.
+
+Answered: G-RECOVERY-T057-S12-FINAL — 2026-10-27 Umesh directly approved PLEASE IMPLEMENT THIS PLAN (S13 live-completion goal). Fresh independent plan approval required before edits; max2 targeted repair rounds; originalcycle2/S12 history retained. Production deployment and new paid voice remain separately gated.
+
+## G-RECOVERY-T057 — cycle2 STALLED owner disposition
+Status: HUMAN_GATE
+Owner: Umesh
+Known-at: after final cycle2 source reviews plus actual root counterexamples; no automatic new repair round.
+Question: Authorize the concrete S11 targeted recovery on the SAME T-057 lineage for monotonic decision/history cutoff and final response/Retry memory freshness, with fresh independent plan approval before source edits?
+Recommended: Approve only these two existing boundaries and affected existing tests; retain all prior cycles/receipts/costs and all consent/provider/production gates. No deployment, paid call, new product module/collection or broad rebuild.
+Evidence: qa/evidence/quest-closeout-cycle2-cutoff-counterexample.txt; qa/evidence/quest-closeout-cycle2-ranking-counterexample.txt; docs/features/vc-admin-control/plan.md S11; D-119.
+Response: not provided. Existing blanket completion/parallelism request is not silently treated as a cycle-cap override.

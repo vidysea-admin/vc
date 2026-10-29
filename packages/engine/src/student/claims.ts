@@ -87,6 +87,8 @@ export function isServedAsk(ask: AskToolOutput | undefined): ask is AskToolOutpu
     ask.status === "answered" &&
     ask.verdict === "correct" &&
     ask.insufficient_coverage === false &&
+    Array.isArray(ask.citations?.internal) &&
+    Array.isArray(ask.citations?.web) &&
     ask.citations.internal.length > 0 &&
     ask.citations.web.length === 0
   );

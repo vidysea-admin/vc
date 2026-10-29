@@ -1,0 +1,34 @@
+[
+  {
+    "host": "pathlynks",
+    "mode": "allow",
+    "syntheticDevice": true,
+    "listening": true,
+    "chatReturned": true,
+    "pass": true
+  },
+  {
+    "host": "pathlynks",
+    "mode": "deny",
+    "syntheticDevice": true,
+    "denialVisible": true,
+    "notice": "Quest Guide\nChat\nVoice\n☰ History\nNew chat\nMemory\nWhat careers can I explore?\nPublic universities in Germany charge no tuition for most programmes.\nVoice is unavailable. You can continue in Chat.\n↘",
+    "pass": true
+  },
+  {
+    "host": "vidysea",
+    "mode": "allow",
+    "syntheticDevice": true,
+    "listening": true,
+    "chatReturned": true,
+    "pass": true
+  },
+  {
+    "host": "vidysea",
+    "mode": "deny",
+    "syntheticDevice": true,
+    "denialVisible": true,
+    "notice": "Career Counsellor\nChat\nVoice\n×\nChat 1 · 2026-10-27\nChat 2 · 2026-10-27\nNew chat\nYour memory\n\ninterest: Biology\n\nCorrectForget\n\nname: Synthetic QA (account)\n\nacademic_level: Undergraduate (account)\n\ntarget_country: Germany (account)\n\nshow my shortlisted programmes\nYour shortlisted programmes on Vidysea:\n1. programme name: [NAME] MSc Physics, university name: [NAME] University\nMicrophone access is blocked, so voice is off. You can keep typing here, or allow the microphone in your browser settings and try again.\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+    "pass": true
+  }
+]

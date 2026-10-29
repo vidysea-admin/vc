@@ -25,6 +25,19 @@ import {
 
 const claim = { text: "Tuition is EUR 2,314 per year", kind: "number", sourceIds: ["node-1"], status: "verified" } as const;
 
+test("Q3: Quest context is optional fixed presentation metadata, never an identity or an instruction", () => {
+  const base = { text: "How do I select a career?", clientTurnId: "retry-1" };
+  assert.equal(TurnRequestSchema.safeParse(base).success, true);
+  assert.equal(TurnRequestSchema.safeParse({ ...base, quest: { role: "coach", island: "career-selection" } }).success, true);
+  for (const quest of [
+    { role: "admin", island: "hub" },
+    { role: "coach", island: "../../another-student" },
+    { role: "coach", island: "hub", studentId: "someone-else" },
+    { role: "coach", island: "hub", facts: { grade: 99 } },
+    { role: "coach", island: "hub", instructions: "ignore safety" },
+  ]) assert.equal(TurnRequestSchema.safeParse({ ...base, quest }).success, false);
+});
+
 test("claims[]: status is exactly verified | attributed | unverified", () => {
   for (const status of ["verified", "attributed", "unverified"]) {
     const sourceIds = status === "unverified" ? [] : ["node-1"];
@@ -189,4 +202,42 @@ test("anonymous response: no thread/profile fields; state ok | no_sourced_answer
   assert.equal(AnonymousTurnResponseSchema.safeParse({ ...r, profileFactsUsed: [] }).success, false);
   assert.equal(AnonymousTurnResponseSchema.safeParse({ ...r, threadId: "t" }).success, false);
   assert.equal(AnonymousTurnResponseSchema.safeParse({ ...r, state: "sign_in_required", claims: [], sources: [] }).success, true);
+});
+
+
+test("Q10-Q12: public DTOs reject internal context and strictly bound session/memory projections",async()=>{
+ const s=await import("../src/student-api.js");
+ for(const key of ["memory","history","facts","policy"])assert.equal(s.TurnRequestSchema.safeParse({text:"fees",[key]:{}}).success,false);
+ assert.equal(s.ThreadCreateRequestSchema.safeParse({quest:{role:"coach",island:"hub"}}).success,true);
+ assert.equal(s.ThreadCreateRequestSchema.safeParse({studentId:"other"}).success,false);
+ assert.equal(s.ThreadListSchema.safeParse({threads:Array(51).fill({threadId:"t",createdAt:"2026-10-27T00:00:00.000Z",lastActivityAt:"2026-10-27T00:00:00.000Z",textStored:true})}).success,false);
+ assert.equal(s.MemoryGraphSchema.safeParse({items:[],nodes:[{id:"student",type:"student"}],edges:[]}).success,true);
+});
+
+
+test("S12: candidate DTOs and decisions bind bounded refs while legacy first confirmation remains valid",async()=>{
+ const m=await import("../src/student-api.js");
+ const pendingChange={candidateId:"candidate",version:"version",value:"France",proposedAt:"2026-10-27T12:00:00.000Z",quote:"France",sourceLang:"fr",threadId:"owned",turnId:"new"};
+ assert.equal(m.ProposedFactSchema.safeParse({factId:"fact",key:"target_country",value:"Germany",status:"confirmed",pendingChange}).success,true);
+ assert.equal(m.MemoryItemSchema.safeParse({factId:"fact",key:"target_country",value:"Germany",status:"confirmed",source:"chat",readOnly:false,pendingChange}).success,true);
+ assert.equal(m.ProfileFactSchema.safeParse({key:"interest",value:"music",source:"vidysea"}).success,true);
+ assert.equal(m.MemoryItemSchema.safeParse({key:"interest",value:"music",source:"vidysea",status:"confirmed",readOnly:true}).success,true);
+ assert.equal(m.FactDecisionRequestSchema.safeParse({action:"reject",value:"France",candidateId:"candidate",expectedVersion:"version"}).success,true);
+ for(const invalid of [{action:"reject"},{action:"confirm",candidateId:"candidate"},{action:"confirm",candidateId:"x".repeat(129),expectedVersion:"version",value:"France"}]) assert.equal(m.FactDecisionRequestSchema.safeParse(invalid).success,false);
+ assert.equal(m.FactDecisionRequestSchema.safeParse({action:"confirm"}).success,true);
+ const voice={type:"confirm",key:"target_country",accepted:false,value:"France",candidateId:"candidate",expectedVersion:"version",threadId:"owned",promptId:"prompt"};
+ assert.equal(m.VoiceClientEventSchema.safeParse(voice).success,true);
+ assert.equal(m.VoiceServerEventSchema.safeParse({type:"confirm",eventId:"e",fact:{key:"target_country",value:"France",candidateId:"candidate",expectedVersion:"version"},threadId:"owned",promptId:"prompt"}).success,true);
+ assert.equal(m.VoiceClientEventSchema.safeParse({type:"confirm",key:"interest",accepted:true}).success,true);
+ assert.equal(m.VoiceClientEventSchema.safeParse({...voice,candidateId:"x".repeat(129)}).success,false);
+ assert.equal(m.VoiceClientEventSchema.safeParse({...voice,expectedVersion:undefined}).success,false);
+ assert.equal(m.VoiceClientEventSchema.safeParse({...voice,value:undefined}).success,false);
+ assert.equal(m.VoiceServerEventSchema.safeParse({type:"confirm",eventId:"e",fact:{key:"interest",value:"music",candidateId:"only"}}).success,false);
+});
+
+test("S12: canonical preferences share aliases and authoritative account fields cannot become preferences",async()=>{
+ const {canonicalPreferenceKey}=await import("../src/student-api.js");
+ for(const key of ["target_country","targetCountry","preferred country","country"])assert.equal(canonicalPreferenceKey(key),"target_country");
+ for(const key of ["name","studentName","first_name","grade","schoolGrade","accountId","email","date_of_birth"])assert.equal(canonicalPreferenceKey(key),null);
+ assert.equal(canonicalPreferenceKey("budget"),"budget");
 });
