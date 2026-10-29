@@ -10,6 +10,7 @@ import { SignJWT } from "jose";
 import { WebSocket } from "ws";
 import { MockLiveProvider, type LiveProvider } from "@vc/providers";
 import { tenantScopedDb } from "@vc/db";
+import { ANONYMOUS_CRISIS_MESSAGE, STUDENT_CRISIS_MESSAGE } from "@vc/engine";
 import { createFakeDb, type FakeDb } from "@vc/db/testing";
 import { withChatRoutes } from "../src/chat.js";
 import { createVoiceApi, withVoiceRoutes, VOICE_WS_AUDIENCE, VOICE_WS_ISSUER, type VoiceApi, type VoiceApiDeps, type VoiceLogLine } from "../src/voice.js";
@@ -34,8 +35,9 @@ export { adult, call, cleanupGates, gatesFixture, newThread, studentToken, turns
 export const minorNoConsent = (studentId = "stu-1", tenant = "tenant-a") => ({ tenant, studentId, role: "student", isMinor: true });
 export const minorConsent = (studentId = "stu-1", tenant = "tenant-a") => ({ tenant, studentId, role: "student", isMinor: true, guardianConsent: true });
 
-export const CRISIS_AUDIO = new Uint8Array(480).fill(7); // 10 ms of 24 kHz PCM16, pre-rendered "helpline" stand-in
-export const CRISIS_TEXT_FIXED = "Please call Tele-MANAS on 14416. I am still here.";
+/** voice-crisis-same-as-chat: the voice crisis message IS the chat one (one engine constant). There is no crisis audio. */
+export const CRISIS_TEXT_FIXED = STUDENT_CRISIS_MESSAGE;
+export const CRISIS_TEXT_ANONYMOUS = ANONYMOUS_CRISIS_MESSAGE;
 export const CRISIS_PHRASE = "I want to kill myself";
 export const SPEAKER_NAME = "Arjun Mehrotra";
 
@@ -172,7 +174,7 @@ export async function voiceWorld(opts: VoiceWorldOptions = {}): Promise<VoiceWor
     live: opts.live ?? provider,
     wsSecret,
     wsBaseUrl: `ws://127.0.0.1:${port}`,
-    crisis: { message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO } },
+    crisis: {},
     speakers: chat.deps.speakers,
     now: () => new Date(clock.ms),
     nowMs: () => clock.ms,

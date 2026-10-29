@@ -6,8 +6,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { VOICE_CRISIS_NO_WORDS_TEXT } from "../src/voice.js";
-import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, adult, minorNoConsent, newThread, studentToken, until, voiceWorld, type VoiceWorld } from "./voice-fixtures.js";
+import { CRISIS_PHRASE, adult, minorNoConsent, newThread, studentToken, until, voiceWorld, type VoiceWorld } from "./voice-fixtures.js";
 import { CRISIS_RESUME_GAP_MS_DEFAULT, type LiveCrisisDetector } from "@vc/providers";
+import { STUDENT_CRISIS_MESSAGE } from "@vc/engine";
 
 const EARLIER = "my earlier unanswered question about Germany";
 
@@ -33,7 +34,7 @@ async function run(
   const escalations: any[] = [];
   const w = await voiceWorld({
     deps: {
-      crisis: { message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO }, detect: detector },
+      crisis: { detect: detector },
       escalateForTenant: () => async (input) => void escalations.push(input),
     },
   });
@@ -162,7 +163,7 @@ async function runWith(
   const escalations: any[] = [];
   const w = await voiceWorld({
     deps: {
-      crisis: { message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO }, detect: detectEmptyFires },
+      crisis: { detect: detectEmptyFires },
       escalateForTenant: () => async (input: any) => void escalations.push(input),
       ...extraDeps,
     } as any,
@@ -315,4 +316,36 @@ test("ISS-262 ordering: the crisis record never reads a previous turn's id: a wo
     assert.deepEqual(flagIds(w), [crisis], "the flag carries the crisis utterance's own turn id, not the earlier turn's");
     assert.equal(escalations[0].turns[0].turnId, crisis);
   });
+});
+
+// ---------------------------------------------------------------------------
+// voice-crisis-same-as-chat (Umesh 2026-10-29): a voice crisis behaves exactly like a chat crisis. The student gets the SAME
+// STUDENT_CRISIS_MESSAGE text (one engine constant, never a copy), no pre-recorded audio is sent, there is exactly one crisis
+// flag and one escalation, and no log line carries the student's words.
+// ---------------------------------------------------------------------------
+test("same-as-chat: a voice crisis shows the chat's STUDENT_CRISIS_MESSAGE once, sends no audio, writes one flag and one escalation, logs no words", async () => {
+  const escalations: any[] = [];
+  const w = await voiceWorld({ deps: { escalateForTenant: () => async (input) => void escalations.push(input) } });
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const { client } = await w.open(adult(), threadId);
+    w.provider.backends[0]!.emitOutputAudio(new Uint8Array(480).fill(9)); // the model is mid-sentence when the student speaks
+    await until(() => client.frames.length === 1, "model audio before the crisis");
+    speak(w, `${CRISIS_PHRASE} tonight`);
+    await until(() => client.of("transcript.final").some((e) => e.role === "assistant" && e.text === STUDENT_CRISIS_MESSAGE), "the chat crisis message as a final assistant transcript");
+    await until(() => escalations.length === 1, "escalated");
+    w.provider.backends[0]!.emitOutputAudio(new Uint8Array(480).fill(9)); // the model carries on: muted
+    await new Promise((r) => setTimeout(r, 60));
+    await w.voice.settled().catch(() => undefined);
+    assert.equal(client.of("transcript.final").filter((e) => e.text === STUDENT_CRISIS_MESSAGE).length, 1, "the message is sent once, not once per path");
+    assert.equal(client.frames.length, 1, "no audio after the model's own chunk: no pre-recorded clip, and the muted model adds none");
+    const types = client.events.map((e) => e.type + (e.type === "transcript.final" && e.text === STUDENT_CRISIS_MESSAGE ? "#crisis" : ""));
+    assert.ok(types.indexOf("flag") < types.indexOf("state") && types.indexOf("state") < types.indexOf("transcript.final#crisis"), `order flag, state, message: ${types.join(",")}`);
+    assert.deepEqual(w.provider.configs[0]!.crisisMessage, { text: STUDENT_CRISIS_MESSAGE }, "the session is configured with the engine constant and no audio");
+    assert.equal(w.fakeDb.collection<any>("student_flags").all().filter((f: any) => f.kind === "crisis").length, 1, "exactly one crisis flag");
+    assert.equal(escalations.length, 1, "exactly one escalation");
+    assert.ok(!JSON.stringify(w.logs).includes("kill"), "no student words in a log line");
+  } finally {
+    await w.cleanup();
+  }
 });

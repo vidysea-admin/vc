@@ -46,3 +46,4 @@ qa/.delivery/completion-mongo-data/
 qa/.delivery/s13-host-build-temp/
 qa/.delivery/completion-host-link.json
 qa/evidence/s13-real-*
+qa/evidence/t057/pathlynks-*.png

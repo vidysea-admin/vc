@@ -1,0 +1,8 @@
+# voice-crisis-same-as-chat
+
+Product decision from Umesh (2026-10-29): "for the crisis audio -- just do the same how we are doing in the chat". Today a voice crisis plays a fixed pre-recorded PCM clip (provider fireCrisis, packages/providers/src/live.ts ~:556-561 emits fixed audio + a fixed final transcript; apps/api/src/voice.ts relays ev.fixed audio ~:1179-1186). That clip needs human vetting, which Umesh does not want. In chat, a crisis turn returns HTTP 200 with STUDENT_CRISIS_MESSAGE (the helpline text) plus one escalation, logs without text (apps/api/src/chat.ts ~:1108-1124).
+Make voice crisis behave exactly like chat:
+1. Find every place the crisis PCM/clip is produced, loaded or played (grep crisis, fixed, pcm, CRISIS_ in providers, api, widget, assets).
+2. TDD first: append failing tests that on a voice crisis (a) the model audio is muted/interrupted as today, (b) the student receives the SAME STUDENT_CRISIS_MESSAGE text as chat, imported from the single existing constant (never a copy), as a final assistant transcript/message, (c) no pre-recorded audio is sent, (d) exactly one escalation/concern flag, same as chat, (e) logs carry no student text, (f) the widget voice panel displays that message the same way chat displays it.
+3. Implement in place. Keep the crisis mute/resume timing and the C4b fix (fixed output must not open a model turn) intact. Remove the PCM asset and its loader only if nothing else uses them.
+4. Run via bash scripts/vc-testlock.sh: packages/providers tests, apps/api voice*, partner-voice, chat crisis tests, apps/widget tests, and tsc --noEmit for providers and api. Report before/after with file:line, and list every file changed.

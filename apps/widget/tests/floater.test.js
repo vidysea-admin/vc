@@ -755,3 +755,65 @@ for(const success of [true,false]) test('S13 typing while New chat is opening pr
  release(success?resp(201,{threadId:'owned-2'}):resp(503,{}));assert.equal(await opening,success);
  assert.equal(q.input.value,'new draft while opening');q.h.destroy();
 });
+
+test("same-as-chat: a voice crisis shows ONE crisis block, the server's crisis message then the helpline, exactly the shape the text chat uses for an escalated reply", async () => {
+  const V = require("../src/voice.js");
+  const q = setup({ mode: "proxy", key: "", turnUrl: "/api/vc", voice: true, voiceProxy: "/api/voice/session" });
+  q.h.open();
+  let socket;
+  class Socket { constructor() { socket = this; this.readyState = 0; } send() {} close() { this.readyState = 3; } }
+  const deps = {
+    fetch: async () => resp(201, { token: "token.signature", wsUrl: "wss://vc.example.org/stream", expiresAt: "2030-01-01T00:00:00Z", threadId: "owned-thread" }),
+    WebSocket: Socket,
+    mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+    audio: { capture() { return () => {}; }, close() {} },
+  };
+  assert.equal(q.h.attachVoice(V, deps), true);
+  q.h.setMode("voice");
+  byLabel(q.shadow, "Start voice conversation").fire("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  socket.readyState = 1; socket.onopen();
+  const MSG = "I am really sorry you are feeling this way. Tele-MANAS 14416 is free and open 24x7.";
+  socket.onmessage({ data: JSON.stringify({ type: "flag", eventId: "e1", reason: "crisis_detected" }) });
+  socket.onmessage({ data: JSON.stringify({ type: "state", eventId: "e2", state: "escalated" }) });
+  assert.equal(byClass(q.shadow, "crisis").textContent, W.HELP, "the helpline is on screen before the message arrives");
+  socket.onmessage({ data: JSON.stringify({ type: "transcript.final", eventId: "e3", role: "assistant", text: MSG }) });
+  const blocks = q.shadow.findAll ? q.shadow.findAll((n) => (" " + n.className + " ").indexOf(" crisis ") >= 0) : [byClass(q.shadow, "crisis")];
+  assert.equal(blocks.length, 1, "one crisis block, upgraded in place");
+  assert.equal(blocks[0].textContent, MSG + "\n" + W.HELP, "the chat's escalated-reply shape: message, newline, helpline");
+  assert.equal(q.log.textContent.split(MSG).length - 1, 1, "the message is on screen once");
+});
+
+test("followups: a second voice crisis renders its own crisis block (message then helpline) and leaves the first block intact; one block per signal", async () => {
+  const V = require("../src/voice.js");
+  const q = setup({ mode: "proxy", key: "", turnUrl: "/api/vc", voice: true, voiceProxy: "/api/voice/session" });
+  q.h.open();
+  let socket;
+  class Socket { constructor() { socket = this; this.readyState = 0; } send() {} close() { this.readyState = 3; } }
+  const deps = {
+    fetch: async () => resp(201, { token: "token.signature", wsUrl: "wss://vc.example.org/stream", expiresAt: "2030-01-01T00:00:00Z", threadId: "owned-thread" }),
+    WebSocket: Socket,
+    mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+    audio: { capture() { return () => {}; }, close() {} },
+  };
+  assert.equal(q.h.attachVoice(V, deps), true);
+  q.h.setMode("voice");
+  byLabel(q.shadow, "Start voice conversation").fire("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  socket.readyState = 1; socket.onopen();
+  const say = (m) => socket.onmessage({ data: JSON.stringify(m) });
+  const blocks = () => q.shadow.findAll((n) => (" " + n.className + " ").indexOf(" crisis ") >= 0).map((n) => n.textContent);
+  const M1 = "First crisis message. Tele-MANAS 14416.", M2 = "Second crisis message. Tele-MANAS 14416.";
+  say({ type: "flag", eventId: "e1", reason: "crisis_detected" });
+  say({ type: "state", eventId: "e2", state: "escalated" });
+  assert.deepEqual(blocks(), [W.HELP], "one block for the first signal, helpline alone");
+  say({ type: "transcript.final", eventId: "e3", role: "assistant", text: M1 });
+  say({ type: "state", eventId: "e4", state: "ok" });
+  say({ type: "transcript.final", eventId: "e5", role: "user", text: "again" });
+  say({ type: "flag", eventId: "e6", reason: "crisis_detected" });
+  say({ type: "state", eventId: "e7", state: "escalated" });
+  assert.deepEqual(blocks(), [M1 + "\n" + W.HELP, W.HELP], "the second signal adds a block and does not overwrite the first");
+  say({ type: "transcript.final", eventId: "e8", role: "assistant", text: M2 });
+  assert.deepEqual(blocks(), [M1 + "\n" + W.HELP, M2 + "\n" + W.HELP], "two blocks, each message then helpline, none duplicated");
+  assert.equal(q.log.textContent.split(M2).length - 1, 1, "the second message is on screen once");
+});

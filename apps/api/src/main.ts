@@ -14,12 +14,11 @@
  * `buildLauncherConfig` is pure (no network, no listening socket); `launch` is the only function that starts anything.
  * Importing this module does nothing: it runs only when it is the process entrypoint.
  */
-import { readFileSync, openSync, fstatSync, readSync, closeSync } from "node:fs";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { isIP } from "node:net";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SpeakersFileSchema, crisisMessageFor, type SpeakersFile } from "@vc/engine";
+import { SpeakersFileSchema, type SpeakersFile } from "@vc/engine";
 import { GeminiLiveProvider, type GeminiLiveConnector } from "@vc/providers";
 import {
   createAnonymousKbClient,
@@ -88,37 +87,10 @@ export function loadSpeakers(env: Env, readFile: (path: string) => string = (p) 
 export interface LauncherDeps {
   /** Tests inject a reader; default reads the file from disk. */
   readFile?: (path: string) => string;
-  /** Offline connector and bounded binary-reader seams; neither is used with voice off. */
+  /** Offline connector seam; not used with voice off. */
   voiceConnector?: GeminiLiveConnector;
-  readBinaryFile?: (path: string, maxBytes: number) => Uint8Array;
   /** Trusted programmatic wiring, never supplied by a browser. */
   voiceOverride?: StartApiVoiceOptions;
-}
-
-/** At most60 seconds of mono PCM16 at24kHz. Wording/rate/quality still require operator vetting. */
-export const VOICE_CRISIS_PCM_MAX_BYTES = 2_880_000;
-
-function readVoicePcm(file: string, maxBytes: number): Uint8Array {
-  const fd = openSync(file, "r");
-  try {
-    const stat = fstatSync(fd);
-    if (!stat.isFile() || stat.size < 2 || stat.size > maxBytes) throw new Error("invalid asset");
-    const bytes = Buffer.alloc(stat.size);
-    let offset = 0;
-    while (offset < bytes.length) {
-      const got = readSync(fd, bytes, offset, bytes.length - offset, null);
-      if (!got) throw new Error("partial asset");
-      offset += got;
-    }
-    if (fstatSync(fd).size !== bytes.length || readSync(fd, Buffer.alloc(1), 0, 1, null)) throw new Error("changed asset");
-    return bytes;
-  } finally { closeSync(fd); }
-}
-
-function validPcm(bytes: Uint8Array): boolean {
-  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 2 || bytes.byteLength > VOICE_CRISIS_PCM_MAX_BYTES || bytes.byteLength % 2) return false;
-  const head = Buffer.from(bytes.subarray(0, 12)).toString("ascii");
-  return !/^(?:RIFF|RF64|ID3|OggS|fLaC)/.test(head) && !(bytes[0] === 255 && (bytes[1]! & 224) === 224);
 }
 
 function voiceConfig(env: Env, deps: LauncherDeps): StartApiVoiceOptions {
@@ -153,20 +125,9 @@ function voiceConfig(env: Env, deps: LauncherDeps): StartApiVoiceOptions {
     const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     if (!(url.protocol === "wss:" || (url.protocol === "ws:" && local)) || url.username || url.password || url.search || url.hash) throw new Error("invalid");
   } catch { throw new LauncherConfigError("VC_VOICE_WS_BASE_URL must be a credential-free wss URL (ws allowed only on loopback)"); }
-  let crisis = supplied.crisis;
-  if (!crisis) {
-    requireVars(env, "VC_VOICE_ENABLED", ["VC_VOICE_CRISIS_PCM_FILE", "VC_VOICE_CRISIS_PCM_SHA256"]);
-    const hash = env.VC_VOICE_CRISIS_PCM_SHA256!;
-    if (!/^[0-9a-fA-F]{64}$/.test(hash)) throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_SHA256 must be64 hexadecimal characters");
-    let audio: Uint8Array;
-    try { audio = (deps.readBinaryFile ?? readVoicePcm)(env.VC_VOICE_CRISIS_PCM_FILE!, VOICE_CRISIS_PCM_MAX_BYTES); }
-    catch { throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_FILE cannot be read as a bounded regular PCM asset"); }
-    if (!validPcm(audio)) throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_FILE must be nonempty whole raw PCM16 samples within the byte limit");
-    const actual = createHash("sha256").update(audio).digest();
-    if (!timingSafeEqual(actual, Buffer.from(hash, "hex"))) throw new LauncherConfigError("VC_VOICE_CRISIS_PCM_SHA256 does not match the supplied asset");
-    crisis = { message: { text: crisisMessageFor("en", "student"), audio } };
-  }
-  if (typeof crisis.message?.text !== "string" || !crisis.message.text.trim() || !crisis.message.audio || !validPcm(crisis.message.audio)) throw new LauncherConfigError("The effective voice crisis message/audio is incomplete");
+  // voice-crisis-same-as-chat (Umesh 2026-10-29): a voice crisis is the chat crisis. The message is the engine's own constant (voice.ts), shown as text;
+  // there is no pre-recorded crisis clip, no PCM file or hash to configure, and nothing to vet. `{}` takes the default crisis detector.
+  const crisis = supplied.crisis ?? {};
   return { ...supplied, live, crisis, wsSecret, wsBaseUrl: wsBaseUrl! };
 }
 

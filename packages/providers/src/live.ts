@@ -7,7 +7,7 @@
  * different, honest contract:
  *   - the crisis rule is ENFORCED as far as the medium allows: every input-transcript chunk goes
  *     through an injected detector; on a hit the model's audio is muted, the backend is
- *     interrupted, and the FIXED crisis message is played (spec D-088 Q5: at most 2 s of model
+ *     interrupted, and the FIXED crisis message (text, as chat) is shown (spec D-088 Q5: at most 2 s of model
  *     audio after the trigger, so after the trigger NO model audio is forwarded at all);
  *   - everything else (uncited numbers, listed speaker names) is AUDITED AFTER THE FACT: the
  *     finished assistant transcript goes through an injected auditor and each finding becomes a
@@ -66,13 +66,12 @@ export interface LiveAuditFinding {
 }
 
 /**
- * The fixed crisis message. `audio` is pre-rendered 24 kHz PCM16. It is optional in the type (the
- * text channel needs none) but REQUIRED by `LiveSession` whenever a detector is wired: a voice
- * student must never get silence after a crisis (fix cycle 1, M3).
+ * The fixed crisis message: TEXT ONLY (Umesh 2026-10-29, "voice crisis is the same as chat"). A voice crisis shows the
+ * same helpline message a chat crisis returns; no pre-recorded audio exists, is required or is ever sent. The model is
+ * still muted and interrupted at the trigger, so the student never hears model speech after it.
  */
 export interface LiveCrisisMessage {
   text: string;
-  audio?: Uint8Array;
 }
 
 export interface LiveCrisisDetection {
@@ -130,7 +129,7 @@ export interface LiveTranscriptSink {
 }
 
 export type LiveEvent =
-  | { type: "audio"; data: Uint8Array; mimeType: typeof LIVE_OUTPUT_MIME; fixed?: boolean }
+  | { type: "audio"; data: Uint8Array; mimeType: typeof LIVE_OUTPUT_MIME }
   | { type: "transcript"; role: LiveRole; text: string; final: boolean; fixed?: boolean }
   | { type: "tool_call"; call: LiveToolCall }
   | { type: "interrupted" }
@@ -150,7 +149,7 @@ export interface LiveSessionConfig {
   /** Opaque server context captured when a microphone utterance starts, never from model output. */
   captureInputContext?: () => string | undefined;
   detectCrisis?: LiveCrisisDetector;
-  /** Required whenever `detectCrisis` is set: a detector with nothing to play is a silent no-op. */
+  /** Required whenever `detectCrisis` is set (non-empty text): a detector with no message to show is a silent no-op. */
   crisisMessage?: LiveCrisisMessage;
   auditOutput?: LiveOutputAuditor;
   /** Runs a model tool call; all results reach the model, but only server-declared factual evidence sources the audit. */
@@ -284,11 +283,10 @@ export class LiveSession implements LiveBackendSink {
 
   constructor(private readonly config: LiveSessionConfig) {
     if (config.detectCrisis && !config.crisisMessage) {
-      throw new LiveConfigError("detectCrisis requires crisisMessage: a detector with no fixed message to play is a silent no-op");
+      throw new LiveConfigError("detectCrisis requires crisisMessage: a detector with no fixed message to show is a silent no-op");
     }
-    const audio = config.crisisMessage?.audio;
-    if (config.detectCrisis && (!audio || audio.byteLength === 0 || audio.byteLength % 2 !== 0)) {
-      throw new LiveConfigError("detectCrisis requires crisisMessage.audio (non-empty 24 kHz PCM16): a voice student must never hear silence after a crisis");
+    if (config.detectCrisis && (typeof config.crisisMessage?.text !== "string" || !config.crisisMessage.text.trim())) {
+      throw new LiveConfigError("detectCrisis requires a non-empty crisisMessage.text: a voice student must never get silence after a crisis");
     }
     this.now = config.now ?? Date.now;
     const gap = config.crisisResumeGapMs ?? CRISIS_RESUME_GAP_MS_DEFAULT;
@@ -541,7 +539,7 @@ export class LiveSession implements LiveBackendSink {
 
   /**
    * `spoken` false for a typed crisis: the no-refire flag belongs to the spoken utterance, so a typed
-   * crisis must not stop a later spoken crisis from playing the helpline audio again.
+   * crisis must not stop a later spoken crisis from showing the helpline message again.
    */
   private fireCrisis(level: string | undefined, started: number, spoken: boolean): void {
     if (spoken) this.crisisFiredForUtterance = true;
@@ -551,14 +549,12 @@ export class LiveSession implements LiveBackendSink {
     this.muted = true;
     this.crisisMute = true;
     this.crisisTurnEnded = false; // condition 1 counts from THIS crisis
-    // Before `attach` there is no backend yet: the student still hears the fixed message now, and
+    // Before `attach` there is no backend yet: the student still gets the fixed message now, and
     // the backend interrupt is replayed on attach (M1).
     if (this.backend) this.interruptBackendForCrisis();
     else this.pendingCrisisInterrupt = true;
     const message = this.config.crisisMessage!;
-    // `audio` is guaranteed by the constructor (M3): the fixed message is never silent.
-    // A copy: a client that mutates its buffer must not corrupt the next crisis playback.
-    this.emit({ type: "audio", data: message.audio!.slice(), mimeType: LIVE_OUTPUT_MIME, fixed: true });
+    // The message text is guaranteed by the constructor (M3). Text only, as chat answers a crisis: no audio event is emitted here.
     this.emit({ type: "transcript", role: "assistant", text: message.text, final: true, fixed: true });
     const latencyMs = Math.max(0, this.now() - started);
     this.emit({ type: "crisis", ...(level !== undefined ? { level } : {}), message: message.text, latencyMs });

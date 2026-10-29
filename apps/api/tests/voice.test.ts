@@ -25,7 +25,6 @@ import {
   type VoiceApiDeps,
 } from "../src/voice.js";
 import {
-  CRISIS_AUDIO,
   CRISIS_PHRASE,
   CRISIS_TEXT_FIXED,
   adult,
@@ -456,13 +455,13 @@ test("C3: rejecting a read-back figure erases the proposed fact", async () => {
   );
 });
 
-test("D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here", async () => {
+test("D-096 item 3 (same-as-chat): after a crisis the chat message and flag are forwarded, no audio is sent, model audio is dropped, and nothing is synthesised here", async () => {
   await withWorld(async (w, threadId) => {
     const { client } = await w.open(adult(), threadId);
     speak(w, 0, CRISIS_PHRASE);
     await until(() => client.of("flag").some((f) => f.reason === "crisis_detected"), "crisis flag");
-    await until(() => client.frames.length >= 1, "fixed crisis audio");
-    assert.equal(client.frames[0]!.byteLength, CRISIS_AUDIO.byteLength);
+    await until(() => client.of("transcript.final").some((e) => e.role === "assistant" && e.text === CRISIS_TEXT_FIXED), "the crisis message");
+    assert.equal(client.frames.length, 0, "no pre-recorded crisis audio");
     assert.ok(client.of("state").some((s) => s.state === "escalated"));
     const framesBefore = client.frames.length;
     w.provider.last.emitOutputAudio(new Uint8Array(480).fill(9)); // the model tries to carry on: muted by LiveSession
@@ -757,7 +756,7 @@ test("C8/A20: enabled without the go-live records (or the passing A10 record) is
     live: new MockLiveProvider(),
     wsSecret: new Uint8Array(32).fill(1),
     wsBaseUrl: "wss://api.example.test",
-    crisis: { message: { text: "x", audio: CRISIS_AUDIO } },
+    crisis: {},
   };
   const good = (over: Parameters<typeof gatesFixture>[0] = {}) => gatesFixture({ gProd: "Answered: 2026-10-16T10:10:00+05:30 - c - all\n", ...over });
   const cases: Array<[string, Parameters<typeof gatesFixture>[0]]> = [
@@ -1600,7 +1599,6 @@ test("C18: a crisis with no words of its own is escalated with the fixed text-fr
     {
       deps: {
         crisis: {
-          message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO },
           detect: (text) => (text.trim() === "" ? { crisis: true, level: "crisis" } : { crisis: false }),
         },
         escalateForTenant: () => async (input) => void escalations.push(input),

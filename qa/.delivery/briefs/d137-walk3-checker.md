@@ -1,0 +1,12 @@
+# d137-walk3-checker
+
+Independent checker for three uncommitted lanes on top of HEAD 560158ac (git diff HEAD shows them). You wrote none of it.
+L1 voice crisis = chat (D-137 in docs/DECISIONS.md): packages/providers/src/live.ts (LiveCrisisMessage {text}, fireCrisis no audio ~:556), apps/api/src/voice.ts (crisis case ~:1227, onFinalTranscript fixed dedupe ~:970, STUDENT_CRISIS_MESSAGE/ANONYMOUS_CRISIS_MESSAGE ~:1283), apps/api/src/main.ts (PCM loader removed), .env.example, apps/widget/src/voice.js + vc-widget.js crisis block.
+L2 follow-ups: packages/engine/evals/live-audio.ts + run-live.ts text-only crisis check; widget second-crisis rendering (voice.js:346,359; vc-widget.js:909,953,967); docs/lld.md.
+L3 walk-3 routing: packages/engine/src/student/classify.ts ~:211-219 progress phrasings -> pathlynks_quest_progress / vidysea_progress; tests in packages/engine/tests/pathlynks-tools.test.ts (t057-walk3 D1).
+Prove OUTCOMES with your own hostile variants:
+- L1: voice crisis sends exactly the same text as chat from ONE constant (grep for duplicated helpline text anywhere); no audio after the signal; model audio muted; one escalation (chat parity); no student text in logs; anonymous vs student message choice correct; a model-generated transcript that happens to equal the crisis text cannot suppress a real crisis or be double-sent; crisis mute/resume + the C4b fix (fixed output must not open a model turn) intact; no remaining reader of the removed env keys / PCM anywhere (grep src, scripts, docs, deploy files).
+- L2: two crises in one session render two crisis blocks; one signal (flag+state+message) renders one block; server sending no message still shows the helpline.
+- L3: >= 25 progress/journey phrasings (EN + Hinglish) route correctly; >= 25 near-misses stay off progress (e.g. "how far is Canada", "where is IIT Delhi", "what is a career quest", "journey of a doctor", "progress in AI research", "main kahan padhu"); 20k-char hostile timing; and that "what should I do next" etc. still route as before (no regression in the existing classify/routing tests).
+Run under scripts/vc-testlock.sh: providers tests; api voice*, partner-voice, main, chat*; engine student-graph, pathlynks-tools, student-classify, routing-probe, claims-guard, evals (npx tsx --test evals/*.test.ts); widget node --test "tests/*.test.js"; tsc/typecheck for providers, api, engine.
+Return VERDICT: PASS | WARNING | FAIL with file:line, counts, severities. Ship bar: nothing above low.

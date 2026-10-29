@@ -604,7 +604,7 @@
     function validId(id) { return typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id); }
     function clearHistory() {
       hist.forEach(function (h) { if (h.node.parentNode) h.node.parentNode.removeChild(h.node); });
-      hist = []; liveLine = {user:null,assistant:null}; lastBot = null;
+      hist = []; liveLine = {user:null,assistant:null}; lastBot = null; crisisLine = null; crisisHasMsg = false;
     }
     function drawThreads() {
       threadSelect.textContent = '';
@@ -906,7 +906,7 @@
       if (!input.disabled) input.focus(); else close.focus();
     }
     // pc-voice V3: the mic button. Added only when the add-on has loaded (voice.js) and the config allows voice; the text chat works either way.
-    var voiceCtl = null, micBtn = null, liveLine = { user: null, assistant: null }, lastBot = null;
+    var voiceCtl = null, micBtn = null, liveLine = { user: null, assistant: null }, lastBot = null, crisisLine = null, crisisHasMsg = false;
     function attachVoice(lib, deps) {
       if (destroyed || (auth && !authValid) || micBtn || !lib || typeof lib.create !== "function" || !voiceAvailable(cfg)) return false;
       micBtn = el(doc, "button", "mic");
@@ -950,7 +950,7 @@
           if (box) lastBot.appendChild(box);
         },
         confirm: function () { if (auth) refreshProfile(); },
-        crisis: function (c) { add("crisis", c.help); },
+        crisis: function (c) { var t = c.message ? c.message + "\n" + c.help : c.help; if (crisisLine && !crisisHasMsg) setLine(crisisLine, t); else crisisLine = add("crisis", t); crisisHasMsg = !!c.message; },
         error: function (e) {
           if (auth && e && /^(memory_changed|policy_changed|stale_memory|stale_response)$/.test(e.code || '')) {
             if (voiceCtl) voiceCtl.stop(); refreshProfile();
@@ -964,7 +964,7 @@
         },
         ended: function () {
           if (auth) { refreshProfile(); refreshThreads(); }
-          liveLine.user = liveLine.assistant = null;
+          liveLine.user = liveLine.assistant = null; crisisLine = null; crisisHasMsg = false;
           if (!busy && !waitTimer && !dead) status.textContent = "Voice ended.";
         }
       };

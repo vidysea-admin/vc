@@ -3,8 +3,6 @@
  * network (the KB clients are built but never called by the builder tests), no real Mongo (fake client), no listening
  * socket except the loopback test server that startApi opens on port 0.
  */
-import { createHash } from "node:crypto";
-import { crisisMessageFor } from "@vc/engine";
 import { GeminiLiveProvider, MockLiveProvider, type GeminiLiveConnector, type GeminiLiveConnection } from "@vc/providers";
 import { VC_DB_NAME, tenantScopedDb, createChatThread } from "@vc/db";
 import { WebSocket } from "ws";
@@ -172,41 +170,32 @@ test("e: the real entrypoint prints no credential when a non-config startup erro
   assert.ok(!/SENTINELPW/.test(out), out);
 });
 
-// S7 fixtures prove wiring only: these bytes are NOT vetted crisis speech.
-const VOICE_PCM = new Uint8Array([1, 0, 2, 0, 3, 0]);
-const VOICE_ENV = { VC_VOICE_ENABLED: "true", GEMINI_API_KEY: "SENTINEL-GOOGLE-KEY", VC_VOICE_MODEL: "explicit-test-model", VC_VOICE_WS_SECRET: "w".repeat(40), VC_VOICE_WS_BASE_URL: "ws://127.0.0.1:9012", VC_VOICE_CRISIS_PCM_FILE: "synthetic.pcm", VC_VOICE_CRISIS_PCM_SHA256: createHash("sha256").update(VOICE_PCM).digest("hex") };
+const VOICE_ENV = { VC_VOICE_ENABLED: "true", GEMINI_API_KEY: "SENTINEL-GOOGLE-KEY", VC_VOICE_MODEL: "explicit-test-model", VC_VOICE_WS_SECRET: "w".repeat(40), VC_VOICE_WS_BASE_URL: "ws://127.0.0.1:9012" };
 const NO_CONNECT: GeminiLiveConnector = { async connect() { throw new Error("must not connect during config"); } };
 
-test("S7: voice-only builder requires explicit config, binds vetted text to bytes and never connects", () => {
+test("S7: voice-only builder requires explicit config, needs no crisis audio asset (voice-crisis-same-as-chat) and never connects", () => {
   assert.throws(() => buildLauncherConfig({ VC_VOICE_ENABLED: "true" }), /GEMINI_API_KEY/);
   for (const name of Object.keys(VOICE_ENV).filter(n => n !== "VC_VOICE_ENABLED")) {
     const env: Record<string, string | undefined> = { ...VOICE_ENV }; delete env[name];
     assert.throws(() => buildLauncherConfig(env), LauncherConfigError, name);
   }
-  const cfg = buildLauncherConfig(VOICE_ENV, { voiceConnector: NO_CONNECT, readBinaryFile: () => VOICE_PCM });
+  const cfg = buildLauncherConfig({ ...VOICE_ENV, get VC_VOICE_CRISIS_PCM_FILE(): string { throw new Error("a crisis audio asset is no longer read"); } }, { voiceConnector: NO_CONNECT });
   assert.ok(cfg.voice?.live instanceof GeminiLiveProvider);
   assert.equal(cfg.voice.live.model, VOICE_ENV.VC_VOICE_MODEL);
-  assert.equal(cfg.voice.crisis?.message.text, crisisMessageFor("en", "student"));
-  assert.deepEqual(cfg.voice.crisis?.message.audio, VOICE_PCM);
+  assert.deepEqual(cfg.voice.crisis, {}, "no crisis message or audio is configured: voice.ts shows the engine's chat constant as text");
   assert.equal(cfg.anonymous, undefined); assert.equal(cfg.chat, undefined);
 });
 
 test("S7: flag off does not read voice env, files or connector; exact parser retained", () => {
-  const env = { VC_VOICE_ENABLED: "false", get GEMINI_API_KEY(): string { throw new Error("voice credential read"); }, get VC_VOICE_CRISIS_PCM_FILE(): string { throw new Error("asset read"); } };
-  assert.deepEqual(buildLauncherConfig(env, { readBinaryFile: () => { throw new Error("asset read"); }, voiceConnector: NO_CONNECT }), { host: "127.0.0.1" });
+  const env = { VC_VOICE_ENABLED: "false", get GEMINI_API_KEY(): string { throw new Error("voice credential read"); } };
+  assert.deepEqual(buildLauncherConfig(env, { voiceConnector: NO_CONNECT }), { host: "127.0.0.1" });
   assert.throws(() => buildLauncherConfig({ VC_VOICE_ENABLED: "yes" }), /true.*false/);
 });
 
-test("S7: bad effective secret, URL, hash and non-raw/partial/empty/oversized audio refuse without leaking", () => {
-  const readBinaryFile = () => VOICE_PCM;
-  for (const patch of [ { VC_VOICE_WS_SECRET: "SENTINEL-SHORT" }, ...["ws://example.test", "wss://u:SENTINELPW@example.test", "wss://example.test?key=SENTINELPW", "wss://example.test#SENTINELPW", "https://example.test"].map(VC_VOICE_WS_BASE_URL => ({ VC_VOICE_WS_BASE_URL })), { VC_VOICE_CRISIS_PCM_SHA256: "bad-SENTINELPW" }, { VC_VOICE_CRISIS_PCM_SHA256: "0".repeat(64) } ]) {
-    assert.throws(() => buildLauncherConfig({ ...VOICE_ENV, ...patch }, { readBinaryFile, voiceConnector: NO_CONNECT }), (e: unknown) => e instanceof LauncherConfigError && !/SENTINEL/.test(describeStartupError(e)));
+test("S7: bad effective secret and URL refuse without leaking", () => {
+  for (const patch of [ { VC_VOICE_WS_SECRET: "SENTINEL-SHORT" }, ...["ws://example.test", "wss://u:SENTINELPW@example.test", "wss://example.test?key=SENTINELPW", "wss://example.test#SENTINELPW", "https://example.test"].map(VC_VOICE_WS_BASE_URL => ({ VC_VOICE_WS_BASE_URL })) ]) {
+    assert.throws(() => buildLauncherConfig({ ...VOICE_ENV, ...patch }, { voiceConnector: NO_CONNECT }), (e: unknown) => e instanceof LauncherConfigError && !/SENTINEL/.test(describeStartupError(e)));
   }
-  for (const bytes of [new Uint8Array(), new Uint8Array([1]), Buffer.from("RIFF0000WAVE"), Buffer.from("ID3fake!"), new Uint8Array([255, 251, 0, 0]), new Uint8Array(2_880_002)]) {
-    const env = { ...VOICE_ENV, VC_VOICE_CRISIS_PCM_SHA256: createHash("sha256").update(bytes).digest("hex") };
-    assert.throws(() => buildLauncherConfig(env, { readBinaryFile: (_path, limit) => { assert.equal(limit, 2_880_000); return bytes; }, voiceConnector: NO_CONNECT }), LauncherConfigError);
-  }
-  assert.throws(() => buildLauncherConfig(VOICE_ENV, { readBinaryFile: () => { throw new Error("SENTINELPW unreadable"); } }), (e: unknown) => e instanceof LauncherConfigError && !/SENTINELPW/.test(e.message));
 });
 
 test("S7: exact launch/startApi voice-only path mints an owned socket and reaches the injected connector; shutdown closes it", async () => {
@@ -221,7 +210,7 @@ test("S7: exact launch/startApi voice-only path mints an owned socket and reache
   const api = await launch({ ...VOICE_ENV, MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh" }, {
     clientFactory: () => fake.client,
     http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, verifier: { verify: async () => { throw new Error("student test only"); } }, voice: { verifier: studentVerifier(), gatesDir: gates.gates } },
-  }, { voiceConnector: connector, readBinaryFile: () => VOICE_PCM });
+  }, { voiceConnector: connector });
   let socket: WebSocket | undefined;
   try {
     assert.equal(connects, 0, "startup never connects to the paid provider");
@@ -246,7 +235,7 @@ test("S7: complete trusted voice override needs no Google credential/asset; inco
   let connects = 0;
   const original = fake.client.connect.bind(fake.client);
   fake.client.connect = async () => { connects++; return original(); };
-  const voice = { live: new MockLiveProvider(), crisis: { message: { text: crisisMessageFor("en", "student"), audio: VOICE_PCM } }, wsSecret: new Uint8Array(40).fill(7), wsBaseUrl: "ws://127.0.0.1:9012", verifier: studentVerifier(), gatesDir: gates.gates };
+  const voice = { live: new MockLiveProvider(), crisis: {}, wsSecret: new Uint8Array(40).fill(7), wsBaseUrl: "ws://127.0.0.1:9012", verifier: studentVerifier(), gatesDir: gates.gates };
   const env = { VC_VOICE_ENABLED: "true", MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh" };
   const base = { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, verifier: { verify: async () => { throw Error("unused"); } } };
   await assert.rejects(launch(env, { clientFactory: () => fake.client, http: { ...base, voice: { ...voice, wsBaseUrl: "wss://example.test?secret=SENTINEL" } } }), LauncherConfigError);

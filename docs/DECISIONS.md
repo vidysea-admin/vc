@@ -1278,3 +1278,11 @@ Separately, the remaining T-057 demo work runs as parallel subagent lanes:
 **Links:** D-133; D-134; D-135; T-057
 **Changes-authorized:** none
 **Approved-by:** Umesh
+
+## D-137 | 2026-10-29 | type: decision | status: ACTIVE
+**What:** A voice crisis turn behaves exactly like a chat crisis turn. The student gets the same STUDENT_CRISIS_MESSAGE helpline text (one shared constant) shown in the voice panel, with the same single escalation, and model audio stays muted. The pre-recorded crisis audio clip is dropped, so it no longer needs human vetting. Separately, the T-057 acceptance contract qa/contracts/quest-successor.md is committed as checker ground truth.
+**Why:** Umesh (2026-10-29, chat): "for the crisis audio -- just do the same how we are doing in the chat"; and for the contract file, "agar chaiye tho commit krr doo". The pre-recorded clip was the only crisis path that needed a human to listen to it before go-live.
+**Result:** Pending (maker lane voice-crisis-same-as-chat; contract committed as 560158ac).
+**Links:** D-136; T-057
+**Changes-authorized:** none
+**Approved-by:** Umesh

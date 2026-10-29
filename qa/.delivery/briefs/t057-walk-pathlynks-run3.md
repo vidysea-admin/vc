@@ -1,0 +1,9 @@
+# t057-walk-pathlynks-run3
+
+Run the T-057 Pathlynks browser walk end to end in a VISIBLE (headed) browser. Previous run (qa/evidence/t057/walk-pathlynks-run2.md) was blocked: the local quest backend (:5001) connects to Mongo at 127.0.0.1:27019 and nothing listens there, so init-profile returns 500 and the Career Quest page spins forever.
+Steps:
+1. Start the throwaway local mongod on 127.0.0.1:27019 (see rules; run it in the background, log to the scratch logs). Confirm TCP connect works. This DB starts empty, so Career Quest data for the test student is local and empty; that is expected. VC's own progress/summary reads still come from the real pathlynks_journey via VC's read-only opener.
+2. Check whether the :5001 quest backend recovers on its own (call init-profile through the frontend flow, or a harmless GET health path); restart it only if needed, same command, no env change.
+3. Start the frontend on :3000, then run: VC_WALK_EXTRA_ASKS=1 VC_WALK_PATHLYNKS_BASE=http://localhost:3000 node qa/.delivery/requests/t057-walk.mjs pathlynks > qa/evidence/t057/walk-pathlynks-run3.log 2>&1 (make sure the browser launches headed; if the script has a HEADLESS flag set it off).
+4. If a step fails on a selector (the widget was never reached before, so selectors 130-146 are unproven), fix the selector in place and re-run; at most 3 runs.
+5. Write qa/evidence/t057/walk-pathlynks-run3.md: per-step table (OK/FAIL, ms, detail), the answers' kind and length only for the 3 extra asks (how far am I in Career Quest / mere goals dikhao / what should I do next), whether the new-user guidance and the progress/summary case each worked, production rows written (VC thread/turn counts only), screenshots list. Afterwards stop the frontend dev server and the throwaway mongod you started (leave everything else running) and say so.

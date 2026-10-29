@@ -209,7 +209,14 @@ const OWN_PROGRESS_RULES: [StudentIntentTool, RegExp][] = [
   ["pathlynks_year_plan", new RegExp(`${T_LEAD}(?:mer[ei]|mera)\\s+(?:year\\s+plan|activities)\\s+(?:dikhao|dikhaiye|batao|bataiye|kya\\s+hain?)${T_TAIL}`, "i")],
   ["pathlynks_quest_progress", new RegExp(`${T_LEAD}(?:mer[ei]|mera)\\s+(?:target\\s+universit(?:y|ies)|career\\s+picks|career\\s+quest)\\s+(?:dikhao|dikhaiye|batao|bataiye|kya\\s+hain?)${T_TAIL}`, "i")],
   ["vidysea_progress", new RegExp(`${T_LEAD}(?:${T_VIEW})?my\\s+(?:overall\\s+)?(?:progress|status)(?:\\s+(?:so\\s+far|overall|update))?${T_TAIL}`, "i")],
-  ["vidysea_progress", new RegExp(`${T_LEAD}how\\s+(?:am\\s+i\\s+doing|far\\s+(?:have\\s+i\\s+come|along\\s+am\\s+i))(?:\\s+so\\s+far)?${T_TAIL}`, "i")],
+  ["vidysea_progress", new RegExp(`${T_LEAD}how\\s+(?:am\\s+i\\s+doing|far\\s+(?:have\\s+i\\s+(?:come|gone|reached|got(?:ten)?)|along\\s+am\\s+i|am\\s+i))(?:\\s+(?:so\\s+far|till\\s+now|until\\s+now|now))?${T_TAIL}`, "i")],
+  // t057-walk3 D1: "how far am I in Career Quest" / "career quest me kitna hua" are the student's own Career Quest progress; the journey phrasings ("where am I in my
+  // journey", "I want to see my journey", "main kahan tak pahuncha") are the generic progress summary. Anchored, fixed alternations, no nested quantifier.
+  ["pathlynks_quest_progress", new RegExp(`${T_LEAD}(?:how\\s+far\\s+(?:am\\s+i|have\\s+i\\s+(?:come|gone|reached|got(?:ten)?))|where\\s+am\\s+i|how\\s+much\\s+(?:have\\s+i\\s+)?(?:done|completed|finished|covered|progressed))\\s+(?:in|on|at|with)\\s+(?:my\\s+)?career\\s+quest(?:\\s+(?:so\\s+far|till\\s+now|until\\s+now|now))?${T_TAIL}`, "i")],
+  ["pathlynks_quest_progress", new RegExp(`${T_LEAD}(?:mer[ei]\\s+|mera\\s+)?career\\s+quest\\s+(?:me|mein|mai|ka|ki)\\s+(?:mera\\s+|meri\\s+)?kitna\\s+(?:hua|ho\\s+gaya|complete\\s+hua|kaam\\s+hua)${T_TAIL}`, "i")],
+  ["vidysea_progress", new RegExp(`${T_LEAD}where\\s+am\\s+i\\s+(?:in|on)\\s+my\\s+(?:journey|progress|process)(?:\\s+(?:now|right\\s+now|so\\s+far))?${T_TAIL}`, "i")],
+  ["vidysea_progress", new RegExp(`${T_LEAD}i\\s+(?:want|would\\s+like|wanna)\\s+to\\s+(?:see|view|check|know)\\s+my\\s+(?:journey|progress|status)(?:\\s+(?:so\\s+far|now))?${T_TAIL}`, "i")],
+  ["vidysea_progress", new RegExp(`${T_LEAD}(?:main|mai|mein)\\s+kahan\\s+tak\\s+(?:pahunch(?:a|i|\\s+gaya|\\s+gayi)?|pahuch(?:a|i)?|aaya|aayi|gaya|gayi)(?:\\s+(?:hoon|hu|hun))?${T_TAIL}`, "i")],
   ["vidysea_progress", new RegExp(`${T_LEAD}where\\s+do\\s+i\\s+stand(?:\\s+(?:now|right\\s+now|so\\s+far))?${T_TAIL}`, "i")],
   ["vidysea_progress", new RegExp(`${T_LEAD}(?:so\\s+)?what(?:'s|\\s+is|\\s+should\\s+i\\s+do|\\s+do\\s+i\\s+do)?\\s+(?:my\\s+)?next(?:\\s+steps?)?(?:\\s+for\\s+me)?${T_TAIL}`, "i")],
   ["vidysea_progress", new RegExp(`${T_LEAD}(?:my\\s+)?next\\s+steps?${T_TAIL}`, "i")],

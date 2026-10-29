@@ -24,7 +24,7 @@ import { ANONYMOUS_VOICE_THREAD_ID, VOICE_ACTIVE_CAP_RETRY_AFTER_SEC, VOICE_MAX_
 import type { ApiHandler, ApiResponse } from "../src/server.js";
 import { nonEmptyCollections } from "./anonymous-fixtures.js";
 import { SKILLS_DIR, chatRequest, cleanupGates, gatesFixture, kbAnswerProvider, studentToken, studentVerifier } from "./chat-fixtures.js";
-import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, VoiceClient, until, voiceWorld, type ConnectResult, type VoiceWorld } from "./voice-fixtures.js";
+import { CRISIS_PHRASE, CRISIS_TEXT_ANONYMOUS, VoiceClient, until, voiceWorld, type ConnectResult, type VoiceWorld } from "./voice-fixtures.js";
 
 const PEPPER = "synthetic-pepper-".padEnd(40, "x");
 const T0 = Date.parse("2026-11-01T10:00:00.000Z");
@@ -710,14 +710,13 @@ test("V2: an anonymous visitor cannot resume or replay an earlier anonymous sess
   }
 });
 
-test("V2: an anonymous visitor who says a crisis phrase hears the fixed crisis message and helpline audio, sees the crisis flag, and nothing is stored or escalated to a tenant", async () => {
+test("V2 (same-as-chat): an anonymous visitor who says a crisis phrase sees the anonymous chat crisis message (no audio), sees the crisis flag, and nothing is stored or escalated to a tenant", async () => {
   const pv = await pvWorld();
   try {
     const { client } = await openAnon(pv);
     pv.w.provider.backends[0]!.emitInputTranscript(CRISIS_PHRASE, true);
-    await until(() => client.frames.length >= 1, "the fixed crisis audio");
-    assert.equal(client.frames[0]!.byteLength, CRISIS_AUDIO.byteLength);
-    assert.ok(Buffer.from(client.frames[0]!).equals(Buffer.from(CRISIS_AUDIO)), "the fixed audio, not model audio");
+    await until(() => client.of("transcript.final").some((e) => e.role === "assistant" && e.text === CRISIS_TEXT_ANONYMOUS), "the anonymous crisis message");
+    assert.equal(client.frames.length, 0, "no pre-recorded crisis audio");
     await until(() => client.of("flag").some((f) => f.reason === "crisis_detected"), "crisis flag");
     await until(() => client.of("state").some((s) => s.state === "escalated"), "escalated state");
     pv.w.provider.backends[0]!.emitOutputTranscript("model words after the crisis");
@@ -730,7 +729,7 @@ test("V2: an anonymous visitor who says a crisis phrase hears the fixed crisis m
     assert.equal(pv.dbCalls.length, 0);
     assert.deepEqual(pv.counters, ["crisis"], "only the text-free aggregate counter, as on the anonymous text route");
     assert.ok(!pv.w.logs.some((l) => JSON.stringify(l).includes("kill")), "no words in a log");
-    assert.equal(pv.w.provider.configs[0]!.crisisMessage.text, CRISIS_TEXT_FIXED);
+    assert.deepEqual(pv.w.provider.configs[0]!.crisisMessage, { text: CRISIS_TEXT_ANONYMOUS });
   } finally {
     await pv.close();
   }
@@ -752,7 +751,7 @@ test("V2: a failing anonymous crisis counter is logged text-free and the visitor
   try {
     const { client } = await openAnon(pv);
     pv.w.provider.backends[0]!.emitInputTranscript(CRISIS_PHRASE, true);
-    await until(() => client.frames.length >= 1, "the fixed crisis audio");
+    await until(() => client.of("transcript.final").some((e) => e.role === "assistant" && e.text === CRISIS_TEXT_ANONYMOUS), "the anonymous crisis message");
     await until(() => pv.w.logs.some((l) => l.event === "voice_anonymous_counter_failed"), "the failure is logged");
     assert.ok(!JSON.stringify(pv.w.logs).includes("counter store down"), "the error name only, never its message");
     assert.equal(client.closed, false);
@@ -853,7 +852,7 @@ async function bootApi(env: Record<string, string | undefined>, anonymous: Recor
         verifier: createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_PUBLIC_KEY: generateKeyPairSync("rsa", { modulusLength: 2048 }).publicKey.export({ type: "spki", format: "pem" }).toString() })),
         provider: kbAnswerProvider(),
         skillsDir: SKILLS_DIR,
-        voice: { live: provider, crisis: { message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO } }, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: gates.gates },
+        voice: { live: provider, crisis: {}, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: gates.gates },
         ...(anonymous ? { anonymous } : {}),
       } as any,
     },

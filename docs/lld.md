@@ -97,8 +97,8 @@ sequenceDiagram
 
 ### 3.2 Voice turn
 Widget → `POST .../threads/{tid}/voice/sessions` (signed with `VC_VOICE_WS_SECRET`) → WebSocket at
-`VC_VOICE_WS_BASE_URL` → `VC_VOICE_MODEL`. A crisis plays the pinned `VC_VOICE_CRISIS_PCM_FILE`, verified against
-its SHA-256. The transcript is written into the same thread history.
+`VC_VOICE_WS_BASE_URL` → `VC_VOICE_MODEL`. A crisis is text only, the same as chat (D-137): model audio is
+muted at once and the widget shows the crisis message and helpline; no crisis audio file or hash is read. The transcript is written into the same thread history.
 
 ### 3.3 Crisis escalation
 `crisis` guard (deterministic first, then the concern classifier at `VC_CONCERN_SAMPLE_RATES`) → safe reply →
@@ -139,7 +139,7 @@ Public: `/v1/public/chat/turns`. Admin: `/v1/admin/*` (see `admin-routes.ts`).
 | KB | `VC_KB_BASE_URL`, `VC_KB_API_KEY`, `VC_KB_ANON_API_KEY` |
 | LLM | `GEMINI_API_KEY`, `OLLAMA_API_KEY`, `OLLAMA_BASE_URL`, `VC_TEXT_CHAIN`, `VC_LLM_*`, `VC_CHAIN_MONTHLY_CAP_USD`, `VC_REPLY_LANGS` |
 | Grounding and concern | `VC_GROUNDING*`, `VC_CONCERN_*` |
-| Voice | `VC_VOICE_MODEL`, `VC_VOICE_WS_SECRET`, `VC_VOICE_WS_BASE_URL`, `VC_VOICE_CRISIS_PCM_FILE`, `VC_VOICE_CRISIS_PCM_SHA256` |
+| Voice | `VC_VOICE_MODEL`, `VC_VOICE_WS_SECRET`, `VC_VOICE_WS_BASE_URL` |
 | Tracing | `LANGFUSE_BASE_URL`/`LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` |
 | Outbound | `VC_WEBHOOK_DESTINATION_URL` |
 

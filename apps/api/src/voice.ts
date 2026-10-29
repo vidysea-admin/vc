@@ -12,7 +12,7 @@
  *
  * pc-voice V2 (D-111) adds partner keys: the student session route also takes a partner SERVER key (`vck_srv_`, K3 headers), and, when `anonymous` is supplied,
  * POST /v1/public/voice/sessions + GET /v1/public/voice/stream serve a visitor holding the partner's PAGE key (`vck_pub_`, the partner's own origins) with the
- * anonymous text route's rules (no Db reached, no turn text, audio, usage or resume log kept; the fixed crisis message unchanged; per partner + client limit).
+ * anonymous text route's rules (no Db reached, no turn text, audio, usage or resume log kept; the chat's anonymous crisis message; per partner + client limit).
  *
  * What is guaranteed here, and what is not:
  *  - OFF by default. `createVoiceApi` returns `undefined` unless VC_VOICE_ENABLED=true; when on it calls the A20 go-live gate
@@ -22,8 +22,9 @@
  *    subprotocol, never in the URL, so it cannot land in an access log. Every refusal happens BEFORE the WebSocket is accepted and
  *    before any provider connect. Single use is per process (an in-memory jti set); with several API processes a replay across
  *    processes inside the 60 s lifetime is not caught (listed in the manifest).
- *  - D-096 item 3 / D-088 Q5: this module forwards exactly what `LiveSession` emits (model audio, the fixed crisis audio) and
- *    synthesises no audio of its own; the mute after a crisis, the 2 s budget and the helpline playback live in U9's LiveSession.
+ *  - D-096 item 3 / D-088 Q5: this module forwards exactly what `LiveSession` emits (model audio) and synthesises no audio of its own; the
+ *    mute after a crisis lives in U9's LiveSession. voice-crisis-same-as-chat (Umesh 2026-10-29): a voice crisis is the chat crisis. The student
+ *    gets the engine's STUDENT_CRISIS_MESSAGE (a visitor, ANONYMOUS_CRISIS_MESSAGE) as a final assistant transcript, never a pre-recorded clip.
  *  - D-093 6A: stored transcripts are redacted (email, phone, self-stated and Pathlynks-known names) before they are written; the live
  *    transcript sent to the owning student is not. D-093 4A: an under-18 student without a boolean-true guardian-consent claim gets
  *    voice, but no turn text, audit finding or extracted fact is written; ids-and-time-only rows (the crisis flag, the usage counter) are kept.
@@ -67,14 +68,13 @@ import {
   type Source,
   type VoiceServerEvent,
 } from "@vc/schemas";
-import { TELE_MANAS_LINE, crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
+import { ANONYMOUS_CRISIS_MESSAGE, STUDENT_CRISIS_MESSAGE, TELE_MANAS_LINE, crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
 import { isEligibleMemoryFact, loadStudentMemoryContext, type TurnUsageSink } from "./chat.js";
 import {
   LiveConfigError,
   createSimpleOutputAuditor,
   type LiveAuditRecord,
   type LiveCrisisDetector,
-  type LiveCrisisMessage,
   type LiveCrisisRecord,
   type LiveEvent,
   type LiveFinalTranscript,
@@ -138,7 +138,7 @@ export const VOICE_RESUME_WINDOW_MS = 5 * 60_000;
 export const VOICE_RETAINED_LOGS_MAX = 1000;
 export const VOICE_MAX_SOCKETS_DEFAULT = 500;
 export const VOICE_MAX_USED_TOKENS = 100_000;
-/** Non-fixed model audio is dropped, not queued, once a socket has this much unsent data. The fixed crisis audio is never dropped. */
+/** Model audio is dropped, not queued, once a socket has this much unsent data. */
 export const VOICE_MAX_BUFFERED_AUDIO_BYTES = 1024 * 1024;
 export const VOICE_MAX_PROPOSED_FACTS_PER_TURN = 5;
 /** U10 repair 1 (D-088 Q5): the per-student session-route limiter, the same window and key bound as the text route (chat.ts). */
@@ -285,7 +285,7 @@ export interface VoiceApiDeps {
   /**
    * pc-voice V2: serves the anonymous voice routes (needs `partners`; refused at construction otherwise). An anonymous session has the anonymous text route's rules:
    * no Db is ever reached (the connection holds a Db that throws), no turn text, audio, usage or resume log is kept, a minor-or-adult question never arises because
-   * nothing is stored, the fixed crisis message plays unchanged, and the limit is per partner AND client. Absent: those routes do not exist (404).
+   * nothing is stored, the chat's anonymous crisis message is shown, and the limit is per partner AND client. Absent: those routes do not exist (404).
    */
   anonymous?: VoiceAnonymousDeps;
   /** The tenant-scoped `virtual_counsellor` Db. Called only after a token verified. */
@@ -296,8 +296,12 @@ export interface VoiceApiDeps {
   wsSecret: Uint8Array;
   /** `wss://host[/prefix]` (or `ws://` for local tests); the stream path is appended. */
   wsBaseUrl: string;
-  /** The fixed crisis message with its pre-rendered 24 kHz PCM16 audio (U9 refuses a detector without it). */
-  crisis: { message: LiveCrisisMessage; detect?: LiveCrisisDetector };
+  /**
+   * The crisis detector. The crisis MESSAGE is not configurable here: it is the chat's own engine constant (STUDENT_CRISIS_MESSAGE, a visitor's
+   * ANONYMOUS_CRISIS_MESSAGE), shown as text. No pre-recorded audio exists (voice-crisis-same-as-chat). Required as an object so a deployment still
+   * states its crisis wiring; `{}` takes the default detector.
+   */
+  crisis: { detect?: LiveCrisisDetector };
   /** For the default A9b auditor: listed speakers (names and aliases) the model must never say aloud. */
   speakers?: SpeakersFile;
   /** Overrides the default `createSimpleOutputAuditor({ listedSpeakers })`. */
@@ -855,9 +859,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   function sendError(c: Conn, code: keyof typeof ERROR_TEXT & string): void {
     sendEvent(c, { type: "error", code, message: ERROR_TEXT[code] ?? ERROR_TEXT.internal! });
   }
-  function sendAudio(c: Conn, data: Uint8Array, fixed: boolean): void {
+  function sendAudio(c: Conn, data: Uint8Array): void {
     if (c.ws.readyState !== 1) return;
-    if (!fixed && c.ws.bufferedAmount > VOICE_MAX_BUFFERED_AUDIO_BYTES) return; // a slow reader loses model audio, never the helpline audio
+    if (c.ws.bufferedAmount > VOICE_MAX_BUFFERED_AUDIO_BYTES) return; // a slow reader loses model audio
     rawSend(c, data, true);
   }
 
@@ -912,7 +916,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     return ok;
   }
 
-  /** Bound async output checks before sending bytes; fixed crisis output keeps its immediate path. */
+  /** Bound async output checks before sending bytes; the fixed crisis message (text) keeps its immediate path. */
   function checkedOutput(c: Conn, bytes: number, emit: () => void): void {
     if (c.state === "closing" || c.state === "closed" || c.confirming) return;
     if (!deps.memoryPolicyForTenant || c.anon || !c.persistText) { emit(); return; }
@@ -962,8 +966,8 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   }
 
   async function onFinalTranscript(c: Conn, t: LiveFinalTranscript): Promise<void> {
-    // Crisis fixed messages stay immediate; all ordinary model/user text checks the live boundary.
-    const fixedCrisis = t.role === "assistant" && t.text === deps.crisis.message.text;
+    // The fixed crisis message stays immediate (it was already sent to the client at the crisis event); all ordinary model/user text checks the live boundary.
+    const fixedCrisis = t.role === "assistant" && t.fixed === true;
     const crisisInput = t.role === "user" && crisisGuard(t.text).level !== "none";
     if (!fixedCrisis && !crisisInput && !(await memoryCurrent(c))) return;
     if (t.seq <= (c.lastTranscriptSeq ?? 0)) return;
@@ -983,7 +987,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     }
     const { turnId, at } = assignTurn(c, t);
     if (t.role === "user") armSilence(c);
-    sendEvent(c, { type: "transcript.final", role: t.role, text: clamp(t.text), turnId });
+    if (!fixedCrisis) sendEvent(c, { type: "transcript.final", role: t.role, text: clamp(t.text), turnId }); // the fixed message went out at the crisis event
     if (!c.persistText) return; // D-093 4A: the student is answered, nothing personal is stored
     const stored = redact(c, t.text);
     try {
@@ -1178,11 +1182,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     switch (ev.type) {
       case "audio":
         armSilence(c);
-        // S13 fix-c4b: the fixed crisis audio is server-generated, not a model reply: it opens no model turn and is never the readout's output (no turn_complete need follow it).
-        if (ev.fixed === true) { sendAudio(c, ev.data, true); return; }
         c.assistantTurnOpen = true;
         if (c.readoutPromptId !== undefined && c.readoutEarlierTurnOpen !== true) c.readoutOutputSeen = true;
-        checkedOutput(c, ev.data.byteLength, () => sendAudio(c, ev.data, false));
+        checkedOutput(c, ev.data.byteLength, () => sendAudio(c, ev.data));
         return;
       case "transcript":
         // Final transcripts come from the sink (ordered, with turn ids); only partial chunks are relayed here.
@@ -1225,6 +1227,10 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       case "crisis":
         sendEvent(c, { type: "flag", reason: "crisis_detected", ...(ev.level !== undefined ? { detail: ev.level.slice(0, 64) } : {}) });
         sendEvent(c, { type: "state", state: "escalated" });
+        // voice-crisis-same-as-chat: the chat's crisis message, as the final assistant transcript. It is sent here, right after the flag and state, so it is
+        // always the first assistant final after them (a model turn cut off by the crisis is written later through the ordered sink). It is server text,
+        // not a model reply: it opens no model turn (the S13 fix-c4b rule) and is never the readout's output.
+        sendEvent(c, { type: "transcript.final", role: "assistant", text: clamp(ev.message) });
         return;
       case "error":
         sendError(c, ev.message.startsWith("transcript sink failed") ? "persist_failed" : "live_error");
@@ -1280,7 +1286,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       sink,
       captureInputContext: () => c.microphonePromptId === c.promptId ? c.promptId : undefined,
       detectCrisis: (text) => detectForConn(c, text),
-      crisisMessage: deps.crisis.message,
+      crisisMessage: { text: c.anon ? ANONYMOUS_CRISIS_MESSAGE : STUDENT_CRISIS_MESSAGE },
       auditOutput,
       ...(tools
         ? {

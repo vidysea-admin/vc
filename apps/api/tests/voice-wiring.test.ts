@@ -19,7 +19,7 @@ import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
 import { startApi, createQuestVoiceTools } from "../src/index.js";
 import { VoiceConfigError, voiceEnabledFromEnv, type VoiceApiDeps } from "../src/voice.js";
-import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, adult, newThread, studentToken, until, voiceWorld, type VoiceWorld, type VoiceWorldOptions } from "./voice-fixtures.js";
+import { CRISIS_PHRASE, adult, newThread, studentToken, until, voiceWorld, type VoiceWorld, type VoiceWorldOptions } from "./voice-fixtures.js";
 import { SKILLS_DIR, SPEAKERS, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, studentVerifier } from "./chat-fixtures.js";
 
 const VOICE_GATES = { gProd: "Answered: 2026-10-16T10:10:00+05:30 - c - all three including voice\n" };
@@ -324,7 +324,7 @@ test("W4: the retry after a delivered-then-thrown escalation reuses the same ses
 const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const PEM = keys.publicKey.export({ type: "spki", format: "pem" }).toString();
 const counsellorVerifier = createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_PUBLIC_KEY: PEM }));
-const CRISIS = { message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO } };
+const CRISIS = {};
 
 async function freePort(): Promise<number> {
   const s: Server = createServer();

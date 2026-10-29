@@ -238,28 +238,30 @@ test("the counsellor's audio frames are played; sources arrive as data for the l
   assert.deepEqual(src, [{ title: "AICTE", href: "https://www.aicte-india.org/" }, { title: "bad", href: null }]);
 });
 
-test("a crisis turn shows the helpline (14416 and 112) once, whether the flag, the state or both arrive, and nothing else: no paraphrase of the server's fixed wording", async () => {
+test("a crisis signal shows the helpline (14416 and 112) once, whether the flag, the state or both arrive, and nothing else until the server's message: no paraphrase of its wording", async () => {
   const s = await started();
   s.wsk.say({ type: "flag", eventId: "e1", reason: "crisis_detected", detail: "x" });
   s.wsk.say({ type: "state", eventId: "e2", state: "escalated" });
   const c = s.of("crisis");
   assert.equal(c.length, 1, "one crisis notice per crisis, not one per event");
-  assert.deepEqual(Object.keys(c[0]), ["help"], "the crisis notice carries the helpline only (LK10 wording stays the server's, spoken)");
+  assert.deepEqual(Object.keys(c[0]), ["help"], "the first crisis notice carries the helpline only (the wording is the server's, sent as text after the signal)");
   assert.equal(c[0].help, V.HELP);
   assert.equal(V.CRISIS_TEXT, undefined, "voice.js owns no crisis wording of its own");
   assert.match(V.HELP, /14416/);
   assert.match(V.HELP, /112/);
   assert.equal(V.HELP, W.HELP, "the voice helpline is the text widget's helpline");
-  s.wsk.audio(new Uint8Array([7, 7])); // the fixed crisis audio still plays
+  s.wsk.audio(new Uint8Array([7, 7])); // binary frames are still played as they come (the server sends no crisis clip)
   assert.equal(s.o.audio.played.length, 1);
 });
 
-test("the widget renders the voice crisis notice as the helpline line only, exactly like the text chat's escalated reply (14416 and 112 shown, no free text)", () => {
+test("the widget renders the voice crisis notice like the text chat's escalated reply: the server's message, a newline, then the helpline (14416 and 112), and the helpline alone until the message arrives", () => {
   const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const widget = strip(fs.readFileSync(path.join(__dirname, "..", "src", "vc-widget.js"), "utf8"));
   const m = /crisis: function \(c\) \{([^}]*)\}/.exec(widget);
   assert.ok(m, "vc-widget.js has a voice crisis handler");
-  assert.equal(m[1].trim(), 'add("crisis", c.help);');
+  assert.match(m[1], /c\.message \? c\.message \+ "\\n" \+ c\.help : c\.help/, "message, newline, helpline; the helpline alone without a message");
+  assert.match(m[1], /add\("crisis", t\)/, "one crisis block, upgraded in place by setLine");
+  assert.match(widget, /var HELP = "[^"]*14416[^"]*112[^"]*"/, "the text chat's HELP constant is the helpline both modes use");
   assert.match(V.HELP, /14416/);
   assert.match(V.HELP, /112/);
   const voiceSrc = strip(fs.readFileSync(path.join(__dirname, "..", "src", "voice.js"), "utf8"));
@@ -760,4 +762,65 @@ test("S12 voice addon sends only exact current server choice and forgets it on d
   assert.deepEqual(s.wsk.json().at(-1),{type:"confirm",...choice,accepted:false});
   assert.equal(s.vc.confirm(choice,true),false,"single explicit decision");
   s.wsk.say(prompt);s.wsk.serverClose();assert.equal(s.vc.confirm(choice,true),false);
+});
+
+// ---- voice-crisis-same-as-chat (Umesh 2026-10-29) ------------------------------------------------------------------------------
+// There is no pre-recorded crisis audio. The server sends the chat's crisis message as the final assistant transcript right after the
+// crisis flag and state. The widget shows it in the crisis notice with the helpline, the way the text chat shows an escalated reply.
+const CHAT_CRISIS = "I am really sorry you are feeling this way. Tele-MANAS 14416 is free and open 24x7.";
+
+test("same-as-chat: the crisis message that follows the crisis signal joins the crisis notice (helpline kept) and is not also a counsellor bubble", async () => {
+  const s = await started();
+  s.wsk.say({ type: "flag", eventId: "e1", reason: "crisis_detected" });
+  s.wsk.say({ type: "state", eventId: "e2", state: "escalated" });
+  assert.deepEqual(s.of("crisis"), [{ help: V.HELP }], "the helpline shows at once, before any message");
+  s.wsk.say({ type: "transcript.final", eventId: "e3", role: "assistant", text: CHAT_CRISIS });
+  assert.deepEqual(s.of("crisis"), [{ help: V.HELP }, { help: V.HELP, message: CHAT_CRISIS }], "then the same notice is upgraded with the message");
+  assert.equal(s.of("transcript").length, 0, "the crisis message is not shown a second time as a counsellor line");
+  s.wsk.say({ type: "transcript.final", eventId: "e4", role: "assistant", text: "A later ordinary reply." });
+  assert.deepEqual(s.of("transcript").map((t) => t.text), ["A later ordinary reply."], "only the first assistant final after the signal is the crisis message");
+});
+
+test("same-as-chat: the student's own words after the signal are an ordinary transcript and do not consume the crisis message slot", async () => {
+  const s = await started();
+  s.wsk.say({ type: "flag", eventId: "e1", reason: "crisis_detected" });
+  s.wsk.say({ type: "transcript.final", eventId: "e2", role: "user", text: "student words" });
+  s.wsk.say({ type: "transcript.final", eventId: "e3", role: "assistant", text: CHAT_CRISIS });
+  assert.deepEqual(s.of("transcript").map((t) => [t.role, t.text]), [["user", "student words"]]);
+  assert.deepEqual(s.of("crisis")[1], { help: V.HELP, message: CHAT_CRISIS });
+});
+
+test("same-as-chat: an assistant final with no crisis signal before it is an ordinary transcript", async () => {
+  const s = await started();
+  s.wsk.say({ type: "transcript.final", eventId: "e1", role: "assistant", text: CHAT_CRISIS });
+  assert.equal(s.of("crisis").length, 0);
+  assert.equal(s.of("transcript").length, 1);
+});
+
+// ---- voice-crisis-followups: every crisis signal in a session renders the crisis notice, once per signal --------------------------------
+const CHAT_CRISIS_2 = "Please reach out now. Tele-MANAS 14416 is free and open 24x7.";
+
+test("followups: a SECOND crisis in the same voice session raises its own helpline notice and its message joins that notice, not an ordinary counsellor line", async () => {
+  const s = await started();
+  s.wsk.say({ type: "flag", eventId: "e1", reason: "crisis_detected" });
+  s.wsk.say({ type: "state", eventId: "e2", state: "escalated" });
+  s.wsk.say({ type: "transcript.final", eventId: "e3", role: "assistant", text: CHAT_CRISIS });
+  s.wsk.say({ type: "state", eventId: "e4", state: "ok" });
+  s.wsk.say({ type: "transcript.final", eventId: "e5", role: "user", text: "more words" });
+  s.wsk.say({ type: "flag", eventId: "e6", reason: "crisis_detected" });
+  s.wsk.say({ type: "state", eventId: "e7", state: "escalated" });
+  s.wsk.say({ type: "transcript.final", eventId: "e8", role: "assistant", text: CHAT_CRISIS_2 });
+  assert.deepEqual(s.of("crisis"), [{ help: V.HELP }, { help: V.HELP, message: CHAT_CRISIS }, { help: V.HELP }, { help: V.HELP, message: CHAT_CRISIS_2 }]);
+  assert.deepEqual(s.of("transcript").map((t) => t.text), ["more words"], "neither crisis message is an ordinary counsellor line");
+});
+
+test("followups: the flag and the state of ONE signal still make one notice, even when a second signal follows the first message directly", async () => {
+  const s = await started();
+  for (const id of ["a", "b"]) {
+    s.wsk.say({ type: "flag", eventId: id + "1", reason: "crisis_detected" });
+    s.wsk.say({ type: "state", eventId: id + "2", state: "escalated" });
+    s.wsk.say({ type: "transcript.final", eventId: id + "3", role: "assistant", text: id === "a" ? CHAT_CRISIS : CHAT_CRISIS_2 });
+  }
+  assert.equal(s.of("crisis").filter((c) => c.message === undefined).length, 2, "one helpline-only notice per signal");
+  assert.equal(s.of("transcript").length, 0);
 });

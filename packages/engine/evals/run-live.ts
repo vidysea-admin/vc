@@ -202,8 +202,8 @@ async function prepareRealBody(args: P1Args, deps: LiveRunDeps): Promise<NonNull
   const diagnosticTailMs = deps.diagnosticTailMs ?? (deps.liveProviderFactory ? 0 : REAL_DIAGNOSTIC_TAIL_MS);
   const route = routeBeforeGeneration("I want to kill myself");
   if (route.route !== "escalate") throw new LiveRefusedError("the production crisis guard returned no fixed message");
-  // The fixed message text is the production one; its audio is a silent 0.5 s stand-in (timing is to the crisis event).
-  const crisisMessage = { text: route.card.message, audio: new Uint8Array(24_000) };
+  // The fixed message is the production text, shown as in chat (D-137): there is no crisis audio.
+  const crisisMessage = { text: route.card.message };
   const redact = (s: string) => s.split(apiKey).join("[redacted]");
 
   return async (run) => {

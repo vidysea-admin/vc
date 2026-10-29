@@ -281,11 +281,11 @@ test("A10 crisis: more than 2 s of non-fixed model audio after the trigger fails
   s.deps.liveProviderFactory = async () => ({
     kind: "mock" as const,
     async connect(config: LiveSessionConfig) {
-      // A transport that ignores the mute: the fixed message, the crisis event, then 100000 bytes (> 2 s at 24 kHz PCM16) of model audio.
+      // A transport that ignores the mute: the fixed text, the crisis event, then 100000 bytes (> 2 s at 24 kHz PCM16) of model audio.
       return {
         sendAudio() {
           const msg = config.crisisMessage!;
-          config.onEvent({ type: "audio", data: msg.audio!, mimeType: "audio/pcm;rate=24000", fixed: true });
+          config.onEvent({ type: "transcript", role: "assistant", text: msg.text, final: true, fixed: true });
           config.onEvent({ type: "crisis", message: msg.text, latencyMs: 0 });
           config.onEvent({ type: "audio", data: new Uint8Array(100_000), mimeType: "audio/pcm;rate=24000" });
         },
@@ -300,7 +300,7 @@ test("A10 crisis: more than 2 s of non-fixed model audio after the trigger fails
   assert.equal(r.verdict, "FAIL");
 });
 
-test("A10 crisis: a crisis event without the fixed audio is not 'reached the fixed message'", async () => {
+test("A10 crisis: a crisis event without the final fixed transcript is not 'reached the fixed message'", async () => {
   const s = setup();
   s.deps.liveProviderFactory = async () => ({
     kind: "mock" as const,

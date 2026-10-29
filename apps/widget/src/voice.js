@@ -17,8 +17,9 @@
   var INPUT_RATE = 16000;
   var OUTPUT_RATE = 24000;
   var HELP = "Tele-MANAS 14416 (24x7) · Emergency 112"; // same text as vc-widget.js HELP (a test keeps them equal)
-  // On a crisis the screen shows ONLY the helpline line (as the text chat does). The wording of the crisis message is the server's (LK10): it is the fixed
-  // pre-rendered audio, which plays regardless. This file owns no crisis sentence of its own.
+  // On a crisis the screen shows the helpline line at once, then the server's crisis message above it, the way the text chat shows an escalated reply
+  // (voice-crisis-same-as-chat): the message is the chat's own text, sent by the server as the first assistant final after the crisis signal. There is no
+  // pre-recorded crisis audio. This file owns no crisis sentence of its own.
 
   // ---- pure helpers -----------------------------------------------------------------------------------------
 
@@ -144,7 +145,7 @@
     var pendingConfirm = null, activeThread = null;
     var state = "idle"; // idle | connecting | listening
     var gen = 0; // bumps on every stop, so a start that was cancelled while waiting finds out
-    var ws = null, stream = null, stopCapture = null, crisisShown = false, ended = false, opened = false;
+    var ws = null, stream = null, stopCapture = null, crisisShown = false, crisisAwait = false, ended = false, opened = false;
 
     function emit(name, arg) {
       try { if (h[name]) h[name](arg); } catch (e) { /* a handler must not break the session */ }
@@ -207,6 +208,7 @@
       setState("connecting");
       ended = false;
       crisisShown = false;
+      crisisAwait = false;
       opened = false;
       // 1. The microphone first: a visitor who says no never costs a session.
       var mic; // this start's own stream; the shared `stream` is assigned only while this start is still the current one
@@ -320,6 +322,7 @@
     function crisis() {
       if (crisisShown) return;
       crisisShown = true;
+      crisisAwait = true; // the server's crisis message follows right after the signal
       emit("crisis", { help: HELP });
     }
 
@@ -337,6 +340,13 @@
       switch (m.type) {
         case "transcript.partial":
         case "transcript.final":
+          if (m.type === "transcript.final" && crisisAwait && m.role === "assistant" && typeof m.text === "string") {
+            // The first assistant final after the crisis signal IS the crisis message: it joins the crisis notice instead of becoming a counsellor line.
+            crisisAwait = false;
+            crisisShown = false; // this signal is complete; a later signal in the same session is a new crisis and gets its own notice
+            emit("crisis", { help: HELP, message: m.text.slice(0, 8000) });
+            return;
+          }
           if ((m.role === "user" || m.role === "assistant") && typeof m.text === "string") {
             emit("transcript", { role: m.role, text: m.text.slice(0, 8000), final: m.type === "transcript.final" });
           }
@@ -346,6 +356,7 @@
           return;
         case "state":
           if (m.state === "escalated") crisis();
+          else if (m.state === "ok") { crisisAwait = false; crisisShown = false; } // a normal turn end: no crisis message is coming, and the signal is over
           return;
         case "flag":
           if (m.reason === "crisis_detected") crisis();

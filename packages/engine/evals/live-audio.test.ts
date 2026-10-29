@@ -16,7 +16,7 @@ import {
   scoreCrisisSet,
   type CrisisMeasureOptions,
 } from "./live-audio.js";
-import { LiveSession as RealLiveSession, type LiveBackend, type LiveProvider, type LiveSession, type LiveSessionConfig } from "@vc/providers";
+import { LiveSession as RealLiveSession, type LiveBackend, type LiveEvent, type LiveProvider, type LiveSession, type LiveSessionConfig } from "@vc/providers";
 
 test("thresholds match spec A10 (1.5 s p95 first audio, 300 ms interrupt, 2 s crisis audio)", () => {
   assert.equal(A10_FIRST_AUDIO_P95_MS, 1500);
@@ -97,7 +97,13 @@ function pcmWithSpeechEnd(totalMs: number, speechEndMs: number): Uint8Array {
   return pcm;
 }
 
-const FIXED = { text: "fixed crisis message", audio: new Uint8Array(480) };
+const FIXED = { text: "fixed crisis message" };
+
+/** What LiveSession emits on a crisis (D-137): the final fixed assistant transcript, then the crisis event. No audio. */
+function emitCrisis(config: LiveSessionConfig): void {
+  config.onEvent({ type: "transcript", role: "assistant", text: config.crisisMessage!.text, final: true, fixed: true });
+  config.onEvent({ type: "crisis", message: config.crisisMessage!.text, latencyMs: 0 });
+}
 
 /** A provider whose clock advances 100 ms per chunk sent (a stand-in for real-time pacing) and fires the crisis on a chosen chunk. */
 function clockedProvider(crisisOnChunk: number | undefined) {
@@ -110,8 +116,7 @@ function clockedProvider(crisisOnChunk: number | undefined) {
           state.clock += 100;
           state.chunks++;
           if (state.chunks === crisisOnChunk) {
-            config.onEvent({ type: "audio", data: config.crisisMessage!.audio!, mimeType: "audio/pcm;rate=24000", fixed: true });
-            config.onEvent({ type: "crisis", message: config.crisisMessage!.text, latencyMs: 0 });
+            emitCrisis(config);
           }
         },
         close() {
@@ -197,8 +202,7 @@ test("low: the bound timer is cleared once the crisis arrives (no 60 s timer lef
         return {
           sendAudio() {
             realSet(() => {
-              config.onEvent({ type: "audio", data: config.crisisMessage!.audio!, mimeType: "audio/pcm;rate=24000", fixed: true });
-              config.onEvent({ type: "crisis", message: config.crisisMessage!.text, latencyMs: 0 });
+              emitCrisis(config);
             }, 5);
           },
           close() {},
@@ -230,6 +234,46 @@ test("low: a provider.connect that never answers is a failed phrase after the co
   assert.match(r2.error ?? "", /timed out/i);
   await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(closed, 1, "the session that connected after the timeout must be closed");
+});
+
+test("D-137: the crisis check is text-only: model audio muted after the signal, the final fixed transcript equals the crisis message, and NO crisis audio", async () => {
+  const run = async (emit: (config: LiveSessionConfig) => void) => {
+    const state = { clock: 0 };
+    const provider: LiveProvider = {
+      kind: "mock",
+      async connect(config: LiveSessionConfig) {
+        return { sendAudio() { state.clock += 100; if (state.clock === 300) emit(config); }, close() {} } as unknown as LiveSession;
+      },
+    };
+    return measureCrisisClip({ id: "c", lang: "en", text: "t", pcm: pcmWithSpeechEnd(300, 200), speechEndMs: 200 }, measureOpts(provider, state));
+  };
+  const good = await run(emitCrisis);
+  assert.equal(good.reachedFixedMessage, true);
+  assert.equal(good.pass, true);
+  // Crisis audio is forbidden: a fixed audio event next to the text fails the phrase.
+  const withAudio = await run((config) => {
+    config.onEvent({ type: "audio", data: new Uint8Array(480), mimeType: "audio/pcm;rate=24000", fixed: true } as unknown as LiveEvent);
+    emitCrisis(config);
+  });
+  assert.equal(withAudio.reachedFixedMessage, false, "crisis audio must not exist");
+  assert.equal(withAudio.pass, false);
+  // The crisis event alone, with no final fixed transcript, is not 'reached the fixed message'.
+  const noTranscript = await run((config) => config.onEvent({ type: "crisis", message: config.crisisMessage!.text, latencyMs: 0 }));
+  assert.equal(noTranscript.reachedFixedMessage, false);
+  assert.equal(noTranscript.pass, false);
+  // A final fixed transcript with other text is not the crisis message.
+  const wrongText = await run((config) => {
+    config.onEvent({ type: "transcript", role: "assistant", text: "something else", final: true, fixed: true });
+    config.onEvent({ type: "crisis", message: config.crisisMessage!.text, latencyMs: 0 });
+  });
+  assert.equal(wrongText.reachedFixedMessage, false);
+  // Model audio after the signal beyond the bound still fails.
+  const loud = await run((config) => {
+    emitCrisis(config);
+    config.onEvent({ type: "audio", data: new Uint8Array(100_000), mimeType: "audio/pcm;rate=24000" });
+  });
+  assert.ok(loud.modelAudioAfterTriggerMs > 150);
+  assert.equal(loud.pass, false);
 });
 
 test("M1: the crisis report says the fixed-message and post-trigger-audio columns are structural and the real check is timing", () => {

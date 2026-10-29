@@ -425,7 +425,7 @@ export const VOICE_WS_ENV = { secret: "VC_VOICE_WS_SECRET", baseUrl: "VC_VOICE_W
 /**
  * P1 U10w: the voice WebSocket. Whether it is served is decided ONLY by the explicit flag VC_VOICE_ENABLED (exactly "true"; default off) AND
  * the A20 `voice` go-live gate (which includes the passing A10 record) with request tracing off; supplying this object never turns it on, and
- * with the flag off none of it is read or built. The Live provider and the pre-rendered crisis message are injected by the deployment (G-REAL
+ * with the flag off none of it is read or built. The Live provider and the crisis message are injected by the deployment (G-REAL
  * is not granted: no real provider is created here). The database, the tenant-scoped Db factory and the escalation port come from startApi,
  * so a voice crisis escalates through the same path as chat.
  */
@@ -433,7 +433,7 @@ export interface StartApiVoiceOptions
   extends Omit<VoiceApiDeps, "verifier" | "dbForTenant" | "live" | "crisis" | "wsSecret" | "wsBaseUrl" | "escalateForTenant"> {
   /** The Live seam. Required when the flag is on. */
   live?: LiveProvider;
-  /** The fixed crisis message with its pre-rendered 24 kHz PCM16 audio. Required when the flag is on. */
+  /** The fixed crisis message, text only like chat (D-137: no crisis audio, no PCM file or hash). Required when the flag is on. */
   crisis?: VoiceApiDeps["crisis"];
   /** HS256 key for the WebSocket token (at least 32 bytes). Default: VC_VOICE_WS_SECRET (its UTF-8 bytes). */
   wsSecret?: Uint8Array;

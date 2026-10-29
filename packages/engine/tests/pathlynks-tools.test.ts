@@ -1095,3 +1095,43 @@ test("RF1-3: navigateSteps with publicOnly serves auth:public recipes and nothin
   // the default (authenticated) call is unchanged
   assert.deepEqual(navigateSteps(PUBLIC_CATALOGUE, "best universities in Canada").routes, ["/student/journey-details?section=market"]);
 });
+
+// t057-walk3-fixes D1: the walk asked "how far am I in Career Quest" and got the scope refusal while "what should I do next" got the summary. Every progress / journey
+// phrasing routes to the same progress path (data -> the pathlynks_journey summary; no data -> the new-user guidance), and a KB question that shares the words stays with the KB.
+const WALK3_QUEST_ASKS = ["how far am I in Career Quest", "how far am I in my career quest", "where am I in Career Quest", "how much have I completed in career quest", "career quest me kitna hua", "mera career quest mein kitna hua"];
+const WALK3_PROGRESS_ASKS = ["how far have I reached", "how far am I", "how far have I come", "where am I in my journey", "I want to see my journey", "i would like to check my progress", "mera progress dikhao", "main kahan tak pahuncha", "main kahan tak pahunch gaya", "show my progress"];
+
+test("t057-walk3 D1: Career Quest and generic progress / journey phrasings route to the progress tools; KB questions that share the words stay with the KB", () => {
+  for (const text of WALK3_QUEST_ASKS) assert.equal(classifyIntent(text), "pathlynks_quest_progress", text);
+  for (const text of WALK3_PROGRESS_ASKS) assert.equal(classifyIntent(text), "vidysea_progress", text);
+  for (const text of ["Hi, how far have I reached?", "please show my progress", "how far am I in Career Quest, please?"]) assert.ok(["vidysea_progress", "pathlynks_quest_progress"].includes(classifyIntent(text)), text);
+  const kb = ["how far is Canada from India", "how far am I from the airport", "where is Career Quest", "what is career quest", "how far is career quest from the home page", "where am I in the world", "how far can I reach with a 6.5 IELTS", "what is the journey map", "how do I reach the university"];
+  for (const q of kb) assert.ok(!["vidysea_progress", "pathlynks_quest_progress"].includes(classifyIntent(q)), `${q} -> ${classifyIntent(q)}`);
+});
+
+test("t057-walk3 D1: the new progress rules are linear on 20k-char hostile input (< 50 ms each)", () => {
+  const heads = ["how far am I in Career Quest", "how far have I reached", "where am I in my journey", "I want to see my journey", "main kahan tak pahuncha", "career quest me kitna hua"];
+  for (const head of heads) for (const filler of [" ", "a", ",", " so far", "!", "\t"]) for (const tail of ["#", ""]) {
+    const text = (head + filler.repeat(20000)).slice(0, 20000) + tail;
+    const t0 = performance.now();
+    classifyIntent(text);
+    const ms = performance.now() - t0;
+    assert.ok(ms < 50, `${JSON.stringify(head)} + ${JSON.stringify(filler)}x20k${tail} took ${ms.toFixed(1)} ms`);
+  }
+});
+
+test("t057-walk3 D1: with Career Quest data every walk phrasing returns the progress summary (own rows only); with none it is the new-user guidance, never the scope refusal", async () => {
+  for (const text of [...WALK3_QUEST_ASKS, ...WALK3_PROGRESS_ASKS]) {
+    const { port, calls } = questPlPort();
+    const out = await runStudentTurn(questDeps(port), turn(text));
+    assert.equal(out.selectedTool, "pathlynks_quest_progress", text);
+    assert.match(out.response.message ?? "", /Level 3/, text);
+    assert.doesNotMatch(out.response.message ?? "", /I can only help with|SECRET/, text);
+    assert.ok(calls.length > 0 && calls.every((c) => c.endsWith(":stu-A")), `${text} -> ${calls.join(",")}`);
+    const empty = await runStudentTurn(questDeps(questPlPort("empty").port), turn(text));
+    assert.equal(empty.selectedTool, "pathlynks_quest_progress", text);
+    assert.match(empty.response.message ?? "", /not started career quest|no career quest/i, text);
+    assert.match(empty.response.message ?? "", /\(\/career-quest\)/, text);
+    assert.doesNotMatch(empty.response.message ?? "", /I can only help with|https?:/, text);
+  }
+});

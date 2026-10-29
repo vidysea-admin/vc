@@ -64,7 +64,7 @@ afterEach(() => {
 // --- helpers ---------------------------------------------------------------------------------
 const pcm = (samples: number, fill = 1): Uint8Array => new Uint8Array(samples * 2).fill(fill);
 const CRISIS_RE = /kill myself|end my life|marna chahta|suicide/i;
-const FIXED = { text: "I am worried about you. Tele-MANAS 14416 is free, 24x7. Who is a safe adult near you?", audio: pcm(64, 7) };
+const FIXED = { text: "I am worried about you. Tele-MANAS 14416 is free, 24x7. Who is a safe adult near you?" };
 
 interface Rig {
   provider: MockLiveProvider;
@@ -273,9 +273,7 @@ test("C4 crisis: the phrase arrives split across two transcript chunks; the dete
   await r.session.drain();
   assert.equal(of(r.events, "crisis").length, 1);
   assert.equal(r.backend.calls.filter((c) => c.type === "interrupt").length, 1, "the backend model was interrupted");
-  const fixedAudio = of(r.events, "audio").filter((a) => a.fixed);
-  assert.equal(fixedAudio.length, 1);
-  assert.deepEqual(fixedAudio[0]!.data, FIXED.audio);
+  assert.equal(of(r.events, "audio").length, 1, "only the model's own mid-sentence chunk: the crisis adds no audio");
   const fixedText = of(r.events, "transcript").filter((t) => t.fixed);
   assert.deepEqual(fixedText.map((t) => t.text), [FIXED.text]);
 });
@@ -325,7 +323,7 @@ test("C4 crisis: the student recovers and later says it again in a new turn; the
   mono = 3000; // the student pauses before speaking again (new utterance)
   r.backend.emitInputTranscript("okay, I will talk to my sister", true); // D-096: only the student's next words lift the mute
   r.backend.emitOutputAudio(pcm(3)); // next normal reply is audible again
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1);
+  assert.equal(of(r.events, "audio").length, 1);
   r.backend.emitTurnComplete();
   r.backend.emitInputTranscript("I might kill myself tonight", false);
   assert.equal(of(r.events, "crisis").length, 2);
@@ -388,9 +386,9 @@ test("C4 crisis: the trigger-to-fixed-message latency is measured on the injecte
   r.backend.emitInputTranscript("suicide", false);
   const c = of(r.events, "crisis")[0]!;
   assert.ok(c.latencyMs >= 0 && c.latencyMs <= 2000, `latency ${c.latencyMs}`);
-  // The fixed audio is handed over BEFORE the crisis event is emitted: nothing else sits in between.
+  // The fixed message is handed over BEFORE the crisis event is emitted: nothing else sits in between.
   const idx = (type: string) => r.events.findIndex((e) => e.type === type);
-  assert.ok(idx("audio") < idx("crisis"));
+  assert.ok(idx("transcript") < idx("crisis"));
 });
 
 test("C4 crisis: a deployment wires a detector but forgets the fixed message; the session refuses to start (no silent no-op)", async () => {
@@ -724,7 +722,7 @@ test("C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini inpu
   f.cb().onmessage({ serverContent: { modelTurn: { parts: [{ inlineData: { data: b64(pcm(100)), mimeType: "audio/pcm;rate=24000" } }] } } });
   assert.equal(of(events, "crisis").length, 1);
   assert.ok(f.conn.sent.some((m) => JSON.stringify(m) === JSON.stringify({ rt: { audioStreamEnd: true } })), "Gemini's input stream was ended");
-  assert.equal(of(events, "audio").filter((a) => !a.fixed).length, 0);
+  assert.equal(of(events, "audio").length, 0);
   assert.equal(s.droppedAudioChunks, 1);
 });
 
@@ -747,7 +745,7 @@ test("C4 crisis F1: the backend reports `interrupted` after the crisis trigger c
   r.backend.emitOutputAudio(pcm(50));
   r.backend.emitOutputTranscript("Have you thought about universities in");
   await r.session.drain();
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "model audio leaked after crisis + interrupted");
+  assert.equal(of(r.events, "audio").length, 0, "model audio leaked after crisis + interrupted");
   assert.equal(r.session.droppedAudioChunks, 1);
   assert.ok(!r.transcripts.some((t) => t.text.includes("universities")));
 });
@@ -757,7 +755,7 @@ test("C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrup
   r.backend.emitInputTranscript("I will kill myself", true);
   r.backend.emitInterrupted();
   r.backend.emitOutputAudio(pcm(50));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "model audio leaked after final crisis chunk + interrupted");
+  assert.equal(of(r.events, "audio").length, 0, "model audio leaked after final crisis chunk + interrupted");
 });
 
 test("C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again once the student speaks (the mute is not permanent)", async () => {
@@ -767,11 +765,11 @@ test("C4 crisis F1: after crisis + interrupted the model's turn ends; the next r
   r.backend.emitInterrupted();
   r.backend.emitTurnComplete();
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "D-096: turnComplete alone never lifts a crisis mute");
+  assert.equal(of(r.events, "audio").length, 0, "D-096: turnComplete alone never lifts a crisis mute");
   mono = 3000; // the student pauses before speaking again (new utterance)
   r.backend.emitInputTranscript("okay", true);
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1);
+  assert.equal(of(r.events, "audio").length, 1);
 });
 
 test("C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words", async () => {
@@ -798,7 +796,7 @@ test("C4 crisis M1: a crisis arrives from the transport before the session is at
   backend.bind(session);
   backend.emitInputTranscript("I will kill myself", false);
   assert.equal(of(events, "crisis").length, 1);
-  assert.equal(of(events, "audio").filter((a) => a.fixed).length, 1);
+  assert.equal(of(events, "transcript").filter((t) => t.fixed).length, 1);
   assert.equal(of(events, "error").length, 0, "a crisis before attach must not become an error");
   assert.equal(backend.calls.filter((c) => c.type === "interrupt").length, 0, "nothing to interrupt yet");
   session.attach(backend);
@@ -841,19 +839,11 @@ test("C4 crisis M2: a harmless typed message after a spoken crisis in the same u
   assert.deepEqual(r.backend.calls.filter((c) => c.type === "text"), [{ type: "text", text: "what is the deadline" }]);
 });
 
-test("C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence", async () => {
-  await assert.rejects(
-    () => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "call 14416" } }),
-    LiveConfigError,
-  );
-  await assert.rejects(
-    () => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "call 14416", audio: new Uint8Array(0) } }),
-    LiveConfigError,
-  );
-  await assert.rejects(
-    () => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "call 14416", audio: new Uint8Array(3) } }),
-    LiveConfigError,
-  );
+test("C4 crisis M3 (same-as-chat): a voice deployment wires a detector and a fixed message with text only; an empty or missing message still refuses to start rather than leave the student with silence", async () => {
+  const s = await new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "call 14416" } });
+  s.close();
+  await assert.rejects(() => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "" } }), LiveConfigError);
+  await assert.rejects(() => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true }), LiveConfigError);
 });
 
 // =================================================================================================
@@ -868,7 +858,7 @@ test("C4 crisis R1: the model makes a tool call right after the crisis chunk and
   r.backend.emitOutputTranscript("Exams can be stressful, let us look at colleges");
   await r.session.drain();
   assert.equal(of(r.events, "tool_call").length, 1, "the tool call is still surfaced");
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "model audio leaked after crisis + toolCall");
+  assert.equal(of(r.events, "audio").length, 0, "model audio leaked after crisis + toolCall");
   assert.ok(!r.transcripts.some((t) => t.text.includes("colleges")), "model words leaked into the thread");
   assert.equal(of(r.events, "crisis").length, 1, "the same utterance must not refire the fixed message");
 });
@@ -881,11 +871,11 @@ test("C4 crisis R2: after crisis + interrupted the model ends its turn; its next
   r.backend.emitTurnComplete();
   r.backend.emitOutputAudio(pcm(3));
   r.backend.emitOutputTranscript("Anyway, about the fee");
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "turnComplete lifted the crisis mute");
+  assert.equal(of(r.events, "audio").length, 0, "turnComplete lifted the crisis mute");
   mono = 3000; // the student pauses before speaking again (new utterance)
   r.backend.emitInputTranscript("okay I will call them", true);
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1, "the next student speech must lift the mute");
+  assert.equal(of(r.events, "audio").length, 1, "the next student speech must lift the mute");
 });
 
 test("C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a warning, and the crisis interrupt is never dropped", async () => {
@@ -922,28 +912,12 @@ test("C4 crisis low: a transport tries to attach a second backend; it is refused
   assert.equal(second.calls.length, 0);
 });
 
-test("C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for the spoken one", async () => {
+test("C4 crisis low: the student types a crisis message, then says one aloud; the helpline message is shown again for the spoken one", async () => {
   const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
   r.session.sendText("i want to end my life");
   r.backend.emitInputTranscript("I will kill myself", false);
   assert.equal(of(r.events, "crisis").length, 2, "a typed crisis blocked the spoken one");
-  assert.equal(of(r.events, "audio").filter((a) => a.fixed).length, 2);
-});
-
-test("C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback", async () => {
-  const original = Uint8Array.from(FIXED.audio);
-  let mono = 0;
-  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED, monotonicNow: () => mono });
-  r.backend.emitInputTranscript("I will kill myself", true);
-  const first = of(r.events, "audio").filter((a) => a.fixed)[0]!;
-  assert.notEqual(first.data, FIXED.audio, "the shared buffer itself was handed out");
-  first.data.fill(0);
-  r.backend.emitTurnComplete();
-  mono = 3000; // a new utterance (D-096 brief rewrite 1: turn end + pause)
-  r.backend.emitInputTranscript("I might end my life", true);
-  const second = of(r.events, "audio").filter((a) => a.fixed)[1]!;
-  assert.deepEqual(Array.from(second.data), Array.from(original));
-  assert.deepEqual(Array.from(FIXED.audio), Array.from(original));
+  assert.equal(of(r.events, "transcript").filter((t) => t.fixed).length, 2);
 });
 
 // =================================================================================================
@@ -967,7 +941,7 @@ test("C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence go
   r.backend.emitOutputAudio(pcm(50));
   r.backend.emitOutputTranscript("Exams can be stressful, let us look at colleges");
   await r.session.drain();
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "model audio leaked mid crisis utterance after turnComplete");
+  assert.equal(of(r.events, "audio").length, 0, "model audio leaked mid crisis utterance after turnComplete");
   assert.ok(!r.transcripts.some((t) => t.text.includes("colleges")));
   assert.equal(of(r.events, "crisis").length, 1, "the same utterance must not refire");
 });
@@ -980,7 +954,7 @@ test("C4 crisis H1: crisis -> turnComplete -> the student speaks again after a r
   clock.t = 2000;
   r.backend.emitInputTranscript("okay, I will call my sister", false);
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1, "new student speech must lift the crisis mute");
+  assert.equal(of(r.events, "audio").length, 1, "new student speech must lift the crisis mute");
 });
 
 test("C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts the mute", async () => {
@@ -993,7 +967,7 @@ test("C4 crisis H1: the pause is measured from the LAST student chunk, not the c
     r.backend.emitInputTranscript(words, false);
   }
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "800 ms steps are one utterance");
+  assert.equal(of(r.events, "audio").length, 0, "800 ms steps are one utterance");
 });
 
 test("C4 crisis H1: crisis -> the student speaks after a pause but the backend never ended its turn; still muted", async () => {
@@ -1003,7 +977,7 @@ test("C4 crisis H1: crisis -> the student speaks after a pause but the backend n
   clock.t = 5000;
   r.backend.emitInputTranscript("okay", false);
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "a pause alone must not lift the crisis mute");
+  assert.equal(of(r.events, "audio").length, 0, "a pause alone must not lift the crisis mute");
 });
 
 test("C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted", async () => {
@@ -1014,11 +988,11 @@ test("C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a
   clock.t = 2000;
   r.backend.emitInputTranscript("okay", false);
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0);
+  assert.equal(of(r.events, "audio").length, 0);
   clock.t = 8000;
   r.backend.emitInputTranscript("so what now", false);
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1);
+  assert.equal(of(r.events, "audio").length, 1);
 });
 
 test("C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not", async () => {
@@ -1029,16 +1003,16 @@ test("C4 crisis Low: a second spoken crisis in a NEW utterance plays the helplin
   clock.t = 3000;
   r.backend.emitInputTranscript("I still want to end my life", false); // new utterance
   assert.equal(of(r.events, "crisis").length, 2, "a new spoken crisis must refire");
-  assert.equal(of(r.events, "audio").filter((a) => a.fixed).length, 2);
+  assert.equal(of(r.events, "transcript").filter((t) => t.fixed).length, 2);
   clock.t = 3400;
   r.backend.emitInputTranscript("suicide is all I think about", false); // same utterance
   r.backend.emitTurnComplete();
   clock.t = 3800; // a turnComplete but no pause: still the same utterance
   r.backend.emitInputTranscript("I will kill myself", false);
   assert.equal(of(r.events, "crisis").length, 2, "same-utterance duplicates must not double-fire");
-  assert.equal(of(r.events, "audio").filter((a) => a.fixed).length, 2);
+  assert.equal(of(r.events, "transcript").filter((t) => t.fixed).length, 2);
   r.backend.emitOutputAudio(pcm(3));
-  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "the second crisis re-armed the mute");
+  assert.equal(of(r.events, "audio").length, 0, "the second crisis re-armed the mute");
 });
 
 test("C4 crisis Low: after a crisis the student starts a new, harmless utterance; the old crisis words are not re-scanned into a false refire", async () => {
@@ -1078,4 +1052,36 @@ test("S12 voice Gemini connector: only explicit input finished marks human final
   f.cb().onmessage({serverContent:{inputTranscription:{text:"no",finished:false}}});
   f.cb().onmessage({serverContent:{inputTranscription:{finished:true}}});await session.drain();
   const no=transcripts.find(t=>t.role==="user"&&t.text==="no")!;assert.equal(no.inputFinal,true);assert.equal(no.inputContext,"owned-prompt");session.close();
+});
+
+// =================================================================================================
+// voice-crisis-same-as-chat (Umesh 2026-10-29): a voice crisis behaves like a chat crisis. The crisis message is TEXT
+// only; no pre-recorded clip exists, is required or is ever sent. The mute, the backend interrupt and the resume timing are unchanged.
+// =================================================================================================
+test("same-as-chat: a detector with a text-only crisis message starts (no audio is required), and a crisis emits no audio event of any kind", async () => {
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: { text: FIXED.text } });
+  r.backend.emitOutputAudio(pcm(5)); // the model is mid-sentence
+  const modelAudio = of(r.events, "audio").length;
+  r.backend.emitInputTranscript("I want to kill myself", true);
+  await r.session.drain();
+  assert.equal(of(r.events, "crisis").length, 1);
+  assert.equal(of(r.events, "audio").length, modelAudio, "the crisis added no audio event: no pre-recorded clip is sent");
+  assert.equal(r.backend.calls.filter((c) => c.type === "interrupt").length, 1, "the model is still interrupted");
+  r.backend.emitOutputAudio(pcm(5));
+  assert.equal(of(r.events, "audio").length, modelAudio, "the model stays muted after the crisis");
+  assert.deepEqual(of(r.events, "transcript").filter((t) => t.fixed).map((t) => [t.role, t.text, t.final]), [["assistant", FIXED.text, true]]);
+  assert.deepEqual(r.transcripts.filter((t) => t.fixed).map((t) => [t.role, t.text]), [["assistant", FIXED.text]], "the fixed text reaches the thread sink as the final assistant message");
+  assert.equal(r.crises.length, 1, "exactly one crisis record");
+});
+
+test("same-as-chat: a crisis message handed an audio buffer anyway never plays it", async () => {
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: { text: FIXED.text, audio: pcm(64, 7) } as never });
+  r.backend.emitInputTranscript("I will kill myself", true);
+  await r.session.drain();
+  assert.equal(of(r.events, "crisis").length, 1);
+  assert.equal(of(r.events, "audio").length, 0);
+});
+
+test("same-as-chat: a detector with an empty crisis message text still refuses to start (no silent no-op)", async () => {
+  await assert.rejects(() => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "  " } }), LiveConfigError);
 });
