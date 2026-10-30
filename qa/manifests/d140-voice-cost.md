@@ -6,7 +6,7 @@ Policy-Version: proportional-verification/2026-10-19.17
 **Fix cycle:** 0
 **Dual check:** no (observability and metering; no auth, persistence schema or safety path changed; turn_usage shape unchanged)
 **Round cap:** (a) SECURITY CLASS, data write. This unit changes what voice `finalize` writes into the production `virtual_counsellor.turn_usage` collection (real token counts and USD instead of zeros, plus the HMAC studentKey row it already wrote). It also adds a log line that must stay free of student text. D-014 never caps a data-write class. It is also a first check of a new unit authorized by D-140, not round N+1 of an earlier unit; the 12 prior PASSes are other units that share files.
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict qa/verdicts/d140-voice-cost.md, cycle 0, 2acbb5e4)
 
 ## What changed
 1. `packages/providers/src/live.ts`: new `usage` LiveEvent and `LiveUsage`; `GEMINI_LIVE_PRICES` for gemini-3.1-flash-live-preview (per 1M tokens: in text 0.75, audio 3, image/video 1; out text 4.5, audio 12; read from ai.google.dev/gemini-api/docs/pricing 2026-10-30); `liveUsageFromMetadata` (input = prompt + toolUse, output = response + thoughts, priced per modality, undetailed remainder at the audio rate, unknown model -> tokens only, cost 0); `translateGeminiMessage` reads `usageMetadata` before the serverContent early return.
