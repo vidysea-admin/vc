@@ -1817,3 +1817,61 @@ const C4A_IDIOM_PROMISES = [
 test("S13 fix-c4a: promisesOutcome flags a promise after an idiomatic negation or a negation in an earlier clause", () => {
   for (const t of C4A_IDIOM_PROMISES) assert.equal(promisesOutcome(t), true, `should flag: ${t}`);
 });
+
+// T-059: residual promise-floor classes (qa/verdicts/s13-checker-final-5.md): punctuation-free idioms, a negator on an unrelated verb,
+// Hindi particles and "koi ... nahi" idioms, and a decimal point that is not a clause break.
+const T059_PROMISES = [
+  "Not only is admission guaranteed, it is fast",
+  "Not just fast, admission is guaranteed",
+  "Don't miss out guaranteed seats",
+  "No risk guaranteed admission",
+  "No hassle guaranteed visa",
+  "No fees guaranteed admission",
+  "No stress, no fuss guaranteed seat",
+  "We do not hide that admission is guaranteed",
+  "I am not shy to say guaranteed admission",
+  "We don't hesitate to say admission is guaranteed",
+  "I will never deny that your visa is guaranteed",
+  "Aao na admission pakka hai",
+  "Koi bhi aaye seat pakki hai",
+  "Koi baat nahi guaranteed admission",
+  "Koi fikar nahi admission pakka",
+  "There is no 99.9 percent chance of doubt. Admission is guaranteed",
+  // repair cycle 1 (senior review t059-promise-floor): M2 decimal regression, M1 mid-clause "na", L1 nobody + non-guarantee phrase, L2 danda and Devanagari "koi bhi"
+  "No 2.5 GPA needed admission guaranteed",
+  "Aap join kar lo na pakka milega",
+  "Aao na guaranteed admission",
+  "ye admission hai na pakka",
+  "Nobody will definitely get rejected here",
+  "कोई भी आए। एडमिशन पक्का",
+  "कोई भी आए एडमिशन पक्का",
+  "कोई नहीं आया। एडमिशन पक्का",
+];
+const T059_NEUTRAL = [
+  "There is no 99.9 percent guarantee",
+  "Not 99.9 percent guaranteed",
+  "We do not hide that admission is not guaranteed",
+  "I am not shy to say nobody can guarantee a visa",
+  "Koi bhi guarantee nahi de sakta",
+  "Admission is not guaranteed, no hassle either way",
+  "Nobody can guarantee admission",
+  "Na pakka hai",
+  "Na pakka hai, koi guarantee nahi",
+  "कोई भी गारंटी नहीं दे सकता",
+];
+
+test("T-059: promisesOutcome flags the residual idiom, unrelated-verb and Hindi classes", () => {
+  for (const t of T059_PROMISES) assert.equal(promisesOutcome(t), true, `should flag: ${t}`);
+});
+
+test("T-059: promisesOutcome keeps decimal-point and real-negation phrasing neutral", () => {
+  for (const t of T059_NEUTRAL) assert.equal(promisesOutcome(t), false, `should pass: ${t}`);
+});
+
+test("T-059: promisesOutcome stays linear on a 20,000-char input of the new idioms", () => {
+  const hostile = ["not only ".repeat(2200), "no risk ".repeat(2500), "do not hide ".repeat(1660), "koi bhi ".repeat(2500), "not shy to ".repeat(1800), "1.5 ".repeat(5000), "na ".repeat(6600)];
+  const t0 = performance.now();
+  for (const h of hostile) { assert.ok(h.length <= 20_000); promisesOutcome(h); }
+  const ms = performance.now() - t0;
+  assert.ok(ms < 50, `hostile T-059 inputs finish under 50 ms (took ${ms.toFixed(1)} ms)`);
+});
