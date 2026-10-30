@@ -743,19 +743,22 @@ const NEGATION_AFTER = /^[^\p{L}]{0,3}(?:[\p{L}]{1,12}[^\p{L}]{1,3}){0,2}?(?:nah
  * before the negation test, so they cannot cancel a real promise ("Don't worry, admission is guaranteed"). Warnings that merely mention a
  * promise ("nobody can guarantee admission") are not specially handled: over-flagging a warning is safer than missing a promise. Bounded window.
  */
-const CLAUSE_BREAK = /[,:;!?–—]|(?<!\d)\.|\.(?!\d)|\s-+\s|-{2,}|(?<![\p{L}])(?:and|but|so)(?![\p{L}])/giu;
-const IDIOMATIC_NEGATION = /(?<![\p{L}])(?:no\s+(?:worr(?:y|ies)|problems?|tension|scams?|doubts?)|(?:don['’]?t|do\s+not)\s+worry|not\s+an?\s+scam|koi\s+(?:tension|dikkat|chinta|problem)(?:\s+ki\s+baat)?\s+(?:nahi|nahin|nhi)|chinta\s+mat\s+karo|koi\s+(?:baat|fikar|fikr|bhi)(?:\s+(?:nahi|nahin|nhi))?|कोई\s+बात\s+(?:नहीं|नही)|not\s+(?:only|just|merely|simply)|(?:don['’]?t|do\s+not)\s+miss(?:\s+out)?|no\s+(?:risk|hassle|fees?|stress|fuss|cost|catch|obligation)|(?:(?:do|did|will|would|could)\s+not|don['’]?t|didn['’]?t|won['’]?t|never|not)\s+(?:hide|hesitate|deny|shy|afraid|ashamed|embarrassed|reluctant)(?:\s+(?:to\s+say|to\s+admit|that))?)(?![\p{L}])/giu;
-/** T-059: the Hindi particle "na" ("aao na ...") is a plea, not a negation; it negates only at the start of its clause or right before the phrase ("na pakka"). */
-/** T-059: "nobody can guarantee ..." (the modal sits right before the phrase); "nobody can stop me, admission guaranteed" is not neutralised. */
+const CLAUSE_BREAK = /[,:;!?–—।॥]|(?<!\d)\.|\.(?!\d+\s{0,2}(?:%|percent|per\s?cent))|\s-+\s|-{2,}|(?<![\p{L}])(?:and|but|so)(?![\p{L}])/giu;
+const IDIOMATIC_NEGATION = /(?<![\p{L}])(?:no\s+(?:worr(?:y|ies)|problems?|tension|scams?|doubts?)|(?:don['’]?t|do\s+not)\s+worry|not\s+an?\s+scam|koi\s+(?:tension|dikkat|chinta|problem)(?:\s+ki\s+baat)?\s+(?:nahi|nahin|nhi)|chinta\s+mat\s+karo|koi\s+(?:baat|fikar|fikr|bhi)(?:\s+(?:nahi|nahin|nhi))?|कोई\s+बात\s+(?:नहीं|नही)|कोई\s+भी|not\s+(?:only|just|merely|simply)|(?:don['’]?t|do\s+not)\s+miss(?:\s+out)?|no\s+(?:risk|hassle|fees?|stress|fuss|cost|catch|obligation)|(?:(?:do|did|will|would|could)\s+not|don['’]?t|didn['’]?t|won['’]?t|never|not)\s+(?:hide|hesitate|deny|shy|afraid|ashamed|embarrassed|reluctant)(?:\s+(?:to\s+say|to\s+admit|that))?)(?![\p{L}])/giu;
+/**
+ * T-059: "nobody can guarantee ..." (the modal sits right before the phrase); "nobody can stop me, admission guaranteed" is not neutralised.
+ * It applies only when the matched phrase is itself a guarantee/assurance word, so "nobody will definitely get rejected" is still flagged.
+ * The Hindi particle "na" ("aao na ...", "hai na pakka") is a plea, not a negation; it negates only at the very start of its clause ("na pakka hai").
+ */
 const NOBODY_BEFORE = /(?:^|[^\p{L}])(?:nobody|noone|none)\s{1,3}(?:can|could|will|would|may|is\s+able\s+to)\s{1,3}(?:(?:ever|truly|really)\s{1,3})?$/u;
-const NA_NEGATION = /(?:^|[^\p{L}])na\s{0,3}$/u;
+const GUARANTEE_WORD = /guarant|garan|gyaran|assur|गारंटी|गैरंटी/u;
 
 /** True when `before` (the window ahead of a promise phrase) holds a real negation in the promise's own clause. */
-function negatedBefore(before: string): boolean {
+function negatedBefore(before: string, matched: string): boolean {
   let clauseStart = 0;
   for (const b of before.matchAll(CLAUSE_BREAK)) clauseStart = (b.index ?? 0) + b[0].length;
   const clause = before.slice(clauseStart).replace(IDIOMATIC_NEGATION, " ");
-  return NEGATION_BEFORE.test(clause) || NOBODY_BEFORE.test(clause) || NA_NEGATION.test(clause) || /^\s*na(?![\p{L}])/u.test(clause);
+  return NEGATION_BEFORE.test(clause) || (GUARANTEE_WORD.test(matched) && NOBODY_BEFORE.test(clause)) || /^\s*na(?![\p{L}])/u.test(clause);
 }
 
 /** S13 fix-c1: invisible characters that split a word without showing: soft hyphen, mongolian vowel separator, zero-width set, word joiner and friends, BOM, variation selectors. */
@@ -809,7 +812,7 @@ export function promisesOutcome(text: string): boolean {
         const start = m.index ?? 0;
         const before = t.slice(Math.max(0, start - 28), start);
         const after = t.slice(start + m[0].length, start + m[0].length + 24);
-        if (negatedBefore(before) || NEGATION_AFTER.test(after)) continue;
+        if (negatedBefore(before, m[0]) || NEGATION_AFTER.test(after)) continue;
         return true;
       }
     }

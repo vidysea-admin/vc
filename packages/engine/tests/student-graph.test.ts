@@ -1837,6 +1837,15 @@ const T059_PROMISES = [
   "Koi baat nahi guaranteed admission",
   "Koi fikar nahi admission pakka",
   "There is no 99.9 percent chance of doubt. Admission is guaranteed",
+  // repair cycle 1 (senior review t059-promise-floor): M2 decimal regression, M1 mid-clause "na", L1 nobody + non-guarantee phrase, L2 danda and Devanagari "koi bhi"
+  "No 2.5 GPA needed admission guaranteed",
+  "Aap join kar lo na pakka milega",
+  "Aao na guaranteed admission",
+  "ye admission hai na pakka",
+  "Nobody will definitely get rejected here",
+  "कोई भी आए। एडमिशन पक्का",
+  "कोई भी आए एडमिशन पक्का",
+  "कोई नहीं आया। एडमिशन पक्का",
 ];
 const T059_NEUTRAL = [
   "There is no 99.9 percent guarantee",
@@ -1845,6 +1854,10 @@ const T059_NEUTRAL = [
   "I am not shy to say nobody can guarantee a visa",
   "Koi bhi guarantee nahi de sakta",
   "Admission is not guaranteed, no hassle either way",
+  "Nobody can guarantee admission",
+  "Na pakka hai",
+  "Na pakka hai, koi guarantee nahi",
+  "कोई भी गारंटी नहीं दे सकता",
 ];
 
 test("T-059: promisesOutcome flags the residual idiom, unrelated-verb and Hindi classes", () => {
