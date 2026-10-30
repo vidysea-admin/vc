@@ -662,6 +662,8 @@ interface Conn {
   assistantTurnOpen?: boolean;
   /** S13 fix-c3b: an assistant turn was already open when the readout was dispatched; its trailing output and its turn_complete are not the readout's. */
   readoutEarlierTurnOpen?: boolean;
+  /** T-060 (D-143): the provider turn id of the model turn that answers the readout, when the Live transport reports one; then it, not arrival order, attributes output and turn_complete. */
+  readoutTurnId?: string;
   /** D-140: the provider usage reports of this session, summed; written once into its turn_usage row at finalize. */
   usage: UsageMeter;
   /** S13 fix-b: the prompt the model has finished reading aloud; only then may a mic frame arm a yes/no for it. */
@@ -1002,7 +1004,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
         sendEvent(c, { type: "confirm", fact: { key: choice.key, value: choice.value, candidateId: choice.candidateId, expectedVersion: choice.expectedVersion, ...(choice.currentValue ? {currentValue: choice.currentValue} : {}) }, threadId: choice.threadId, promptId: choice.promptId, question: choice.question });
         // The repeat is a new readout: the answer is disarmed until the model has finished reading it again.
         c.microphonePromptId = undefined; c.readoutDonePromptId = undefined; c.readoutPromptId = choice.promptId; c.readoutOutputSeen = false; c.readoutEarlierTurnOpen = c.assistantTurnOpen === true;
-        c.session?.sendText("Read this exact confirmation question aloud; do not decide for the student. Quoted question: " + JSON.stringify(choice.question));
+        c.readoutTurnId = c.session?.sendText("Read this exact confirmation question aloud; do not decide for the student. Quoted question: " + JSON.stringify(choice.question));
       }
       return;
     }
@@ -1051,7 +1053,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
           c.readoutEarlierTurnOpen = c.assistantTurnOpen === true;
           if (c.pendingConfirms.size > MAX_PENDING_CONFIRMS) c.pendingConfirms.delete(c.pendingConfirms.keys().next().value as string);
           sendEvent(c, { type: "confirm", fact: { key: choice.key, value: choice.value, candidateId: choice.candidateId, expectedVersion: choice.expectedVersion, ...(currentValue === undefined ? {} : { currentValue }) }, threadId: choice.threadId, promptId: choice.promptId, question });
-          c.session?.sendText("Read this exact confirmation question aloud; do not decide for the student. Quoted question: " + JSON.stringify(question));
+          c.readoutTurnId = c.session?.sendText("Read this exact confirmation question aloud; do not decide for the student. Quoted question: " + JSON.stringify(question));
         }
       }
     } catch (err) {
@@ -1199,12 +1201,18 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
 
   // -- LiveSession event relay ----------------------------------------------
 
+  /** T-060: is this model output the readout's own? By provider turn id when both the readout and the output have one, else by the S13 arrival-order rule (no turn open at dispatch). */
+  function readoutOwnsOutput(c: Conn, turnId: string | undefined): boolean {
+    if (c.readoutTurnId !== undefined && turnId !== undefined) return turnId === c.readoutTurnId;
+    return c.readoutEarlierTurnOpen !== true;
+  }
+
   function onLiveEvent(c: Conn, ev: LiveEvent): void {
     switch (ev.type) {
       case "audio":
         armSilence(c);
         c.assistantTurnOpen = true;
-        if (c.readoutPromptId !== undefined && c.readoutEarlierTurnOpen !== true) c.readoutOutputSeen = true;
+        if (c.readoutPromptId !== undefined && readoutOwnsOutput(c, ev.turnId)) c.readoutOutputSeen = true;
         checkedOutput(c, ev.data.byteLength, () => sendAudio(c, ev.data));
         return;
       case "transcript":
@@ -1213,7 +1221,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
           armSilence(c);
           if (ev.role === "assistant") {
             c.assistantTurnOpen = true;
-            if (c.readoutPromptId !== undefined && c.readoutEarlierTurnOpen !== true) c.readoutOutputSeen = true;
+            if (c.readoutPromptId !== undefined && readoutOwnsOutput(c, ev.turnId)) c.readoutOutputSeen = true;
           }
           checkedOutput(c, Buffer.byteLength(ev.text), () => sendEvent(c, { type: "transcript.partial", role: ev.role, text: clamp(ev.text) }));
         }
@@ -1230,15 +1238,19 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
         // S13 fix-b: the readout of the CURRENT memory question is over once this turn drains; only then may a mic frame arm the answer.
         // S13 fix-c2: only a turn_complete that follows model output produced after the readout was dispatched can be the readout's own; a bare one is the reply to an earlier turn.
         // S13 fix-c3b: if a turn was already open when the readout was dispatched, this turn_complete closes THAT turn (even with output after the dispatch): consume it without arming.
-        const closesEarlierTurn = c.readoutEarlierTurnOpen === true;
+        // T-060: with a provider turn id on both sides, a turn_complete of any other turn (a reply that started after the dispatch) is not the readout's, whatever its arrival order.
+        const byId = c.readoutTurnId !== undefined && ev.turnId !== undefined;
+        const otherTurn = byId && ev.turnId !== c.readoutTurnId;
+        const closesEarlierTurn = byId ? otherTurn : c.readoutEarlierTurnOpen === true;
         c.assistantTurnOpen = false;
-        if (closesEarlierTurn) { c.readoutEarlierTurnOpen = false; c.readoutOutputSeen = false; }
+        if (closesEarlierTurn && !byId) { c.readoutEarlierTurnOpen = false; c.readoutOutputSeen = false; }
         const readoutPrompt = !closesEarlierTurn && c.readoutOutputSeen === true ? c.readoutPromptId : undefined;
         const emit = async () => {
           await c.outputChain;
           if (readoutPrompt !== undefined && c.readoutPromptId === readoutPrompt && c.promptId === readoutPrompt && c.state === "active") {
             c.readoutDonePromptId = readoutPrompt;
             c.readoutPromptId = undefined;
+            c.readoutTurnId = undefined;
           }
           if (c.state === "active" && await memoryCurrent(c)) sendEvent(c, { type: "state", state: "ok" });
         };
