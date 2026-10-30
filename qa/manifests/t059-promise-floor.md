@@ -1,6 +1,6 @@
 # t059-promise-floor - T-059 promise-floor residual false negatives (D-142 item 2)
 
-Status: ready-for-check
+Status: checked-PASS (qa/verdicts/t059-promise-floor.md, cycle 1, 500608e6)
 Fix cycle: 1
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: M (engine safety guard)
