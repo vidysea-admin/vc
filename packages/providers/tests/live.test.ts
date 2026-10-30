@@ -28,6 +28,8 @@ import {
   MockLiveBackend,
   MockLiveProvider,
   buildGeminiLiveConfig,
+  GEMINI_LIVE_PRICES,
+  liveUsageFromMetadata,
   createSimpleOutputAuditor,
   type GeminiLiveCallbacks,
   type GeminiLiveConnection,
@@ -1084,4 +1086,99 @@ test("same-as-chat: a crisis message handed an audio buffer anyway never plays i
 
 test("same-as-chat: a detector with an empty crisis message text still refuses to start (no silent no-op)", async () => {
   await assert.rejects(() => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "  " } }), LiveConfigError);
+});
+
+// =================================================================================================
+// D-140 usage: Gemini Live usageMetadata becomes priced, text-free usage events (tracking only, no cap)
+// =================================================================================================
+const usageOf = (events: LiveEvent[]) => of(events, "usage").map((e) => e.usage);
+const near = (actual: number | undefined, expected: number) => assert.ok(actual !== undefined && Math.abs(actual - expected) < 1e-12, `cost ${actual} != ${expected}`);
+
+test("D-140 usage: a priced 3.1 Flash Live turn (1 min audio in, 1 min audio out, some text) reports real tokens and the published USD cost", async () => {
+  const f = fakeConnector();
+  const events: LiveEvent[] = [];
+  const session = await new GeminiLiveProvider({ model: "gemini-3.1-flash-live-preview", connector: f.connector }).connect({ onEvent: (e) => events.push(e) });
+  f.cb().onmessage({
+    serverContent: { turnComplete: true },
+    usageMetadata: {
+      promptTokenCount: 2500,
+      responseTokenCount: 1500,
+      totalTokenCount: 4000,
+      promptTokensDetails: [{ modality: "AUDIO", tokenCount: 1500 }, { modality: "TEXT", tokenCount: 1000 }],
+      responseTokensDetails: [{ modality: "AUDIO", tokenCount: 1500 }],
+    },
+  });
+  await session.drain();
+  assert.equal(of(events, "turn_complete").length, 1, "the turn end still arrives with the usage");
+  const [u] = usageOf(events);
+  assert.equal(u!.inputTokens, 2500);
+  assert.equal(u!.outputTokens, 1500);
+  // ai.google.dev pricing, 2026-10-30: audio in $3.00/M (25 tok/s, about $0.005/min), text in $0.75/M, audio out $12.00/M (about $0.018/min).
+  near(u!.costUsd, (1500 * 3 + 1000 * 0.75 + 1500 * 12) / 1e6);
+  near(GEMINI_LIVE_PRICES["gemini-3.1-flash-live-preview"]!.input.audio * 1500 / 1e6, 0.0045);
+  near(GEMINI_LIVE_PRICES["gemini-3.1-flash-live-preview"]!.output.audio * 1500 / 1e6, 0.018);
+});
+
+test("D-140 usage: a usage-only message (no serverContent) is counted; thoughts bill as text output and tool-use prompt as text input", async () => {
+  const f = fakeConnector();
+  const events: LiveEvent[] = [];
+  const session = await new GeminiLiveProvider({ model: "gemini-3.1-flash-live-preview", connector: f.connector }).connect({ onEvent: (e) => events.push(e) });
+  f.cb().onmessage({
+    usageMetadata: {
+      promptTokenCount: 100,
+      toolUsePromptTokenCount: 40,
+      responseTokenCount: 50,
+      thoughtsTokenCount: 10,
+      promptTokensDetails: [{ modality: "AUDIO", tokenCount: 100 }],
+      responseTokensDetails: [{ modality: "AUDIO", tokenCount: 50 }],
+    },
+  });
+  await session.drain();
+  const [u] = usageOf(events);
+  assert.equal(u!.inputTokens, 140);
+  assert.equal(u!.outputTokens, 60);
+  near(u!.costUsd, (100 * 3 + 40 * 0.75 + 50 * 12 + 10 * 4.5) / 1e6);
+});
+
+test("D-140 usage: counts with no modality breakdown are priced at the audio rate (the higher one), so cost is never under-reported", () => {
+  const u = liveUsageFromMetadata({ promptTokenCount: 1000, responseTokenCount: 200, promptTokensDetails: [{ modality: "TEXT", tokenCount: 400 }] }, GEMINI_LIVE_PRICES["gemini-3.1-flash-live-preview"]);
+  assert.equal(u!.inputTokens, 1000);
+  assert.equal(u!.outputTokens, 200);
+  near(u!.costUsd, (400 * 0.75 + 600 * 3 + 200 * 12) / 1e6);
+});
+
+test("D-140 usage: an unknown model meters tokens but invents no price; an explicit price option prices it", async () => {
+  const f = fakeConnector();
+  const events: LiveEvent[] = [];
+  const session = await new GeminiLiveProvider({ model: "gemini-unknown-live", connector: f.connector }).connect({ onEvent: (e) => events.push(e) });
+  f.cb().onmessage({ usageMetadata: { promptTokenCount: 10, responseTokenCount: 5 } });
+  await session.drain();
+  assert.deepEqual(usageOf(events), [{ inputTokens: 10, outputTokens: 5 }]);
+  const price = { input: { text: 1, audio: 2, imageVideo: 1 }, output: { text: 3, audio: 4 } };
+  const g = fakeConnector();
+  const priced: LiveEvent[] = [];
+  const s2 = await new GeminiLiveProvider({ model: "gemini-unknown-live", connector: g.connector, price }).connect({ onEvent: (e) => priced.push(e) });
+  g.cb().onmessage({ usageMetadata: { promptTokenCount: 10, responseTokenCount: 5 } });
+  await s2.drain();
+  near(usageOf(priced)[0]!.costUsd, (10 * 2 + 5 * 4) / 1e6);
+});
+
+test("D-140 usage: garbage counts (negative, NaN, strings, fractional) are dropped, an all-zero report emits nothing, and no event carries text", () => {
+  assert.equal(liveUsageFromMetadata({ promptTokenCount: -5, responseTokenCount: "12", thoughtsTokenCount: Number.NaN }, undefined), undefined);
+  assert.equal(liveUsageFromMetadata({ promptTokenCount: 0, responseTokenCount: 0 }, undefined), undefined);
+  assert.equal(liveUsageFromMetadata(null, undefined), undefined);
+  assert.equal(liveUsageFromMetadata("x", undefined), undefined);
+  const u = liveUsageFromMetadata({ promptTokenCount: 7.5, responseTokenCount: 3, promptTokensDetails: [{ modality: "AUDIO", tokenCount: -1 }, "junk"] }, GEMINI_LIVE_PRICES["gemini-3.1-flash-live-preview"]);
+  assert.deepEqual(Object.keys(u!).sort(), ["costUsd", "inputTokens", "outputTokens"]);
+  assert.equal(u!.inputTokens, 0);
+  assert.equal(u!.outputTokens, 3);
+});
+
+test("D-140 usage: during a crisis mute the usage still reaches the listener (the provider bills it), and a mock backend can script it", async () => {
+  const r = await rig({ detectCrisis: (t) => ({ crisis: CRISIS_RE.test(t) }), crisisMessage: FIXED });
+  r.backend.emitInputTranscript("I want to end my life", true);
+  r.backend.emitUsage({ inputTokens: 30, outputTokens: 20, costUsd: 0.001 });
+  await r.session.drain();
+  assert.equal(of(r.events, "crisis").length, 1);
+  assert.deepEqual(usageOf(r.events), [{ inputTokens: 30, outputTokens: 20, costUsd: 0.001 }]);
 });

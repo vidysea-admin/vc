@@ -69,7 +69,7 @@ import {
   type VoiceServerEvent,
 } from "@vc/schemas";
 import { ANONYMOUS_CRISIS_MESSAGE, STUDENT_CRISIS_MESSAGE, TELE_MANAS_LINE, crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
-import { isEligibleMemoryFact, loadStudentMemoryContext, type TurnUsageSink } from "./chat.js";
+import { isEligibleMemoryFact, loadStudentMemoryContext, type TurnUsageSink, type UsageMeter } from "./chat.js";
 import {
   LiveConfigError,
   createSimpleOutputAuditor,
@@ -232,7 +232,12 @@ export interface VoiceToolRun {
   result: unknown;
   sources?: readonly Source[];
   claims?: readonly Claim[];
+  /** D-140: how the run ended, for the text-free `voice_tool_call` log line only; never sent to the model. Absent = judged from `result`. */
+  outcome?: VoiceToolOutcome;
 }
+
+/** D-140: `error` is a run that threw; `unavailable` a refused, fenced or failed read; `timeout` a read cut off by its deadline. */
+export type VoiceToolOutcome = "ok" | "unavailable" | "timeout" | "error";
 
 /** KB tools offered to the Live model. Absent: the model has no tools and every spoken figure is audited as uncited. */
 export interface VoiceTools {
@@ -249,7 +254,10 @@ export type VoiceFactExtractor = (turn: {
   text: string;
 }) => Promise<ReadonlyArray<{ key: string; value: string; quote?: string; sourceLang?: string }>>;
 
-export type VoiceLogLine = { level: "error"; event: string; ts: string; error?: string };
+export type VoiceLogLine =
+  | { level: "error"; event: string; ts: string; error?: string }
+  /** D-140: one per model tool call. A declared tool name only (anything else is `unknown`), never arguments, results or student text. */
+  | { level: "info"; event: "voice_tool_call"; ts: string; tool: string; durationMs: number; outcome: VoiceToolOutcome };
 
 export interface VoiceTimers {
   setTimeout(fn: () => void, ms: number): unknown;
@@ -590,6 +598,9 @@ type OutEvent = DistributiveOmit<VoiceServerEvent, "eventId">;
 
 const clamp = (text: string, max = 8000): string => (text.length > max ? text.slice(0, max) : text);
 const errMsg = (err: unknown): string => (err instanceof Error ? err.name : "error");
+/** D-140: a tool result that only says the data was not available (the fence/stale shape or a tool's own `{ unavailable: true }`). */
+const isUnavailableResult = (result: unknown): boolean =>
+  result !== null && typeof result === "object" && (result as { unavailable?: unknown }).unavailable === true;
 
 interface Retained {
   memorySignature?: string;
@@ -649,6 +660,8 @@ interface Conn {
   assistantTurnOpen?: boolean;
   /** S13 fix-c3b: an assistant turn was already open when the readout was dispatched; its trailing output and its turn_complete are not the readout's. */
   readoutEarlierTurnOpen?: boolean;
+  /** D-140: the provider usage reports of this session, summed; written once into its turn_usage row at finalize. */
+  usage: UsageMeter;
   /** S13 fix-b: the prompt the model has finished reading aloud; only then may a mic frame arm a yes/no for it. */
   readoutDonePromptId?: string;
   /** S13 fix-b: monotonic time of the last frame-time memory check that passed (input-frame TTL cache only). */
@@ -1200,6 +1213,12 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
           checkedOutput(c, Buffer.byteLength(ev.text), () => sendEvent(c, { type: "transcript.partial", role: ev.role, text: clamp(ev.text) }));
         }
         return;
+      case "usage":
+        // D-140: summed for the session's turn_usage row; tracking only, nothing caps on it.
+        c.usage.inputTokens += ev.usage.inputTokens;
+        c.usage.outputTokens += ev.usage.outputTokens;
+        if (ev.usage.costUsd !== undefined && Number.isFinite(ev.usage.costUsd) && ev.usage.costUsd > 0) c.usage.costUsd += ev.usage.costUsd;
+        return;
       case "turn_complete": {
         // After the finals queued for this turn, so a client sees transcript.final before the state.
         const session = c.session;
@@ -1296,13 +1315,28 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       ...(tools
         ? {
             toolHandler: async (call: LiveToolCall) => {
-              if (personal && (!(await memoryCurrent(c)) || await isStudentFenced(c.db, c.claims.studentId, nowDate()))) return { unavailable: true };
-              const out = await tools.run(call, who);
-              if (personal && !(await memoryCurrent(c))) return { unavailable: true };
-              if ((out.sources?.length ?? 0) > 0 || (out.claims?.length ?? 0) > 0) {
-                sendEvent(c, { type: "answer.sources", sources: [...(out.sources ?? [])], claims: [...(out.claims ?? [])] });
+              // D-140: one text-free log line per call, whatever the path out (C10 needs the call proven).
+              const startedMs = nowMs();
+              let outcome: VoiceToolOutcome = "error";
+              try {
+                if (personal && (!(await memoryCurrent(c)) || await isStudentFenced(c.db, c.claims.studentId, nowDate()))) {
+                  outcome = "unavailable";
+                  return { unavailable: true };
+                }
+                const out = await tools.run(call, who);
+                if (personal && !(await memoryCurrent(c))) {
+                  outcome = "unavailable";
+                  return { unavailable: true };
+                }
+                outcome = out.outcome ?? (isUnavailableResult(out.result) ? "unavailable" : "ok");
+                if ((out.sources?.length ?? 0) > 0 || (out.claims?.length ?? 0) > 0) {
+                  sendEvent(c, { type: "answer.sources", sources: [...(out.sources ?? [])], claims: [...(out.claims ?? [])] });
+                }
+                return out.result;
+              } finally {
+                const tool = tools.declarations.some((d) => d.name === call.name) ? call.name : "unknown";
+                log({ level: "info", event: "voice_tool_call", ts: nowDate().toISOString(), tool, durationMs: Math.max(0, Math.round(nowMs() - startedMs)), outcome });
               }
-              return out.result;
             },
           }
         : {}),
@@ -1413,7 +1447,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
         try {
           await deps.usage.record(
             { siteId: c.claims.tenantId, ...(c.anon ? {} : { studentId: c.claims.studentId }), mode: "voice", latencyMs: elapsedMs, answered: true },
-            { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+            { ...c.usage },
           );
         } catch {
           logEvent("voice_usage_record_failed");
@@ -1773,6 +1807,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       notStartedWarned: false,
       lastAtMs: 0,
       turnBySeq: new Map(),
+      usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
       crisisUtterances: [],
       crisisTurnIds: new Set(),
       flagsSent: new Set(),
