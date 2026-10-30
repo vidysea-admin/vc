@@ -1,39 +1,41 @@
 # Verdict: t059-promise-floor
 
-Cycle checked: 0
-Checked: 2026-10-30T23:10:00+05:30
+Cycle checked: 1
+Checked: 2026-10-30T23:33:00+05:30
 Verdict: PASS
-Artifact: worktree D:/vc/.worktrees/vc-completion/.worktrees/t059-promise-floor, branch wave/t059-promise-floor, head dc3f33b6, base fa678fb4. Mode A, tier M, single checker.
+Artifact: worktree D:/vc/.worktrees/vc-completion/.worktrees/t059-promise-floor, branch wave/t059-promise-floor, repair base d79b49f8 (cycle-0 PASS, renamed to t059-promise-floor.r0-1.md), head e048c2ff. Mode A repair check, tier M, single checker.
 Policy-Version: proportional-verification/2026-10-19.17
 
 ## Scope scan
-`git diff --name-only fa678fb4 dc3f33b6` = packages/engine/src/student/graph.ts, packages/engine/tests/student-graph.test.ts, qa/manifests/t059-promise-floor.md. All inside D-142 Changes-authorized (promise-floor detection + its tests); no DECISIONS, contracts, .claude/** or other file touched. Full diff of both product files read.
+`git diff --stat d79b49f8..e048c2ff` = packages/engine/src/student/graph.ts (promise section only: CLAUSE_BREAK, IDIOMATIC_NEGATION, NOBODY_BEFORE/GUARANTEE_WORD, negatedBefore, one call site), packages/engine/tests/student-graph.test.ts (+13, 0 deletions), qa/manifests/t059-promise-floor.md. Nothing outside D-142 authorization. Repair diff read in full. No test removed or weakened (only appended sentences). The stray zz-probe-tmp.ts is absent; `git status` empty before and after.
 
 ## Executed checks (this checker)
-- `cd packages/engine && npx tsx --test tests/student-graph.test.ts` (head) -> tests 142, pass 142, fail 0; the three T-059 tests ok.
-- Importers on head: lk5, coach-first, crisis-defaults, lang, pathlynks-tools, capability-manifest, evals/coverage -> tests 232, pass 232, fail 0.
-- Throwaway copy (outside root, scratchpad/fal; the worktree stayed clean, `git status` empty). Falsification, one per criterion plus extras:
-  - C1/C2 base red: base graph.ts in the copy -> both T-059 flag and neutral tests fail (candidate confirmed by this checker, not the builder's claim).
-  - C1 mutation: drop the `not (only|just|merely|simply)` idiom -> flag test fails on "Not only is admission guaranteed, it is fast".
-  - C1 mutation: restore bare `na` in NEGATION_BEFORE -> flag test fails on "Aao na admission pakka hai".
-  - C2 mutation: revert the decimal-point clause-break fix -> neutral test fails on "There is no 99.9 percent guarantee".
-  - C2 mutation: remove the NOBODY_BEFORE use -> neutral test fails on "I am not shy to say nobody can guarantee a visa".
-  - Each mutation was restored from the head file and re-run clean. (One unrelated test, B24.2, fails only in the copy because it reads a sibling dir the copy omits; it passes in the real worktree, 142/142.)
+- `cd packages/engine && npx tsx --test tests/student-graph.test.ts` on head -> tests 142, pass 142, fail 0 (flag, neutral and linear-time tests ok; linear guard 6.2 ms vs 50 ms).
+- Importers (lk5, coach-first, crisis-defaults, lang, pathlynks-tools, capability-manifest, evals/coverage) -> tests 232, pass 232, fail 0.
+- Throwaway copy of the promise section (scratchpad/t059r1, outside the root), head vs base (d79b49f8), my own probe:
+  - R1 base MISS -> head flagged "No 2.5 GPA needed admission guaranteed"; neutral "There is no 99.9 percent guarantee", "Not 99.9 percent guaranteed" stay neutral.
+  - R2 base MISS -> head flagged "Aap join kar lo na pakka milega", "Aao na guaranteed admission", "ye admission hai na pakka"; "Na pakka hai", "Na pakka hai, koi guarantee nahi" neutral.
+  - R3 base MISS -> head flagged "Nobody will definitely get rejected here"; "Nobody can guarantee admission", "Nobody will guarantee a seat", "None can guarantee a visa" neutral.
+  - R4 base MISS -> head flagged "कोई भी आए। एडमिशन पक्का" (also the no-danda and "कोई नहीं आया।" forms); "कोई भी गारंटी नहीं दे सकता", "कोई गारंटी नहीं। सब मेहनत पर है" neutral.
+- Falsification, one per criterion, each in its own copy (judged the builder's Falsification[R1..R4]; they hold):
+  - R1: decimal rule back to `\.(?!\d)` -> "No 2.5 GPA needed admission guaranteed" UNFLAGGED (red).
+  - R2: `na` right before the phrase negates again -> all three R2 promises UNFLAGGED (red).
+  - R3: NOBODY_BEFORE applied without GUARANTEE_WORD -> "Nobody will definitely get rejected here" UNFLAGGED (red).
+  - R4: danda removed plus `कोई\s+भी` removed -> the R4 acceptance sentence UNFLAGGED (red). Removing only the idiom leaves the danda sentence flagged (the danda pins the second form), removing only the danda leaves it flagged via the idiom; both facts match the builder's note.
 
-## Judgement: the repeat(1700) -> repeat(1660) edit
-Not a protected-test change. The "stays linear" test and its `h.length <= 20_000` assert and `ms < 50` bound are all introduced by this same diff (`@@ -1817` addition, no deleted test lines in the diff), so no pre-existing assertion was weakened. 12 chars x 1700 = 20,400 > 20,000, so the input was over the test's own cap; 1660 gives 19,920. Bound and cap unchanged; measured 6.6 ms vs 50 ms. Input fix, accepted.
-
-## Hostile variants (ad-hoc script, not left in the tree)
-Promises, all flagged (true): "Not only fast, admission is guaranteed"; "Not only is it fast. Not just that, admission guaranteed"; "Koi baat nahi, admission pakka"; "Koi fikar nahi, seat pakki hai"; "We don't hesitate: your seat is guaranteed"; "Nobody can stop you, your visa is guaranteed"; "Nobody can say no, admission is 100% guaranteed"; "Na koi dikkat, admission guaranteed"; "No risk. Guaranteed admission"; "No risk, no fuss, your seat is guaranteed"; "Aap na chinta karo admission pakka hai"; "not only that nobody can beat us guaranteed admission"; "Do not miss guaranteed placement"; "Relax, no cost, guaranteed seat"; "Don't hide: admission is guaranteed"; "99.9% guaranteed admission". No bypass found.
-Neutral, all unflagged (false): "Nobody can guarantee admission"; "No one can guarantee a seat"; "Nobody will ever guarantee a visa"; "Na pakka hai"; "Koi guarantee nahi hai"; "Guarantee nahi hai bhai"; "Admission is not guaranteed, na koi pakka"; "Nobody is able to guarantee admission"; "Pakka nahi hai, na hi guarantee"; "I cannot guarantee a seat"; "Seats are not only limited, they are not guaranteed"; "It is not 99.9 guaranteed". No new over-flag found.
+## Hostile variants (ad-hoc, not left in the tree)
+Held neutral on head (and on base): "admission na mile to bhi chalega", "Admission na mile to koi baat nahi", "Is baar admission na hua to bhi theek hai", "Na guarantee, na pakka", "Koi bhi guarantee nahi de sakta", "Tuition is 2.5 lakh. Nobody can guarantee a seat", "CGPA 3.5 aur admission guarantee nahi hai", "We charge 2.5 percent, no guarantee of admission", "The 99.9 percent figure is not a guarantee", "There is no 100 percent guarantee", "Version 2.5 does not guarantee admission", "In 2.5 years nobody can guarantee a job", "कोई भी एडमिशन की गारंटी नहीं दे सकता", "कोई नहीं बता सकता कि एडमिशन पक्का होगा", "मैं गारंटी नहीं दे सकता। एडमिशन मेहनत से मिलता है". Promises still flagged: "Bhai na, admission guaranteed", "Version 2.5 is out and admission is guaranteed", "GPA 3.5. Admission guaranteed", "आप आइए॥ एडमिशन पक्का", "Aap na aaiye, admission pakka hai".
 
 ## Criteria
-- C1 PASS: all 16 T059_PROMISES flagged, all 6 T059_NEUTRAL unflagged; red on base, green on head; mutations bite.
-- C2 PASS: S13/C4A tests and all 142 student-graph tests green, 232 importer tests green, linear-time guard holds.
-- Scope PASS.
+- R1 PASS, R2 PASS, R3 PASS, R4 PASS: each failed sentence flagged, each paired neutral unflagged, red under mutation.
+- No regression PASS: all cycle-0 T059_PROMISES/T059_NEUTRAL and every existing test green, linear-time guard holds, scope inside D-142.
 
-## Notes (non-blocking)
-- Known documented residual over-flag direction (flag over miss), builder-declared: "It's not only about guarantee: nobody can guarantee admission" is flagged. Acceptable for a safety floor.
-- Manifest's "tests kept" wording is loose: all three T-059 tests are new in this diff, none pre-existing.
+## Findings (non-blocking, PROPOSED ledger rows, severity low)
+All are new over-flags on warning text versus base, the flag-over-miss direction the manifest and cycle-0 verdict document, and each is the inverse of a required R fix (the same surface form cannot be told apart without semantics):
+- F1 (R1 cost) "No 2.5 GPA guarantee exists" and "There is no 2.5 guarantee" are now flagged (a decimal not followed by percent is a clause break, so an earlier "no" no longer reaches the phrase). Same structure as the R1 promise.
+- F2 (R2 cost) "Admission ke liye na guarantee hai na pakka" and "Yahan na guarantee hai, na kuch pakka" ("neither ... nor", neutral) are now flagged. Same structure as "Aao na guaranteed admission".
+- F3 pre-existing, unchanged by this repair (flagged on base too): "Nobody can say admission is guaranteed", "Nobody can promise a seat; nothing is guaranteed", "Nobody will say it is guaranteed", "कोई भी यह नहीं कह सकता कि एडमिशन पक्का है".
+None of F1-F3 is a false positive on reassuring advice: all are cautionary text routed to the safe (flagged) side. Not a FAIL.
 
-Metrics: checker_wall_min=~9, suite_runs=0, targeted_runs=4 (student-graph x1 on head, importers x1, 6 mutation runs in copy), probes=2 (28 sentences), files_edited=0 product files, falsifications=5.
+Metrics: start=2026-10-30T23:23:26+05:30 end=2026-10-30T23:33:00+05:30 wall_min=10 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=0 mutations=4 cycle=1 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=574 mutants=0 defects_unit=0 defects_6c=0
+slow: probe-harness 4 (a mis-escaped mutation string cost one rerun; the first R1/R2/R4c mutants did not apply and were redone)
