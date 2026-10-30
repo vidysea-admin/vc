@@ -4,7 +4,7 @@ Status: ready-for-check
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: M (student safety path, shared module apps/api/src/voice.ts)
-Round: 1
+Round: est 20 min (round 1)
 Worktree: D:/vc/.worktrees/vc-completion/.worktrees/t061-voice-crisis-lang, branch wave/t061-voice-crisis-lang, base 66eef499
 Dual check: no (no auth, tenancy or production-write change; a message-text selection on an existing safety path)
 
@@ -19,22 +19,12 @@ Dual check: no (no auth, tenancy or production-write change; a message-text sele
 
 Design note: the language is the language of the crisis utterance (latest crisis), not a session property, so a Hindi crisis followed by an English one is answered in English. The anonymous route uses the same getter with mode "anonymous" (chat's anonymous crisis is also language-aware); it is not exercised with a Hindi utterance in a test (the partner-voice harness is heavy), only its English text is, by the existing partner-voice test (deepEqual crisisMessage text) which stays green.
 
-## Tests[C1]
+## Tests / Pre-check (one line per criterion; the sha is the code commit)
 
-- 66eef499+worktree `cd apps/api && npx tsx --test tests/voice-crisis-lang.test.ts` -> tests 6, pass 6, fail 0
-- RED first (TDD), before the src edit: the two C1 tests failed (actual = English STUDENT_CRISIS_MESSAGE, expected CRISIS_MESSAGES.hi / hi-Latn student text) and the mixed-language test timed out waiting for the Hindi message.
-
-## Tests[C2]
-
-- same command: C2 tests (English unchanged; session configured with English before any crisis; Hindi-then-English in one session; model final equal to STUDENT_CRISIS_MESSAGE is relayed as an ordinary reply with a turn id, no crisis flag, no escalation) -> green.
-
-## Pre-check[C1]
-
-- 66eef499+worktree `cd apps/api && npx tsx --test tests/voice-crisis-turn.test.ts tests/partner-voice.test.ts tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts tests/voice-usage.test.ts` -> tests 170, pass 169, fail 1 in the first combined run (voice.test.ts "C16 supersede loop" timing test, unrelated to crisis); rerun alone: voice.test.ts 67/67 pass, C16 pass; voice-limits 10/10 twice. Existing assertions kept green: voice-crisis-turn deepEqual crisisMessage `{ text: STUDENT_CRISIS_MESSAGE }`, partner-voice deepEqual `{ text: CRISIS_TEXT_ANONYMOUS }`.
-
-## Pre-check[C2]
-
-- 66eef499+worktree `cd apps/api && npx tsc --noEmit -p .` -> exit 0, no output.
+Tests[C1]: apps/api/tests/voice-crisis-lang.test.ts "C1: a Hindi (Devanagari) voice crisis ..." and "C1: a Hinglish (Roman-script) voice crisis ..." — each opens a real voice session, speaks a crisis utterance and asserts the final assistant transcript equals crisisMessageFor(lang, "student") (the chat function), differing from the English constant; red on the base (English), green after.
+Tests[C2]: apps/api/tests/voice-crisis-lang.test.ts "C2: an English voice crisis is unchanged", "C2: before any crisis the session is configured with the English message", "C2: a later English crisis after a Hindi one ...", "C2: a model final whose text equals the crisis message ..." — English text, config, per-utterance language, and the ordinary-model-reply path (turn id, no flag, no escalation) are all asserted; the flag/escalation counts are asserted in the C1 tests and the existing voice-crisis-turn tests.
+Pre-check[C1]: 2e49b7bd cd apps/api && npx tsx --test tests/voice-crisis-lang.test.ts -> tests 6, pass 6, fail 0 (RED first on the base: both C1 tests and the Hindi-then-English test failed)
+Pre-check[C2]: 2e49b7bd cd apps/api && npx tsx --test tests/voice-crisis-turn.test.ts tests/partner-voice.test.ts tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts tests/voice-usage.test.ts && npx tsc --noEmit -p . -> 169 of 170 pass in the combined run (voice.test.ts C16 supersede timing test failed under load; voice.test.ts rerun alone 67/67 pass), tsc exit 0; existing deepEqual of crisisMessage text in voice-crisis-turn and partner-voice stays green
 
 ## Capability coverage (one falsification per criterion, throwaway copy of apps/api/src+tests, node_modules junction, deleted after)
 
