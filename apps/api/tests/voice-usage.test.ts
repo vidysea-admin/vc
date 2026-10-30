@@ -106,3 +106,16 @@ test("D-140: tool outcomes timeout, unavailable and error are logged; an undecla
     assert.doesNotMatch(JSON.stringify(w.logs), /Priya|boom with student words/);
   }, { deps: { tools } });
 });
+
+test("D-140: a refused student_memory call (unexpected arguments) is logged as unavailable, not ok", async () => {
+  await withWorld(async (w, threadId) => {
+    await w.open(adult(), threadId);
+    const cfg = w.provider.configs[0]!;
+    assert.ok(cfg.tools?.some((t) => t.name === "student_memory"));
+    const out = await cfg.toolHandler!({ id: "m1", name: "student_memory", args: { query: "my secret plans" } });
+    assert.deepEqual(out, { messages: [], facts: [] }, "the model still gets the empty context, never the outcome");
+    await until(() => toolLines(w).length === 1, "tool log line");
+    assert.deepEqual(toolLines(w).map((l) => [l.tool, l.outcome]), [["student_memory", "unavailable"]]);
+    assert.doesNotMatch(JSON.stringify(w.logs), /secret plans/);
+  });
+});
