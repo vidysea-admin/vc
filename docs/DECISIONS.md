@@ -1312,3 +1312,22 @@ Separately, the remaining T-057 demo work runs as parallel subagent lanes:
 **Result:** Pending. TDD in worktree wave/voice-cost, senior review, /checker, then one real voice turn showing a nonzero cost row.
 **Links:** T-057; D-138; D-139; qa/verdicts/t057-demo-closeout.md
 **Changes-authorized:** packages/providers/src/live.ts usageMetadata parsing and live price table; apps/api/src/voice.ts tool-call log line and per-session usage into turn_usage; apps/api/src/index.ts createQuestVoiceTools outcome report; their tests only
+
+## D-141 | 2026-10-30 | type: decision | status: ACTIVE
+**What:** Restates D-138 unchanged (Umesh's answers for the T-057 demo close-out (AskUserQuestion, 2026-10-30).
+1. Crisis helpline placement: the Tele-MANAS 14416 helpline appears on the crisis turn itself only. A later ordinary turn in a thread that already has a crisis flag no longer gets the helpline line appended (`finish()` prior-flag suffix in packages/engine/src/student/graph.ts, U6h M4). Every other prior-flag safety rule stays: the stricter crisis-rules checks on later replies, the priorFlag input to the KB model, the soft stress check-in with helpline, the crisis turn's fixed message, the flag log and the single escalation.
+2. C10 voice: one real Gemini Live voice turn (`gemini-3.1-flash-live-preview`) through the browser widget with the test student is approved. No cost cap; the cost of the turn is tracked and recorded in the evidence file.
+3. The stale `qa/.paused` in the vc-completion worktree (2026-10-28, D-122 re-plan) is lifted; the main checkout's pause stays.
+**Why:** D-138's Why line holds Umesh's Hindi quotes as mojibake, because scripts/append_decision.ps1:47 reads the entry file with Get-Content and no -Encoding (Windows PowerShell 5.1 reads it as ANSI). The quotes, correctly encoded: helpline "हर बार नहीं, सिर्फ़ crisis वाले turn पर"; voice "hnn run krro and abhi cost ka cap mat lagaao but cost ki trackking kroo"; pause "हाँ, pause हटाओ". The substance of D-138 is unchanged. This entry was written with a UTF-8 BOM so the script reads it correctly; the script itself is an enforcement path and is left untouched.
+**Result:** D-138 decisions 1-3 are already shipped (helpline suffix change checker-PASSed and pushed in 94462c7a).
+**Links:** T-057; D-138; D-139; D-140
+**Supersedes:** D-138 -- only the text encoding of its Why quotes was wrong; every decision in it is restated verbatim above.
+**Changes-authorized:** none (record correction only)
+
+## D-142 | 2026-10-30 | type: decision | status: ACTIVE
+**What:** Umesh approved building two optional T-057 follow-ups in parallel while DevOps unblocks C1/C5 (chat 2026-10-30, "Haan, parallel build"). (1) Voice inner per-read caps: inside the D-139 20 s voice tool path, the inner reads that still carry their own 5 s caps are aligned so a slow read cannot cut a voice turn the 20 s budget would otherwise allow; the voice model never waits past the D-139 20 s cap. (2) T-059: close the promise-floor residual false negatives in the student claims guard (punctuation-free idioms such as not only / don't miss / no risk, a negator on an unrelated verb, and Hindi na / koi baat nahi / koi fikar nahi), with no new false positives on neutral text.
+**Why:** The D-139 senior review warning ("inner per-read 5 s caps remain", qa/verdicts/t057-demo-closeout.md:47) and the open T-059 row (s13-checker-final-5).
+**Result:** Pending. Maker lane: one builder per unit, TDD, one /checker per unit.
+**Links:** T-057; T-059; D-139; D-140; D-141
+**Changes-authorized:** apps/api/src voice tool path read timeouts and their tests; packages/engine/src/student promise-floor detection and its tests only
+**Approved-by:** Umesh
