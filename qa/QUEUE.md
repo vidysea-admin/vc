@@ -126,6 +126,9 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 - [x] DONE pc-hardening-8 — approved: 2026-10-22 (Umesh, chat "go as per the best recommended") — ISS-pc-hardening-7-1..4: fixture temp leak, startApi B13 reason, DEFAULT_GATES_DIR startApi test, unskip A20 all-targets. Brief qa/evidence/p1-briefs/pc-hardening-8.md. files: apps/api/tests/*; lanes: code (test-only)
 
 ## Candidates (human picks)
+- [ ] priority: S2 | ISS-sweep-20261031-2 (medium, ledger): 11 high quest-successor / T057-S12 rows still open and the manifest still BUILDING though S13 verdicts PASS; a checker re-check should map each id to its S13 fix and close or reopen. (backstop sweep 2026-10-31)
+- [ ] CANDIDATE · ISS-sweep-20261031-1 (medium, process): no committed 6c verdict for pushed batch4 9dbe3b94; qa/verdicts/d139-6c.md is the batch-3 verdict. Write the batch4 verdict from the scratchpad logs. (backstop sweep 2026-10-31)
+- [ ] CANDIDATE · ISS-sweep-20261031-4 (low, environment): C: at 100% (3.4 GB free); 13 engine files OOM in a full pass and pass alone. Free space before the next 6c. (backstop sweep 2026-10-31)
 - [ ] priority: S2 | vca-kb-fallthrough — intent rules route ordinary KB questions ("official website of University of Toronto", "IELTS score for UK") to navigate_steps / pathlynks_assessment and answer "I don't know that page yet"; also fires for non-Pathlynks tenants. Fix needs a DECISIONS entry (departs from spec S6). Source: qa/evidence/vc-admin-20261026/review-ai.md #1 (2026-10-27)
 - [ ] priority: security | vca-secret-separation — startup should refuse VC_ADMIN_JWT_SECRET equal to VC_VOICE_WS_SECRET; trailing-dot origins accepted (CLI parity). Source: checker B PROPOSED-ISSUE 6, 7 (2026-10-27)
 - [ ] priority: security | vca-github-token-scope — the seeded GITHUB_TOKEN is released for any repo it can read; use a fine-grained token limited to the 4 Pathlynks repos (human question). Source: ISS-vc-admin-control-9 (2026-10-27)
