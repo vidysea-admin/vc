@@ -4,7 +4,7 @@ Status: ready-for-check
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: M (engine safety guard)
-Round: 1
+Round: 1 (est 30 min)
 Worktree: D:/vc/.worktrees/vc-completion/.worktrees/t059-promise-floor, branch wave/t059-promise-floor, base fa678fb4
 Authority: D-142 (Changes-authorized: packages/engine/src/student promise-floor detection and its tests only)
 
@@ -18,18 +18,13 @@ Authority: D-142 (Changes-authorized: packages/engine/src/student promise-floor 
 - packages/engine/tests/student-graph.test.ts: T059_PROMISES / T059_NEUTRAL / linear-time tests kept. One test-data fix: `"do not hide ".repeat(1700)` is 20,400 chars and tripped the test's own `h.length <= 20_000` assert, so it is now `.repeat(1660)` (19,920 chars).
 - NOT touched: docs/DECISIONS.md, qa/contracts, .claude/**, any other file.
 
-## Tests[C1]
+## Tests
 
-- fa678fb4+worktree `cd packages/engine && npx tsx --test tests/student-graph.test.ts` -> tests 142, pass 142, fail 0
-- `T-059: promisesOutcome flags the residual idiom, unrelated-verb and Hindi classes` ok (all 16 T059_PROMISES sentences flagged)
+Tests[C1]: packages/engine/tests/student-graph.test.ts "T-059: promisesOutcome flags the residual idiom, unrelated-verb and Hindi classes" — asserts every one of the 16 T059_PROMISES sentences is flagged, which is exactly C1.
+Tests[C2]: packages/engine/tests/student-graph.test.ts "T-059: promisesOutcome keeps decimal-point and real-negation phrasing neutral", the S13/C4A promise and neutral tests, "T-059 ... stays linear" — the 6 T059_NEUTRAL sentences and every existing neutral fixture stay unflagged, and the new idioms stay linear on 20,000 chars; importers lk5, coach-first, crisis-defaults, lang, pathlynks-tools, capability-manifest, evals/coverage re-run because they import student/graph.
 
-## Tests[C2]
-
-- same command: existing S13/C4A promise + neutral tests green; `T-059: promisesOutcome keeps decimal-point and real-negation phrasing neutral` ok (6 T059_NEUTRAL unflagged); `T-059 ... stays linear on a 20,000-char input` ok (21 ms for 7 hostile inputs, bound 50 ms)
-- importers of student/graph: `npx tsx --test tests/lk5.test.ts tests/coach-first.test.ts tests/crisis-defaults.test.ts tests/lang.test.ts tests/pathlynks-tools.test.ts tests/capability-manifest.test.ts evals/coverage.test.ts` -> tests 232, pass 232, fail 0
-
-## Pre-check[C1]: fa678fb4 `npx tsx --test tests/student-graph.test.ts` (base, before src edit) -> RED: `should flag: Not only is admission guaranteed, it is fast`
-## Pre-check[C2]: fa678fb4 `npx tsx --test tests/student-graph.test.ts` (base, before src edit) -> RED: `should pass: There is no 99.9 percent guarantee`
+Pre-check[C1]: fa678fb4 `cd packages/engine && npx tsx --test tests/student-graph.test.ts` -> green, 142 pass, 0 failures (C1 test ok)
+Pre-check[C2]: fa678fb4 `cd packages/engine && npx tsx --test tests/lk5.test.ts tests/coach-first.test.ts tests/crisis-defaults.test.ts tests/lang.test.ts tests/pathlynks-tools.test.ts tests/capability-manifest.test.ts evals/coverage.test.ts` -> green, 232 pass, 0 failures (plus student-graph 142/142)
 
 ## Capability coverage
 
