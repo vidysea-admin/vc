@@ -36,4 +36,4 @@ Falsification: red-on-base above is the falsification of both criteria (same tes
 Evidence: this manifest (no separate evidence file)
 Metrics: start=2026-10-30T22:54:04+05:30 end=2026-10-30T22:54:04+05:30 wall_min=30 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=0 mutations=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17
 
-## Status: ready-for-check
+## Status: checked-PASS (qa/verdicts/voice-inner-caps.md, cycle 0, 698850bc)
