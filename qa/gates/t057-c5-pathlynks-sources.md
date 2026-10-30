@@ -5,3 +5,4 @@ Options:
  (a) Recommended: build the 2-file fix (backend forwards sources; widget shows a "Sources" list) through maker-checker.
  (b) Amend the demo contract: on Pathlynks, C5 is met by a sourced answer without visible citations.
 Blocks: T-057 C5 (Pathlynks).
+Answered: 2026-10-30T20:36:16+05:30 — (a) build the 2-file fix — Umesh in chat: "Haan, fix banao"
