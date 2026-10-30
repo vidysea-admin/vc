@@ -733,7 +733,7 @@ const PROMISE_PATTERNS: readonly RegExp[] = [
   /पक्का|पक्की|गारंटी|गैरंटी|शर्तिया/g,
 ];
 /** A negation within a short window before the phrase ("not guaranteed", "no one can guarantee", "koi guarantee"). */
-const NEGATION_BEFORE = /(?:^|[^\p{L}])(?:not|no|never|cannot|can't|cant|without|nor|neither|hardly|koi|kabhi|na|कोई|कभी)(?![\p{L}])|n['’]t(?![\p{L}])/iu;
+const NEGATION_BEFORE = /(?:^|[^\p{L}])(?:not|no|never|cannot|can't|cant|without|nor|neither|hardly|koi|kabhi|कोई|कभी)(?![\p{L}])|n['’]t(?![\p{L}])/iu;
 /** A Hinglish/Hindi negation right after the phrase ("guarantee nahi hai", "pakka nahi"). */
 const NEGATION_AFTER = /^[^\p{L}]{0,3}(?:[\p{L}]{1,12}[^\p{L}]{1,3}){0,2}?(?:nahi|nahin|nhi|nai|नहीं|नही|मत)(?![\p{L}])/iu;
 
@@ -743,14 +743,19 @@ const NEGATION_AFTER = /^[^\p{L}]{0,3}(?:[\p{L}]{1,12}[^\p{L}]{1,3}){0,2}?(?:nah
  * before the negation test, so they cannot cancel a real promise ("Don't worry, admission is guaranteed"). Warnings that merely mention a
  * promise ("nobody can guarantee admission") are not specially handled: over-flagging a warning is safer than missing a promise. Bounded window.
  */
-const CLAUSE_BREAK = /[,:;.!?–—]|\s-+\s|-{2,}|(?<![\p{L}])(?:and|but|so)(?![\p{L}])/giu;
-const IDIOMATIC_NEGATION = /(?<![\p{L}])(?:no\s+(?:worr(?:y|ies)|problems?|tension|scams?|doubts?)|(?:don['’]?t|do\s+not)\s+worry|not\s+an?\s+scam|koi\s+(?:tension|dikkat|chinta|problem)(?:\s+ki\s+baat)?\s+(?:nahi|nahin|nhi)|chinta\s+mat\s+karo)(?![\p{L}])/giu;
+const CLAUSE_BREAK = /[,:;!?–—]|(?<!\d)\.|\.(?!\d)|\s-+\s|-{2,}|(?<![\p{L}])(?:and|but|so)(?![\p{L}])/giu;
+const IDIOMATIC_NEGATION = /(?<![\p{L}])(?:no\s+(?:worr(?:y|ies)|problems?|tension|scams?|doubts?)|(?:don['’]?t|do\s+not)\s+worry|not\s+an?\s+scam|koi\s+(?:tension|dikkat|chinta|problem)(?:\s+ki\s+baat)?\s+(?:nahi|nahin|nhi)|chinta\s+mat\s+karo|koi\s+(?:baat|fikar|fikr|bhi)(?:\s+(?:nahi|nahin|nhi))?|कोई\s+बात\s+(?:नहीं|नही)|not\s+(?:only|just|merely|simply)|(?:don['’]?t|do\s+not)\s+miss(?:\s+out)?|no\s+(?:risk|hassle|fees?|stress|fuss|cost|catch|obligation)|(?:(?:do|did|will|would|could)\s+not|don['’]?t|didn['’]?t|won['’]?t|never|not)\s+(?:hide|hesitate|deny|shy|afraid|ashamed|embarrassed|reluctant)(?:\s+(?:to\s+say|to\s+admit|that))?)(?![\p{L}])/giu;
+/** T-059: the Hindi particle "na" ("aao na ...") is a plea, not a negation; it negates only at the start of its clause or right before the phrase ("na pakka"). */
+/** T-059: "nobody can guarantee ..." (the modal sits right before the phrase); "nobody can stop me, admission guaranteed" is not neutralised. */
+const NOBODY_BEFORE = /(?:^|[^\p{L}])(?:nobody|noone|none)\s{1,3}(?:can|could|will|would|may|is\s+able\s+to)\s{1,3}(?:(?:ever|truly|really)\s{1,3})?$/u;
+const NA_NEGATION = /(?:^|[^\p{L}])na\s{0,3}$/u;
 
 /** True when `before` (the window ahead of a promise phrase) holds a real negation in the promise's own clause. */
 function negatedBefore(before: string): boolean {
   let clauseStart = 0;
   for (const b of before.matchAll(CLAUSE_BREAK)) clauseStart = (b.index ?? 0) + b[0].length;
-  return NEGATION_BEFORE.test(before.slice(clauseStart).replace(IDIOMATIC_NEGATION, " "));
+  const clause = before.slice(clauseStart).replace(IDIOMATIC_NEGATION, " ");
+  return NEGATION_BEFORE.test(clause) || NOBODY_BEFORE.test(clause) || NA_NEGATION.test(clause) || /^\s*na(?![\p{L}])/u.test(clause);
 }
 
 /** S13 fix-c1: invisible characters that split a word without showing: soft hyphen, mongolian vowel separator, zero-width set, word joiner and friends, BOM, variation selectors. */
