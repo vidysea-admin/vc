@@ -1,6 +1,6 @@
 # t060-voice-turn-id - T-060 / D-143 voice readout attribution by provider turn id
 
-Status: ready-for-check
+Status: checked-PASS (qa/verdicts/t060-voice-turn-id.md, cycle 0, fea088c2)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: M (provider + api voice path)
