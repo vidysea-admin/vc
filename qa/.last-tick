@@ -1,1 +1,9 @@
-2026-10-30T20:16:58+05:30 PUSHED · D-140 94462c7a (355ace45..94462c7a) push-gate green f95d03a3; HOLD: C1/C2/C4 Pathlynks RDS allow-list, C5 KB /search deploy
+2026-10-30T23:56:27+05:30 HUMAN_GATE · 6c batch4 GREEN 9dbe3b94 tree 370f9e58, push-gate green exit 0 · ask Umesh: push to vidysea/main (37 commits ff)
+2026-10-31T00:28:07+05:30 HUMAN_GATE heartbeat 1/8 - push 9dbe3b94 -> vidysea/main awaits Umesh; d139-6c verdict committed; sweep held (qa/.last-sweep would invalidate the 6c stamp before push)
+2026-10-31T01:00:02+05:30 HUMAN_GATE heartbeat 2/8 - push 9dbe3b94 -> vidysea/main awaits Umesh; no open handshake from this run (old vca-*/quest-successor manifests predate it); sweep held (push gate pending)
+2026-10-31T01:31:47+05:30 HUMAN_GATE heartbeat 3/8 - push 9dbe3b94 -> vidysea/main awaits Umesh; sweep held (push gate pending)
+2026-10-31T02:02:49+05:30 HUMAN_GATE heartbeat 4/8 - push fd45b26d (38 commits, 9dbe3b94 + bookkeeping) -> vidysea/main awaits Umesh; sweep held (push gate pending)
+2026-10-31T02:33:58+05:30 HUMAN_GATE heartbeat 5/8 - push fd45b26d (38 commits) -> vidysea/main awaits Umesh; sweep held (push gate pending)
+2026-10-31T03:05:43+05:30 HUMAN_GATE heartbeat 6/8 - push fd45b26d (38 commits) -> vidysea/main awaits Umesh; sweep held (push gate pending)
+2026-10-31T03:36:51+05:30 HUMAN_GATE heartbeat 7/8 - push fd45b26d (38 commits) -> vidysea/main awaits Umesh; sweep held (push gate pending)
+2026-10-31T04:02:45+05:30 ADVANCED push fd45b26d -> vidysea/main (94462c7a..fd45b26d, reflog 04:01:56, Umesh yes); push-gate: green cedf6de7a19ab6023ee0eb18cb2c8e857f0c37ed (run in wt6c-batch4 stamp tree); held sweep now due
