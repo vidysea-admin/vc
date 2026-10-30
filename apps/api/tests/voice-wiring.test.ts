@@ -13,7 +13,7 @@ import { WebSocket } from "ws";
 import type { Db } from "mongodb";
 import { COLLECTION_NAMES, FencedWriterDeadlineError, VC_DB_NAME, createChatThread, getStudentUsage, tenantScopedDb, usageMonth } from "@vc/db";
 import { createFakeMongoClient } from "@vc/db/testing";
-import { escalateTurns, loadConcernClassifierConfig, loadSkill, CONCERN_CLASSIFIER_SKILL } from "@vc/engine";
+import { escalateTurns, runStudentTurn, loadConcernClassifierConfig, loadSkill, CONCERN_CLASSIFIER_SKILL } from "@vc/engine";
 import { MockLiveProvider, type LiveProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
@@ -131,6 +131,85 @@ test("D-139: a voice tool waits 20 s for the graph turn (a 6 s read still answer
   t.mock.timers.tick(20_000);
   assert.deepEqual((await late).result, { message: PATHLYNKS_UNAVAILABLE_TEXT });
   stuck.release();
+});
+
+// D-142 item 1 (voice-inner-caps): the graph's own per-read cap (PATHLYNKS_DEFAULT_TIMEOUT_MS, 5 s when pathlynksTimeoutMs is unset) sits INSIDE the 20 s voice
+// budget, so an 8 s read used to fail a voice turn the budget allows. These tests leave pathlynksTimeoutMs unset on purpose (the tests above pin it to 600 s).
+const UNAVAILABLE_RE = new RegExp(PATHLYNKS_UNAVAILABLE_TEXT.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+const flush = async () => { for (let i = 0; i < 200; i++) await new Promise<void>((r) => setImmediate(r)); };
+const gated = () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  let called = 0;
+  return { release, wait: async () => { called++; await gate; }, called: () => called };
+};
+const innerDeps = (g: ReturnType<typeof gated>) => ({
+  kb: recordingKb(), provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, hasPriorFlag: async () => false,
+  pathlynks: {
+    getStudentProfile: async () => { await g.wait(); return { status: "ok" as const, data: { grade: "12" } }; },
+    getSavedCareers: async () => ({ status: "ok" as const, data: [] }),
+    getCompareList: async () => ({ status: "ok" as const, data: [] }),
+    getAssessmentStatus: async () => ({ status: "ok" as const, data: { completed: 0, inProgress: 0, reportsAvailable: 0, totalResponses: 0, status: "not_started" } }),
+  },
+});
+const vidyseaDeps = (g: ReturnType<typeof gated>) => ({
+  kb: recordingKb(), provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, hasPriorFlag: async () => false,
+  vidysea: {
+    getStudentProfile: async () => ({ ok: true, rows: [{ academic_level: "Undergraduate" }], truncated: false }),
+    getShortlistedProgrammes: async () => { await g.wait(); return { ok: true, rows: [{ programme_name: "Native MSc", university_name: "Native University" }], truncated: false }; },
+    getProfileAssessment: async () => ({ ok: true, rows: [], truncated: false }),
+    getFavourites: async () => { await g.wait(); return { ok: true, rows: [{ item_type: "programme", item_name: "Fav MSc", university_name: "Fav University" }], truncated: false }; },
+  },
+});
+const who = { tenantId: "pathlynks", studentId: "stu-A", threadId: "th-A" };
+
+test("D-142 C1: a voice tool whose inner read takes 8 s still answers with the student's data (Pathlynks profile, Vidysea single read, Vidysea list read), not the unavailable message", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const cases: Array<{ label: string; build: (g: ReturnType<typeof gated>) => ReturnType<typeof createQuestVoiceTools>; name: string; expect: RegExp }> = [
+    { label: "pathlynks_profile", build: (g) => createQuestVoiceTools("pathlynks", innerDeps(g)), name: "pathlynks_profile", expect: /12/ },
+    { label: "vidysea_shortlisted_programmes", build: (g) => createQuestVoiceTools("pathlynks", vidyseaDeps(g)), name: "vidysea_shortlisted_programmes", expect: /Native MSc/ },
+    { label: "vidysea_favourites", build: (g) => createQuestVoiceTools("pathlynks", vidyseaDeps(g)), name: "vidysea_favourites", expect: /Fav MSc/ },
+  ];
+  for (const c of cases) {
+    const g = gated();
+    const answer = c.build(g).run({ id: "1", name: c.name, args: {} }, who);
+    for (let i = 0; i < 200 && g.called() === 0; i++) await new Promise<void>((r) => setImmediate(r));
+    assert.equal(g.called(), 1, `${c.label}: read reached`);
+    t.mock.timers.tick(8_000);
+    g.release();
+    const out = await answer;
+    assert.equal(out.outcome, "ok", c.label);
+    assert.match(JSON.stringify(out.result), c.expect, c.label);
+    assert.doesNotMatch(JSON.stringify(out.result), UNAVAILABLE_RE, c.label);
+  }
+});
+
+test("D-142 C2: a voice tool whose read never resolves still returns the unavailable message at 20 s (not before), and the shared deps and the non-voice 5 s cap are unchanged", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const g = gated();
+  const deps = innerDeps(g);
+  const tools = createQuestVoiceTools("pathlynks", deps);
+  let settled = false;
+  const late = tools.run({ id: "1", name: "pathlynks_profile", args: {} }, who).then((r) => { settled = true; return r; });
+  for (let i = 0; i < 200 && g.called() === 0; i++) await new Promise<void>((r) => setImmediate(r));
+  t.mock.timers.tick(VOICE_TOOL_TIMEOUT_MS - 1_000);
+  await flush();
+  assert.equal(settled, false, "still waiting just before 20 s");
+  t.mock.timers.tick(1_000);
+  const out = await late;
+  assert.equal(out.outcome, "timeout");
+  assert.deepEqual(out.result, { message: PATHLYNKS_UNAVAILABLE_TEXT });
+  assert.equal((deps as Record<string, unknown>).pathlynksTimeoutMs, undefined, "the voice cap is applied to a copy, never to the shared (chat) deps");
+  g.release();
+
+  // Non-voice path: the same deps through runStudentTurn keep the graph's own 5 s read cap.
+  const chat = gated();
+  const turn = runStudentTurn(innerDeps(chat), { mode: "authenticated", auth: { role: "student", tenantId: who.tenantId, studentId: who.studentId }, threadId: who.threadId, turnId: "chat-turn", text: "show my Pathlynks profile" });
+  for (let i = 0; i < 200 && chat.called() === 0; i++) await new Promise<void>((r) => setImmediate(r));
+  t.mock.timers.tick(5_000);
+  const chatOut = await turn;
+  chat.release();
+  assert.match(chatOut.response.message, UNAVAILABLE_RE, "a chat read slower than 5 s still returns the unavailable message");
 });
 
 test("D-139: a voice session with tools tells the model to say one short filler line before a tool call", () => {

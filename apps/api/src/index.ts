@@ -164,9 +164,13 @@ export function createQuestVoiceTools(tenantId: string | ((verifiedTenant: strin
       if (call.name === "navigate_steps" ? (keys.length !== 1 || keys[0] !== "intent" || typeof call.args.intent !== "string" || !call.args.intent.trim() || call.args.intent.length > 500) : keys.length !== 0) return unavailable();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
+        // D-142: the graph's own per-read cap (pathlynksTimeoutMs, 5 s by default or VC_PATHLYNKS_TIMEOUT_MS) sits inside the 20 s voice budget, so a read slower than
+        // that failed a turn the budget allows. The voice run gets a COPY with the per-read cap at the voice budget; the shared deps (chat) keep theirs, and the race
+        // below still ends the tool at VOICE_TOOL_TIMEOUT_MS, so no read can hold a voice turn past 20 s.
+        const voiceGraph: StudentGraphDeps = { ...selected, pathlynksTimeoutMs: VOICE_TOOL_TIMEOUT_MS };
         const work = async () => {
           if (call.name === "navigate_steps") return { result: navigateSteps(await selected.navCatalogue?.(), call.args.intent as string), outcome: "ok" as const };
-          const out = await runStudentTurn(selected, { mode: "authenticated", auth: { role: "student", tenantId: who.tenantId, studentId: who.studentId }, threadId: who.threadId, turnId: "voice-tool", text: prompts[call.name] });
+          const out = await runStudentTurn(voiceGraph, { mode: "authenticated", auth: { role: "student", tenantId: who.tenantId, studentId: who.studentId }, threadId: who.threadId, turnId: "voice-tool", text: prompts[call.name] });
           return { result: { message: out.response.message }, outcome: "ok" as const };
         };
         return await Promise.race([work(), new Promise<ReturnType<typeof unavailable>>((resolve) => { timer = setTimeout(() => resolve(unavailable("timeout")), VOICE_TOOL_TIMEOUT_MS); })]);
