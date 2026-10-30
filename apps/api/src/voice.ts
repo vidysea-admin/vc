@@ -68,7 +68,7 @@ import {
   type Source,
   type VoiceServerEvent,
 } from "@vc/schemas";
-import { ANONYMOUS_CRISIS_MESSAGE, STUDENT_CRISIS_MESSAGE, TELE_MANAS_LINE, crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
+import { ANONYMOUS_CRISIS_MESSAGE, STUDENT_CRISIS_MESSAGE, TELE_MANAS_LINE, crisisGuard, crisisMessageFor, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
 import { isEligibleMemoryFact, loadStudentMemoryContext, type TurnUsageSink, type UsageMeter } from "./chat.js";
 import {
   LiveConfigError,
@@ -645,6 +645,8 @@ interface Conn {
   crisisUtterances: (string | undefined)[];
   /** U10s H3: the turn ids already used by a crisis flag/escalation on this connection (a reused id would dedupe a later crisis away). */
   crisisTurnIds: Set<string>;
+  /** T-061: the language detected (detectLanguageOffline) on the latest crisis utterance, read when LiveSession builds the crisis message. Unset: English. */
+  crisisLang?: string;
   startTimer?: unknown;
   turnBySeq: Map<number, string>;
   /** `${seq}|${reason}|${detail}` of the flags already sent: one listed speaker named under three aliases is one flag, not three. */
@@ -734,6 +736,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     const capture = () => {
       // Not capped: each entry is consumed by its own crisis record, and dropping one would shift every later crisis onto the wrong words.
       c.crisisUtterances.push(c.persistText ? text.trim() : undefined);
+      // T-061: the crisis reply follows the language of THIS utterance, as in chat (crisisMessageFor). LiveSession reads the message right after this
+      // detection, so the latest value is this crisis's. A detection that cannot be made leaves English, the safe default.
+      try { c.crisisLang = detectLanguageOffline(text).lang; } catch { c.crisisLang = undefined; }
     };
     let result: ReturnType<LiveCrisisDetector>;
     try {
@@ -1310,7 +1315,13 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       sink,
       captureInputContext: () => c.microphonePromptId === c.promptId ? c.promptId : undefined,
       detectCrisis: (text) => detectForConn(c, text),
-      crisisMessage: { text: c.anon ? ANONYMOUS_CRISIS_MESSAGE : STUDENT_CRISIS_MESSAGE },
+      // T-061: the text is read by LiveSession when a crisis fires (never earlier except the constructor's non-empty check, which sees English), so it is
+      // a getter: the vetted message for the language of the crisis utterance, the same crisisMessageFor the chat uses. No new crisis text lives here.
+      crisisMessage: {
+        get text(): string {
+          return crisisMessageFor(c.crisisLang ?? "en", c.anon ? "anonymous" : "student");
+        },
+      },
       auditOutput,
       ...(tools
         ? {
