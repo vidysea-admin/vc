@@ -63,6 +63,37 @@ test("Q5: Quest voice tools use the verified tenant/student, redact columns and 
   assert.deepEqual(seen, ["stu-A"]);
 });
 
+test("D-140: each quest voice tool run reports its outcome (ok, unavailable on a refused call, timeout past 20 s) for the voice log, never in the model result", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  let slow = false;
+  const tools = createQuestVoiceTools("pathlynks", {
+    kb: recordingKb(), provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS,
+    hasPriorFlag: async () => false, pathlynksTimeoutMs: 600_000,
+    pathlynks: {
+      getStudentProfile: async () => { if (slow) await gate; return { status: "ok", data: { grade: "12" } }; },
+      getSavedCareers: async () => ({ status: "ok", data: [] }),
+      getCompareList: async () => ({ status: "ok", data: [] }),
+      getAssessmentStatus: async () => ({ status: "ok", data: { completed: 0, inProgress: 0, reportsAvailable: 0, totalResponses: 0, status: "not_started" } }),
+    },
+  });
+  const who = { tenantId: "pathlynks", studentId: "stu-A", threadId: "th-A" };
+  const ok = await tools.run({ id: "1", name: "pathlynks_profile", args: {} }, who);
+  assert.equal(ok.outcome, "ok");
+  assert.equal((ok.result as Record<string, unknown>).outcome, undefined, "the outcome is server-side only");
+  assert.equal((await tools.run({ id: "2", name: "pathlynks_profile", args: { studentId: "stu-B" } }, who)).outcome, "unavailable");
+  assert.equal((await tools.run({ id: "3", name: "pathlynks_profile", args: {} }, { ...who, tenantId: "other" })).outcome, "unavailable");
+  slow = true;
+  const late = tools.run({ id: "4", name: "pathlynks_profile", args: {} }, who);
+  for (let i = 0; i < 200; i++) await new Promise<void>((r) => setImmediate(r));
+  t.mock.timers.tick(VOICE_TOOL_TIMEOUT_MS);
+  const timedOut = await late;
+  release();
+  assert.equal(timedOut.outcome, "timeout");
+  assert.match(JSON.stringify(timedOut.result), new RegExp(PATHLYNKS_UNAVAILABLE_TEXT.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
 test("D-139: a voice tool waits 20 s for the graph turn (a 6 s read still answers with the student's data); past 20 s it returns the unavailable message", async (t) => {
   assert.equal(VOICE_TOOL_TIMEOUT_MS, 20_000);
   t.mock.timers.enable({ apis: ["setTimeout"] });
@@ -732,3 +763,4 @@ test("wire-fix-1: voice declares and runs the vidysea_* tracking tools and the p
   assert.match(JSON.stringify(crossed.result), /Career Quest is part of Pathlynks/, "a quest tool on a Vidysea tenant says so and reads nothing");
   assert.equal(seen.length, before);
 });
+

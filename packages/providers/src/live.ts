@@ -134,10 +134,35 @@ export type LiveEvent =
   | { type: "tool_call"; call: LiveToolCall }
   | { type: "interrupted" }
   | { type: "turn_complete" }
+  | { type: "usage"; usage: LiveUsage }
   | { type: "crisis"; level?: string; message: string; latencyMs: number }
   | { type: "flag"; reason: string; detail: string }
   | { type: "error"; message: string }
   | { type: "closed"; reason: string };
+
+/**
+ * D-140: what one provider usage report cost. Counts only, never text. `costUsd` is absent when the model has no known price
+ * (a price is never invented). Tracking only: nothing caps a session on it.
+ */
+export interface LiveUsage {
+  inputTokens: number;
+  outputTokens: number;
+  costUsd?: number;
+}
+
+/** D-140: USD per million tokens by modality, as Google publishes it for a Live model. */
+export interface LivePrice {
+  input: { text: number; audio: number; imageVideo: number };
+  output: { text: number; audio: number };
+}
+
+/**
+ * D-140: paid-tier Live prices from ai.google.dev/gemini-api/docs/pricing, read 2026-10-30. Audio is 25 tokens per second, so
+ * audio in $3.00/M is about $0.005/min and audio out $12.00/M about $0.018/min. Thinking tokens bill as text output.
+ */
+export const GEMINI_LIVE_PRICES: Readonly<Record<string, LivePrice>> = {
+  "gemini-3.1-flash-live-preview": { input: { text: 0.75, audio: 3, imageVideo: 1 }, output: { text: 4.5, audio: 12 } },
+};
 
 export interface LiveSessionConfig {
   systemInstruction?: string;
@@ -236,6 +261,8 @@ export interface LiveBackendSink {
   interrupted(): void;
   error(message: string): void;
   backendClosed(reason: string): void;
+  /** D-140: a provider usage report (optional so a transport without one still fits). */
+  usage?(usage: LiveUsage): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -455,6 +482,11 @@ export class LiveSession implements LiveBackendSink {
     // is queued and answered on attach, not turned into an error (M1).
     if (this.backend) run();
     else this.queueBeforeAttach(run);
+  }
+
+  /** D-140: billed even during a crisis or interrupt mute, so it is passed on whatever the mute state. */
+  usage(usage: LiveUsage): void {
+    this.emit({ type: "usage", usage });
   }
 
   turnComplete(): void {
@@ -741,6 +773,9 @@ export class MockLiveBackend implements LiveBackend {
   emitInterrupted(): void {
     this.s().interrupted();
   }
+  emitUsage(usage: LiveUsage): void {
+    this.s().usage?.(usage);
+  }
   emitError(message: string): void {
     this.s().error(message);
   }
@@ -803,16 +838,20 @@ export interface GeminiLiveProviderOptions {
   model: string;
   /** Absent -> `connect` throws `LiveNotWiredError` (no key, no SDK, G-REAL still closed). */
   connector?: GeminiLiveConnector;
+  /** D-140: overrides the `GEMINI_LIVE_PRICES` entry for `model`; with neither, usage carries tokens and no cost. */
+  price?: LivePrice;
 }
 
 export class GeminiLiveProvider implements LiveProvider {
   readonly kind = "gemini" as const;
   readonly model: string;
   private readonly connector: GeminiLiveConnector | undefined;
+  private readonly price: LivePrice | undefined;
 
   constructor(options: GeminiLiveProviderOptions) {
     this.model = options.model;
     this.connector = options.connector;
+    this.price = options.price ?? (Object.hasOwn(GEMINI_LIVE_PRICES, options.model) ? GEMINI_LIVE_PRICES[options.model] : undefined);
   }
 
   async connect(config: LiveSessionConfig): Promise<LiveSession> {
@@ -824,7 +863,7 @@ export class GeminiLiveProvider implements LiveProvider {
       model: this.model,
       config: buildGeminiLiveConfig(config),
       callbacks: {
-        onmessage: (message) => translateGeminiMessage(message, session),
+        onmessage: (message) => translateGeminiMessage(message, session, this.price),
         onerror: (error) => session.error(error instanceof Error ? error.message : (error.message ?? "Gemini Live error")),
         onclose: (event) => session.backendClosed(event?.reason || "Gemini Live closed"),
       },
@@ -890,9 +929,13 @@ class GeminiLiveBackend implements LiveBackend {
 }
 
 /** Translates one Gemini Live server message into normalized backend events. Exported for tests. */
-export function translateGeminiMessage(raw: unknown, sink: LiveBackendSink): void {
+export function translateGeminiMessage(raw: unknown, sink: LiveBackendSink, price?: LivePrice): void {
   const msg = raw as Record<string, any> | null;
   if (!msg || typeof msg !== "object") return;
+
+  // D-140: usageMetadata rides on any server message (alone or beside one other field), so it is read before the serverContent return.
+  const usage = liveUsageFromMetadata(msg.usageMetadata, price);
+  if (usage) sink.usage?.(usage);
 
   const toolCall = msg.toolCall;
   if (toolCall && Array.isArray(toolCall.functionCalls)) {
@@ -930,6 +973,42 @@ export function translateGeminiMessage(raw: unknown, sink: LiveBackendSink): voi
   }
   if (content.interrupted === true) sink.interrupted();
   if (content.turnComplete === true) sink.turnComplete();
+}
+
+/**
+ * D-140: one Gemini Live `usageMetadata` as text-free usage. Input = prompt + tool-use prompt tokens; output = response + thoughts tokens.
+ * Prompt and response tokens are priced by their modality breakdown; any count the breakdown does not cover is priced at the audio rate
+ * (the higher one) so cost is never under-reported. Counts that are not whole non-negative numbers are ignored. Undefined when nothing was used.
+ */
+export function liveUsageFromMetadata(raw: unknown, price: LivePrice | undefined): LiveUsage | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const meta = raw as Record<string, unknown>;
+  const prompt = count(meta.promptTokenCount), toolUse = count(meta.toolUsePromptTokenCount);
+  const response = count(meta.responseTokenCount), thoughts = count(meta.thoughtsTokenCount);
+  const inputTokens = prompt + toolUse, outputTokens = response + thoughts;
+  if (inputTokens === 0 && outputTokens === 0) return undefined;
+  if (!price) return { inputTokens, outputTokens };
+  const byModality = (details: unknown): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const d of Array.isArray(details) ? details : []) {
+      if (!d || typeof d !== "object" || typeof (d as { modality?: unknown }).modality !== "string") continue;
+      const key = (d as { modality: string }).modality.toUpperCase();
+      m.set(key, (m.get(key) ?? 0) + count((d as { tokenCount?: unknown }).tokenCount));
+    }
+    return m;
+  };
+  const pIn = byModality(meta.promptTokensDetails), pOut = byModality(meta.responseTokensDetails);
+  const inText = pIn.get("TEXT") ?? 0, inAudio = pIn.get("AUDIO") ?? 0, inVisual = (pIn.get("IMAGE") ?? 0) + (pIn.get("VIDEO") ?? 0);
+  const outText = pOut.get("TEXT") ?? 0, outAudio = pOut.get("AUDIO") ?? 0;
+  const inRest = Math.max(0, prompt - inText - inAudio - inVisual), outRest = Math.max(0, response - outText - outAudio);
+  const usd =
+    (inText + toolUse) * price.input.text + (inAudio + inRest) * price.input.audio + inVisual * price.input.imageVideo +
+    (outText + thoughts) * price.output.text + (outAudio + outRest) * price.output.audio;
+  return { inputTokens, outputTokens, costUsd: usd / 1e6 };
+}
+
+function count(v: unknown): number {
+  return typeof v === "number" && Number.isSafeInteger(v) && v > 0 ? v : 0;
 }
 
 // ---------------------------------------------------------------------------

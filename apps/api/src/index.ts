@@ -148,7 +148,8 @@ export function createQuestVoiceTools(tenantId: string | ((verifiedTenant: strin
     pathlynks_quest_progress: "show my career quest", pathlynks_goals: "show my goals", pathlynks_year_plan: "show my year plan",
   };
   const owned = new Set([...Object.keys(prompts), "navigate_steps"]);
-  const unavailable = () => ({ result: { message: PATHLYNKS_UNAVAILABLE_TEXT } });
+  // D-140: `outcome` feeds the voice tool log line only; voice.ts returns `result` alone to the model.
+  const unavailable = (outcome: "unavailable" | "timeout" = "unavailable") => ({ result: { message: PATHLYNKS_UNAVAILABLE_TEXT }, outcome });
   return {
     declarations: [
       ...(existing?.declarations.filter((d) => !owned.has(d.name)) ?? []),
@@ -164,11 +165,11 @@ export function createQuestVoiceTools(tenantId: string | ((verifiedTenant: strin
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const work = async () => {
-          if (call.name === "navigate_steps") return { result: navigateSteps(await selected.navCatalogue?.(), call.args.intent as string) };
+          if (call.name === "navigate_steps") return { result: navigateSteps(await selected.navCatalogue?.(), call.args.intent as string), outcome: "ok" as const };
           const out = await runStudentTurn(selected, { mode: "authenticated", auth: { role: "student", tenantId: who.tenantId, studentId: who.studentId }, threadId: who.threadId, turnId: "voice-tool", text: prompts[call.name] });
-          return { result: { message: out.response.message } };
+          return { result: { message: out.response.message }, outcome: "ok" as const };
         };
-        return await Promise.race([work(), new Promise<ReturnType<typeof unavailable>>((resolve) => { timer = setTimeout(() => resolve(unavailable()), VOICE_TOOL_TIMEOUT_MS); })]);
+        return await Promise.race([work(), new Promise<ReturnType<typeof unavailable>>((resolve) => { timer = setTimeout(() => resolve(unavailable("timeout")), VOICE_TOOL_TIMEOUT_MS); })]);
       } catch { return unavailable(); }
       finally { if (timer) clearTimeout(timer); }
     },
