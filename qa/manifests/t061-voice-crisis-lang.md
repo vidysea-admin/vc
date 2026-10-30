@@ -1,6 +1,6 @@
 # t061-voice-crisis-lang - T-061 / D-143, voice crisis reply in the student's language
 
-Status: ready-for-check
+Status: checked-PASS (qa/verdicts/t061-voice-crisis-lang.md, cycle 0, 3696adda)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: M (student safety path, shared module apps/api/src/voice.ts)
