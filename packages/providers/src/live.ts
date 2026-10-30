@@ -129,11 +129,11 @@ export interface LiveTranscriptSink {
 }
 
 export type LiveEvent =
-  | { type: "audio"; data: Uint8Array; mimeType: typeof LIVE_OUTPUT_MIME }
-  | { type: "transcript"; role: LiveRole; text: string; final: boolean; fixed?: boolean }
+  | { type: "audio"; data: Uint8Array; mimeType: typeof LIVE_OUTPUT_MIME; turnId?: string }
+  | { type: "transcript"; role: LiveRole; text: string; final: boolean; fixed?: boolean; turnId?: string }
   | { type: "tool_call"; call: LiveToolCall }
-  | { type: "interrupted" }
-  | { type: "turn_complete" }
+  | { type: "interrupted"; turnId?: string }
+  | { type: "turn_complete"; turnId?: string }
   | { type: "usage"; usage: LiveUsage }
   | { type: "crisis"; level?: string; message: string; latencyMs: number }
   | { type: "flag"; reason: string; detail: string }
@@ -237,7 +237,11 @@ export class LiveConfigError extends Error {
 /** What `LiveSession` calls on a transport. */
 export interface LiveBackend {
   sendAudio(chunk: Uint8Array): void;
-  sendText(text: string): void;
+  /**
+   * T-060 (D-143): returns the provider turn id of the model turn that will answer this text, when the transport knows it
+   * (the same id it stamps on that turn's output and turn_complete). A transport without one returns nothing.
+   */
+  sendText(text: string): string | void;
   sendToolResponse(call: LiveToolCall, result: unknown): void;
   /** Stop the model speaking now. */
   interrupt(): void;
@@ -253,12 +257,13 @@ export interface LiveBackend {
 export interface LiveBackendSink {
   /** `final` true when the transport knows the user's utterance is finished. */
   inputTranscript(text: string, final: boolean): void;
-  outputTranscript(text: string): void;
+  /** T-060: `turnId` is the provider's id of the model turn this output belongs to, when the transport has one. */
+  outputTranscript(text: string, turnId?: string): void;
   /** Raw model audio, already decoded to PCM16 bytes at 24 kHz. */
-  outputAudio(data: Uint8Array): void;
+  outputAudio(data: Uint8Array, turnId?: string): void;
   toolCall(call: LiveToolCall): void;
-  turnComplete(): void;
-  interrupted(): void;
+  turnComplete(turnId?: string): void;
+  interrupted(turnId?: string): void;
   error(message: string): void;
   backendClosed(reason: string): void;
   /** D-140: a provider usage report (optional so a transport without one still fits). */
@@ -364,14 +369,16 @@ export class LiveSession implements LiveBackendSink {
     this.backend!.endAudio?.();
   }
 
-  sendText(text: string): void {
+  /** T-060: returns the provider turn id that will answer the text, when the transport knows it (a crisis text gets none: the fixed message owns the floor). */
+  sendText(text: string): string | undefined {
     this.assertOpen();
     // A typed message is as much student input as speech: it goes through the same crisis hook,
     // every time (also when a spoken crisis already fired for this utterance: M2).
     // Typed text is persisted by the text channel (U10), so it only reaches the voice thread here
     // when it triggers the crisis path (the fixed reply must follow the words that caused it).
-    if (this.scanForCrisis(text, text, true)) return; // the fixed message owns the floor; do not also prompt the model
-    this.backend!.sendText(text);
+    if (this.scanForCrisis(text, text, true)) return undefined; // the fixed message owns the floor; do not also prompt the model
+    const turnId = this.backend!.sendText(text);
+    return typeof turnId === "string" && turnId !== "" ? turnId : undefined;
   }
 
   async sendToolResult(call: LiveToolCall, result: unknown): Promise<void> {
@@ -442,22 +449,22 @@ export class LiveSession implements LiveBackendSink {
     if (final) this.flushUser(!this.crisisMute, true);
   }
 
-  outputTranscript(text: string): void {
+  outputTranscript(text: string, turnId?: string): void {
     if (this.closedFlag || !text) return;
     if (this.muted) return;
     this.flushUser(true); // the model only answers once the student has finished
     this.assistantBuf = this.assistantBuf ? `${this.assistantBuf} ${text}`.trim() : text.trim();
-    this.emit({ type: "transcript", role: "assistant", text, final: false });
+    this.emit({ type: "transcript", role: "assistant", text, final: false, ...turnIdField(turnId) });
   }
 
-  outputAudio(data: Uint8Array): void {
+  outputAudio(data: Uint8Array, turnId?: string): void {
     if (this.closedFlag) return;
     if (this.muted) {
       this.droppedModelAudioChunks++;
       return;
     }
     this.flushUser(true);
-    this.emit({ type: "audio", data, mimeType: LIVE_OUTPUT_MIME });
+    this.emit({ type: "audio", data, mimeType: LIVE_OUTPUT_MIME, ...turnIdField(turnId) });
   }
 
   toolCall(call: LiveToolCall): void {
@@ -489,7 +496,7 @@ export class LiveSession implements LiveBackendSink {
     this.emit({ type: "usage", usage });
   }
 
-  turnComplete(): void {
+  turnComplete(turnId?: string): void {
     if (this.closedFlag) return;
     // During a crisis mute the turn end does not end the student's utterance (H1): the next chunk of
     // the same utterance must neither lift the mute nor refire the fixed message.
@@ -499,16 +506,16 @@ export class LiveSession implements LiveBackendSink {
     // after a crisis only new student speech reopens the model's audio. It does arm lift condition 1.
     if (this.crisisMute) this.crisisTurnEnded = true;
     else this.muted = false;
-    this.emit({ type: "turn_complete" });
+    this.emit({ type: "turn_complete", ...turnIdField(turnId) });
   }
 
-  interrupted(): void {
+  interrupted(turnId?: string): void {
     if (this.closedFlag) return;
     this.flushAssistant(true);
     // After a crisis the mute lasts until the student speaks again (F1, D-096); arms lift condition 1.
     if (this.crisisMute) this.crisisTurnEnded = true;
     else this.muted = false;
-    this.emit({ type: "interrupted" });
+    this.emit({ type: "interrupted", ...turnIdField(turnId) });
   }
 
   /** Model audio chunks dropped because the session was muted (crisis or client interrupt). */
@@ -738,8 +745,11 @@ export class MockLiveBackend implements LiveBackend {
     this.audioIn.push(chunk);
     this.calls.push({ type: "audio", bytes: chunk.byteLength });
   }
-  sendText(text: string): void {
+  /** T-060: scriptable provider turn id for the model turn that answers a text; unset means the mock reports none. */
+  textTurnId?: (text: string) => string | undefined;
+  sendText(text: string): string | void {
     this.calls.push({ type: "text", text });
+    return this.textTurnId?.(text);
   }
   sendToolResponse(call: LiveToolCall, result: unknown): void {
     this.calls.push({ type: "tool_response", id: call.id, name: call.name, result });
@@ -758,20 +768,20 @@ export class MockLiveBackend implements LiveBackend {
   emitInputTranscript(text: string, final = false): void {
     this.s().inputTranscript(text, final);
   }
-  emitOutputTranscript(text: string): void {
-    this.s().outputTranscript(text);
+  emitOutputTranscript(text: string, turnId?: string): void {
+    this.s().outputTranscript(text, turnId);
   }
-  emitOutputAudio(data: Uint8Array): void {
-    this.s().outputAudio(data);
+  emitOutputAudio(data: Uint8Array, turnId?: string): void {
+    this.s().outputAudio(data, turnId);
   }
   emitToolCall(call: LiveToolCall): void {
     this.s().toolCall(call);
   }
-  emitTurnComplete(): void {
-    this.s().turnComplete();
+  emitTurnComplete(turnId?: string): void {
+    this.s().turnComplete(turnId);
   }
-  emitInterrupted(): void {
-    this.s().interrupted();
+  emitInterrupted(turnId?: string): void {
+    this.s().interrupted(turnId);
   }
   emitUsage(usage: LiveUsage): void {
     this.s().usage?.(usage);
@@ -926,6 +936,11 @@ class GeminiLiveBackend implements LiveBackend {
     }
     this.connection.close();
   }
+}
+
+/** T-060: the optional provider turn id as an event field (absent when the transport has none). */
+function turnIdField(turnId: string | undefined): { turnId?: string } {
+  return typeof turnId === "string" && turnId !== "" ? { turnId } : {};
 }
 
 /** Translates one Gemini Live server message into normalized backend events. Exported for tests. */
