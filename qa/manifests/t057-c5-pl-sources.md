@@ -36,4 +36,4 @@ Metrics: start=2026-10-30T20:44:41+05:30 end=2026-10-30T20:44:41+05:30 wall_min=
 - New test 'C5 Guide history: hostile or unlabeled sources are cleaned, never passed through raw' (javascript: url without title/kind; mixed list with object title and a non-object) — red before the fix (1 fail), green after.
 Pre-check[C5c]: frontend uncommitted node --test scripts/student-contract-browser.test.cjs -> 32/32 green (C5 3/3)
 
-## Status: ready-for-check
+## Status: checked-PASS (verdict 0d921a08, cycle 1)
