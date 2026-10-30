@@ -1331,3 +1331,11 @@ Separately, the remaining T-057 demo work runs as parallel subagent lanes:
 **Links:** T-057; T-059; D-139; D-140; D-141
 **Changes-authorized:** apps/api/src voice tool path read timeouts and their tests; packages/engine/src/student promise-floor detection and its tests only
 **Approved-by:** Umesh
+
+## D-143 | 2026-10-30 | type: decision | status: ACTIVE
+**What:** Umesh approved starting T-060 and T-061 as parallel builders (chat 2026-10-30, "Haan, dono start"). T-061: a voice crisis reply uses the student's language the way chat does (crisisMessageFor hi / hi-Latn) instead of always English, with tests for a Hindi and a Hinglish voice crisis and for a model final equal to the crisis text. T-060: the Live provider exposes a provider turn id so a reply whose first output arrives after a readout dispatch is attributed to its own turn, not to the readout.
+**Why:** T-061 is a student-safety gap (a Hindi-speaking student in crisis gets English on voice); T-060 can attribute a late reply to the wrong turn. Both were open in TASKS.md and listed in reports.md 4c.
+**Result:** Pending. Maker lane: one builder per task, TDD, one /checker each. apps/api/src/index.ts and apps/api/tests/voice-wiring.test.ts stay owned by the running voice-inner-caps unit (D-142).
+**Links:** T-060; T-061; T-057; D-137; D-140; D-142
+**Changes-authorized:** apps/api/src/voice.ts crisis-message language path (T-061) and readout attribution path (T-060); packages/providers/src/live.ts turn id (T-060); packages/engine crisisMessageFor export only if needed (T-061); their tests only
+**Approved-by:** Umesh
