@@ -415,13 +415,14 @@ test("R7: an over-long text without a crisis phrase is StudentInputInvalidError,
   assert.equal(kb.calls.length, 0);
 });
 
-test("R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix", async () => {
+test("R9 / D-138: the compiled graph is cached per deps, enforces the TurnResponse schema, and a later ordinary turn in a flagged thread carries no helpline suffix", async () => {
   const { d } = deps({ hasPriorFlag: async () => true });
   const g1 = compileStudentGraph(d);
   assert.equal(compileStudentGraph(d), g1, "one compiled graph per deps object");
   const out = await g1.invoke({ raw: turn() });
   assert.ok(TurnResponseSchema.safeParse(out.result!.response).success);
-  assert.match(out.result!.response.message ?? "", /14416/);
+  assert.equal(out.result!.response.state, "ok");
+  assert.doesNotMatch(out.result!.response.message ?? "", /14416/, "D-138: the helpline shows on the crisis turn only");
 });
 
 test("R9: the student module is re-exported from the @vc/engine entry point", async () => {
@@ -566,30 +567,40 @@ test("U6h M4: priorFlagInThread is derived server-side - a caller-supplied true 
   assert.deepEqual(asked, [THREAD], "the store is asked about this tenant, student and thread only");
 });
 
+// D-138: a flagged thread no longer shows the helpline on later ordinary turns, so these tests observe the derived prior flag where it
+// still acts: the kb-answer input that switches on the stricter crisis rules.
+const kbPriorFlag = (p: ReturnType<typeof studentProvider>) => (p.calls.filter((c) => c.skillName === "kb-answer").at(-1)?.input as { priorFlag?: boolean } | undefined)?.priorFlag;
+
 test("U6h M4: a caller-supplied false cannot hide a flag that is in the stored thread", async () => {
-  const { d } = deps({ hasPriorFlag: async () => true });
+  const provider = studentProvider();
+  const { d } = deps({ provider, hasPriorFlag: async () => true });
   for (const priorFlagInThread of [false, undefined]) {
     const out = await runStudentTurn(d, { ...turn(), ...(priorFlagInThread === undefined ? {} : { priorFlagInThread }) });
-    assert.match(out.response.message ?? "", /14416/);
+    assert.equal(kbPriorFlag(provider), true);
+    assert.doesNotMatch(out.response.message ?? "", /14416/, "D-138: no helpline on a later ordinary turn");
   }
 });
 
-test("U6h M4: an unreadable flag store fails toward disclosure (the helpline line is shown) and the failure is reported text-free", async () => {
+test("U6h M4: an unreadable flag store fails toward caution (the stricter crisis rules apply) and the failure is reported text-free", async () => {
   const errors: string[] = [];
-  const { d } = deps({ hasPriorFlag: async () => { throw new Error("store down"); }, onWriteError: (w) => void errors.push(w) });
-  const out = await runStudentTurn(d, { ...turn(), priorFlagInThread: false });
-  assert.match(out.response.message ?? "", /14416/);
+  const provider = studentProvider();
+  const { d } = deps({ provider, hasPriorFlag: async () => { throw new Error("store down"); }, onWriteError: (w) => void errors.push(w) });
+  await runStudentTurn(d, { ...turn(), priorFlagInThread: false });
+  assert.equal(kbPriorFlag(provider), true);
   assert.deepEqual(errors, ["flag_read"]);
 });
 
 test("U6h M4: with a store that has no earlier flag, a flag this graph raised earlier in the same thread still counts (e.g. the flag write failed); another thread is unaffected", async () => {
-  const { d } = deps({ hasPriorFlag: NO_PRIOR_FLAG });
+  const provider = studentProvider();
+  const { d } = deps({ provider, hasPriorFlag: NO_PRIOR_FLAG });
   const crisis = await runStudentTurn(d, turn(CRISIS_TEXT));
   assert.equal(crisis.response.state, "escalated");
+  assert.match(crisis.response.message ?? "", /14416/, "the crisis turn itself carries the helpline");
   const same = await runStudentTurn(d, { ...turn(), turnId: "tu-next", priorFlagInThread: false });
-  assert.match(same.response.message ?? "", /14416/);
-  const other = await runStudentTurn(d, { ...turn(), threadId: "th-other", priorFlagInThread: true });
-  assert.doesNotMatch(other.response.message ?? "", /14416/);
+  assert.equal(kbPriorFlag(provider), true);
+  assert.doesNotMatch(same.response.message ?? "", /14416/, "D-138: no helpline on a later ordinary turn");
+  await runStudentTurn(d, { ...turn(), threadId: "th-other", priorFlagInThread: true });
+  assert.equal(kbPriorFlag(provider), false);
 });
 
 const coachProvider = (reply: string, questions: string[]) => studentProvider({ coach: { reply, questions } });
@@ -938,9 +949,9 @@ test("D-110 C3: the same order holds for a stressed student's sourced answer and
   assert.equal(m2, `${STRESS_CHECK_IN} ${D110_DISCLAIMER} ${D110_GUIDANCE} ${TELE_MANAS_LINE}`);
 });
 
-test("D-110 C2: a flagged thread (prior crisis flag) and the crisis messages keep the helpline", async () => {
+test("D-110 C2 / D-138: the crisis messages keep the helpline; a later ordinary turn in a flagged thread does not", async () => {
   const flagged = await runStudentTurn(deps({ hasPriorFlag: async () => true }).d, turn());
-  assert.ok((flagged.response.message ?? "").endsWith(TELE_MANAS_LINE));
+  assert.ok(!(flagged.response.message ?? "").includes(TELE_MANAS_LINE));
   const crisis = await runStudentTurn(deps().d, turn(CRISIS_TEXT));
   assert.equal(crisis.response.message, STUDENT_CRISIS_MESSAGE);
 });

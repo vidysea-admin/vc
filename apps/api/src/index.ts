@@ -129,6 +129,9 @@ export function questDbOpenerFor(client: ReturnType<typeof connectFromEnv>["clie
   return async () => openReadOnlyDb(client, database, collections);
 }
 
+/** D-139: a voice tool waits this long for its graph turn (about 17 s in chat) before it answers with the unavailable message. */
+export const VOICE_TOOL_TIMEOUT_MS = 20_000;
+
 /** Shared authenticated graph filters; identity comes only from the voice session, never tool arguments. */
 export function createQuestVoiceTools(tenantId: string | ((verifiedTenant: string) => StudentGraphDeps | undefined), graph: StudentGraphDeps, existing?: VoiceTools): VoiceTools {
   const prompts: Record<string, string> = {
@@ -165,7 +168,7 @@ export function createQuestVoiceTools(tenantId: string | ((verifiedTenant: strin
           const out = await runStudentTurn(selected, { mode: "authenticated", auth: { role: "student", tenantId: who.tenantId, studentId: who.studentId }, threadId: who.threadId, turnId: "voice-tool", text: prompts[call.name] });
           return { result: { message: out.response.message } };
         };
-        return await Promise.race([work(), new Promise<ReturnType<typeof unavailable>>((resolve) => { timer = setTimeout(() => resolve(unavailable()), 5000); })]);
+        return await Promise.race([work(), new Promise<ReturnType<typeof unavailable>>((resolve) => { timer = setTimeout(() => resolve(unavailable()), VOICE_TOOL_TIMEOUT_MS); })]);
       } catch { return unavailable(); }
       finally { if (timer) clearTimeout(timer); }
     },

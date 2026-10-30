@@ -224,7 +224,7 @@ test("A11/A11b anonymous: fixed anonymous message, only the text-free counter, n
   assert.equal((d.provider as MockProvider).calls.length, 0);
 });
 
-test("A11b keep talking: over a 30-turn Mock session risk is re-checked on every message; the turn after a flag is still answered", async () => {
+test("A11b keep talking: over a 30-turn Mock session risk is re-checked on every message; the turn after a flag is still answered (D-138: without the helpline)", async () => {
   const d = deps();
   const script: string[] = [];
   for (let i = 0; i < 30; i++) script.push(i % 5 === 2 ? CRISIS_EN : "What is the tuition at German public universities?");
@@ -235,11 +235,12 @@ test("A11b keep talking: over a 30-turn Mock session risk is re-checked on every
     const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-30", turnId: `tu-${i}`, text });
     if (text === CRISIS_EN) {
       assert.equal(out.response.state, "escalated", `turn ${i}`);
+      assert.match(out.response.message ?? "", /14416/, `turn ${i}: the crisis turn carries the helpline`);
       escalated++;
       priorFlag = true;
     } else {
       assert.equal(out.response.state, "ok", `turn ${i} after a flag must still be answered`);
-      if (priorFlag) assert.match(out.response.message ?? "", /14416/, `turn ${i}: helpline stays visible after a flag`);
+      if (priorFlag) assert.doesNotMatch(out.response.message ?? "", /14416/, `turn ${i}: D-138 helpline on the crisis turn only`);
       answered++;
     }
   }

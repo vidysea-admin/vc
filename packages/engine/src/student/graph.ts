@@ -10,7 +10,7 @@
  *    tenantId; the JWT itself is verified by the API layer, U8/B21): a bad identity throws
  *    StudentAuthRequiredError, any other invalid input StudentInputInvalidError, before any KB or model
  *    call. Pathlynks-authenticated = consented (B4, D-086): no consent row.
- *  - finish: the prior-flag Tele-MANAS suffix and the TurnResponse schema parse, inside the compiled
+ *  - finish: the stress/allow-list helpline lines and the TurnResponse schema parse, inside the compiled
  *    graph (repair R9). U6h M4: "prior flag in this thread" is derived server-side (the `hasPriorFlag` port
  *    plus the flags this graph raised itself); the caller-supplied `priorFlagInThread` is ignored. `compileStudentGraph` caches one compiled graph per deps object.
  *  - Store writes (flag log, escalation, gap count, anonymous counter) never fail a turn: each is caught
@@ -1160,7 +1160,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       return await deps.hasPriorFlag(thread);
     } catch (err) {
       report("flag_read", err);
-      return true; // fail toward disclosure: showing the helpline line is the safe error
+      return true; // fail toward caution: the stricter crisis rules are the safe error (D-138)
     }
   };
   const count = (kind: AnonymousCounterKind) => safeWrite(`counter:${kind}`, deps.countAnonymous ? () => deps.countAnonymous!(kind) : undefined);
@@ -1238,24 +1238,18 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
   const screenPrompt = screenCfg ? loadSkill(deps.skillsDir, CONCERN_CLASSIFIER_SKILL) : "";
   const screenOn = (mode: StudentTurnInput["mode"]) => Boolean(screenCfg) && (mode === "authenticated" ? screenCfg!.authenticated ?? true : screenCfg!.anonymous === true);
 
-  const finish = (input: StudentTurnInput, result: StudentTurnResult, priorFlag: boolean, outsideAllowList: boolean): StudentTurnResult => {
+  const finish = (input: StudentTurnInput, result: StudentTurnResult, outsideAllowList: boolean): StudentTurnResult => {
     let response = result.response;
     // P1 W3 / D-093 3A: ordinary stress language ("pressure bahut hai") is not a crisis flag. The turn is answered as usual with a
     // soft check-in and Tele-MANAS 14416. D-110: the order is the empathy line first, then the reply (the answer, the sign-in or the
     // help sentence), then the helpline; a reply that already carries 14416 gets only the check-in in front. The helpline is added
-    // ONLY on a distress or concern signal (this one, a flagged thread below, or an uncovered language below): ordinary replies
-    // carry none. The fixed crisis message (state "escalated") is never touched.
-    let softNote = false;
+    // ONLY on a distress or concern signal (this one, or an uncovered language below): ordinary replies carry none, including a later
+    // ordinary turn in a flagged thread (D-138: the helpline shows on the crisis turn only; that thread keeps the stricter crisis rules).
+    // The fixed crisis message (state "escalated") is never touched.
     if (response.state !== "escalated" && stressSignal(input.text)) {
       const message = response.message ?? "";
       const withNote = [STRESS_CHECK_IN, message, message.includes("14416") ? "" : TELE_MANAS_LINE].filter((part) => part !== "").join(" ");
-      if (withNote.length <= STUDENT_MESSAGE_MAX) {
-        response = { ...response, message: withNote };
-        softNote = true;
-      }
-    }
-    if (input.mode === "authenticated" && priorFlag && response.state === "ok" && !softNote) {
-      response = { ...response, message: `${response.message ?? ""} ${TELE_MANAS_LINE}`.trim() };
+      if (withNote.length <= STUDENT_MESSAGE_MAX) response = { ...response, message: withNote };
     }
     // LK5 (D-105 Q1): a reply to a student writing a language outside the allow-list is English, so it always carries the English+Hindi
     // helpline line. The crisis messages already carry the Hindi gloss; an existing English helpline line only gets the gloss added.
@@ -1328,7 +1322,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
           const lang = knownLang?.detected ?? detectLanguageOffline(input.text).lang;
           const crisis = await screenCrisis(probe, input, lang, verdict.basis === "classified");
           const outside = knownLang !== undefined && isOutsideAllowList({ lang: knownLang.detected }, replyLangs);
-          const done = finish(input, crisis, await readPriorFlag(input), outside);
+          const done = finish(input, crisis, outside);
           return { ...done, detectedLang: lang, ...(knownLang ? { replyLang: knownLang.reply } : {}) };
         };
       }
@@ -1380,7 +1374,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
         }
       }
       const outside = s.detectedLang !== undefined && isOutsideAllowList({ lang: s.detectedLang }, replyLangs);
-      const done = finish(s.input, result, Boolean(s.priorFlag), outside);
+      const done = finish(s.input, result, outside);
       return { result: { ...done, ...(s.detectedLang ? { detectedLang: s.detectedLang } : {}), ...(s.replyLang ? { replyLang: s.replyLang } : {}) } };
     })
     .addEdge(START, STUDENT_NODES.gate)

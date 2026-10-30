@@ -288,7 +288,7 @@ test("a crisis message from an adult is answered with the fixed message, flagged
   }
 });
 
-test("a student who raised a crisis flag earlier in the thread still sees the helpline on a later turn after the server restarts (the flag is read from the store)", async () => {
+test("a crisis flag raised earlier in the thread still applies the stricter crisis rules on a later turn after the server restarts (the flag is read from the store); D-138: that later turn shows no helpline", async () => {
   const w = chatWorld();
   try {
     const token = await studentToken(adult());
@@ -297,7 +297,9 @@ test("a student who raised a crisis flag earlier in the thread still sees the he
     const { createChatApi } = await import("../src/chat.js");
     const fresh = createChatApi({ ...w.deps }, { enabled: true, gatesDir: w.gates.gates, now: new Date("2026-11-01T00:00:00.000Z"), approver: "Umesh", env: {} })!;
     const later = await call({ handler: fresh }, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "cr-4" } });
-    assert.match(later.json.message, /14416/);
+    const kbInput = w.provider.calls.filter((x) => x.skillName === "kb-answer").at(-1)?.input as { priorFlag?: boolean } | undefined;
+    assert.equal(kbInput?.priorFlag, true, "the stored flag reached the later turn");
+    assert.doesNotMatch(later.json.message, /14416/, "D-138: the helpline shows on the crisis turn only");
   } finally {
     w.cleanup();
   }

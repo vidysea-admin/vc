@@ -1286,3 +1286,22 @@ Separately, the remaining T-057 demo work runs as parallel subagent lanes:
 **Links:** D-136; T-057
 **Changes-authorized:** none
 **Approved-by:** Umesh
+
+## D-138 | 2026-10-30 | type: decision | status: ACTIVE
+**What:** Umesh's answers for the T-057 demo close-out (AskUserQuestion, 2026-10-30).
+1. Crisis helpline placement: the Tele-MANAS 14416 helpline appears on the crisis turn itself only. A later ordinary turn in a thread that already has a crisis flag no longer gets the helpline line appended (`finish()` prior-flag suffix in packages/engine/src/student/graph.ts, U6h M4). Every other prior-flag safety rule stays: the stricter crisis-rules checks on later replies, the priorFlag input to the KB model, the soft stress check-in with helpline, the crisis turn's fixed message, the flag log and the single escalation.
+2. C10 voice: one real Gemini Live voice turn (`gemini-3.1-flash-live-preview`) through the browser widget with the test student is approved. No cost cap; the cost of the turn is tracked and recorded in the evidence file.
+3. The stale `qa/.paused` in the vc-completion worktree (2026-10-28, D-122 re-plan) is lifted; the main checkout's pause stays.
+**Why:** Umesh, 2026-10-30: helpline "à¤¹à¤° à¤¬à¤¾à¤° à¤¨à¤¹à¥€à¤‚, à¤¸à¤¿à¤°à¥à¤«à¤¼ crisis à¤µà¤¾à¤²à¥‡ turn à¤ªà¤°"; voice "hnn run krro and abhi cost ka cap mat lagaao but cost ki trackking kroo"; pause "à¤¹à¤¾à¤, pause à¤¹à¤Ÿà¤¾à¤“". Walk run 3 showed the helpline on goal/progress answers after the crisis turn, which reads as noise to the student.
+**Result:** Pending. Maker lane changes the suffix with tests, then walks run 4/7, review, full suite and /checker against docs/demo-contract.md C1-C11 plus tier A.
+**Links:** T-057; D-124; D-136; D-137; qa/evidence/t057/walk-pathlynks-run3.md; qa/evidence/t057/c10-voice-probe.md
+**Changes-authorized:** packages/engine/src/student/graph.ts finish() prior-flag suffix and its tests only
+**Approved-by:** Umesh
+
+## D-139 | 2026-10-30 | type: decision | status: ACTIVE
+**What:** Voice tool timeout for T-057 C10 (HUMAN_GATE qa/gates/t057-voice-tool-timeout.md, option a). Each authenticated voice tool call in `createQuestVoiceTools` (apps/api/src/index.ts) waits up to 20 s for the student graph turn instead of 5 s, so a voice answer carries the same student context as chat. While a tool runs, the voice model first says one short filler line (for example "One moment, let me check that for you"), set through the voice session's system instruction in apps/api/src/voice.ts. A call that still exceeds 20 s returns the existing unavailable message, unchanged.
+**Why:** Umesh, 2026-10-30, gate answer: "20s timeout + filler". The real C10 voice turn (qa/evidence/t057/c10-voice-real.md) gave a generic answer because a graph turn takes about 17 s and the tool was cut at 5 s.
+**Result:** Pending. Maker lane with tests first, then a real voice re-run, review and /checker against docs/demo-contract.md C10.
+**Links:** T-057; D-124; D-138; qa/gates/t057-voice-tool-timeout.md; qa/evidence/t057/c10-voice-real.md
+**Changes-authorized:** apps/api/src/index.ts createQuestVoiceTools timeout; apps/api/src/voice.ts voice system-instruction filler line; their tests only
+**Approved-by:** Umesh

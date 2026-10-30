@@ -17,8 +17,9 @@ import { escalateTurns, loadConcernClassifierConfig, loadSkill, CONCERN_CLASSIFI
 import { MockLiveProvider, type LiveProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
-import { startApi, createQuestVoiceTools } from "../src/index.js";
-import { VoiceConfigError, voiceEnabledFromEnv, type VoiceApiDeps } from "../src/voice.js";
+import { startApi, createQuestVoiceTools, VOICE_TOOL_TIMEOUT_MS } from "../src/index.js";
+import { PATHLYNKS_UNAVAILABLE_TEXT } from "@vc/engine";
+import { VOICE_TOOL_FILLER_INSTRUCTION, VoiceConfigError, voiceEnabledFromEnv, type VoiceApiDeps } from "../src/voice.js";
 import { CRISIS_PHRASE, adult, newThread, studentToken, until, voiceWorld, type VoiceWorld, type VoiceWorldOptions } from "./voice-fixtures.js";
 import { SKILLS_DIR, SPEAKERS, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, studentVerifier } from "./chat-fixtures.js";
 
@@ -60,6 +61,50 @@ test("Q5: Quest voice tools use the verified tenant/student, redact columns and 
   await tools.run({ id: "4", name: "pathlynks_profile", args: { studentId: "stu-B" } }, who);
   await tools.run({ id: "5", name: "pathlynks_profile", args: {} }, { ...who, tenantId: "other" });
   assert.deepEqual(seen, ["stu-A"]);
+});
+
+test("D-139: a voice tool waits 20 s for the graph turn (a 6 s read still answers with the student's data); past 20 s it returns the unavailable message", async (t) => {
+  assert.equal(VOICE_TOOL_TIMEOUT_MS, 20_000);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const slowTools = () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let called = false;
+    const tools = createQuestVoiceTools("pathlynks", {
+      kb: recordingKb(), provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS,
+      hasPriorFlag: async () => false, pathlynksTimeoutMs: 600_000,
+      pathlynks: {
+        getStudentProfile: async () => { called = true; await gate; return { status: "ok", data: { grade: "12" } }; },
+        getSavedCareers: async () => ({ status: "ok", data: [] }),
+        getCompareList: async () => ({ status: "ok", data: [] }),
+        getAssessmentStatus: async () => ({ status: "ok", data: { completed: 0, inProgress: 0, reportsAvailable: 0, totalResponses: 0, status: "not_started" } }),
+      },
+    });
+    return { tools, release, called: () => called };
+  };
+  const who = { tenantId: "pathlynks", studentId: "stu-A", threadId: "th-A" };
+  const settle = async (called: () => boolean) => { for (let i = 0; i < 200 && !called(); i++) await new Promise<void>((r) => setImmediate(r)); assert.ok(called(), "profile read reached"); };
+
+  const slow = slowTools();
+  const answer = slow.tools.run({ id: "1", name: "pathlynks_profile", args: {} }, who);
+  await settle(slow.called);
+  t.mock.timers.tick(6_000);
+  slow.release();
+  const ok = JSON.stringify((await answer).result);
+  assert.match(ok, /12/);
+  assert.doesNotMatch(ok, new RegExp(PATHLYNKS_UNAVAILABLE_TEXT.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+
+  const stuck = slowTools();
+  const late = stuck.tools.run({ id: "2", name: "pathlynks_profile", args: {} }, who);
+  await settle(stuck.called);
+  t.mock.timers.tick(20_000);
+  assert.deepEqual((await late).result, { message: PATHLYNKS_UNAVAILABLE_TEXT });
+  stuck.release();
+});
+
+test("D-139: a voice session with tools tells the model to say one short filler line before a tool call", () => {
+  assert.match(VOICE_TOOL_FILLER_INSTRUCTION, /before (calling|you call) a tool/i);
+  assert.match(VOICE_TOOL_FILLER_INSTRUCTION, /one short/i);
 });
 
 // ---------------------------------------------------------------------------
