@@ -962,7 +962,11 @@
           var box = lastBot && list.length ? linksBlock(list) : null;
           if (box) lastBot.appendChild(box);
         },
-        confirm: function () { if (auth) refreshProfile(); },
+        confirm: function () {
+          // a spoken answer to a confirm prompt gets no final line from the server (voice.ts confirm path), so the next prompt closes it
+          liveLine.user = null; liveText.user = "";
+          if (auth) refreshProfile();
+        },
         crisis: function (c) { var t = c.message ? c.message + "\n" + c.help : c.help; if (crisisLine && !crisisHasMsg) setLine(crisisLine, t); else crisisLine = add("crisis", t); crisisHasMsg = !!c.message; },
         error: function (e) {
           if (auth && e && /^(memory_changed|policy_changed|stale_memory|stale_response)$/.test(e.code || '')) {

@@ -718,6 +718,27 @@ test('S12 voice: authenticated mint uses fresh host transport, selected server t
   await new Promise(r=>setImmediate(r));assert.deepEqual(q.h.history(),[]);
 });
 
+test('t057 run8 voice: a spoken confirm answer that gets no final line is closed by the next confirm prompt, so later words start a new line',async()=>{
+  const V=require('../src/voice.js');const f=authFetch();let socket;
+  class Socket{constructor(){socket=this;this.readyState=0;}send(){}close(){this.readyState=3;}}
+  const transport=async(url,init)=>url.endsWith('/voice/session')?resp(201,{token:'t.s',wsUrl:'wss://vc.invalid/socket',threadId:'owned-1',expiresAt:'2030-01-01T00:00:00Z'}):f(url,init);
+  const q=setup(AUTH_CFG({voice:true,authenticated:{basePath:AUTH_BASE,getHeaders:()=>({Authorization:'host-current'}),transport}}),{fetch:f});
+  await q.h.ready;
+  q.h.attachVoice(V,{WebSocket:Socket,mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})},audio:{capture(){return()=>{};},close(){}}});
+  q.h.setMode('voice');
+  byLabel(q.shadow,'Start voice conversation').fire('click');await new Promise(r=>setTimeout(r,10));
+  socket.readyState=1;socket.onopen();
+  const say=(m)=>socket.onmessage({data:JSON.stringify(m)});
+  say({type:'transcript.partial',eventId:'c1',role:'user',text:'maybe later'});
+  say({type:'confirm',eventId:'c2',fact:{key:'preferred_country',value:'Germany',candidateId:'candidate-2',expectedVersion:'version-2'},threadId:'owned-1',promptId:'p1',question:'Save Germany?'});
+  say({type:'transcript.partial',eventId:'c3',role:'user',text:'yes'});
+  const mine=q.log.findAll(n=>/\bme\b/.test(n.className||'')).map(n=>n.textContent);
+  assert.ok(mine.includes('maybe later'),'the unanswered line keeps what was said');
+  assert.ok(mine.includes('yes'),'the next answer starts its own line');
+  assert.ok(!mine.some(t=>/maybe later yes/.test(t)),'never glued onto the stale line');
+  q.h.destroy();
+});
+
 test('S12 memory: explicit confirm/correct/forget preserve displayed binding and readonly account fields',async()=>{
   let profile=pendingProfile();const f=authFetch((url,init)=>{
     if(url.endsWith('/profile'))return resp(200,profile);

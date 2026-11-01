@@ -204,10 +204,10 @@ async function plAskCited(text) {
   try { r = await plAsk(text); await sleep(500); } finally { page.off("response", onResp); }
   const last = w.replies.nth((await w.replies.count()) - 1);
   const dom = await last.evaluate((el) => {
-    const scope = el.parentElement || el;
+    const scope = el; // run8 review: the bubble itself, never the whole log (an earlier reply link must not pass)
     return scope.querySelectorAll("a[href]").length + (/(^|\n)\s*Sources?:/i.test(scope.innerText || "") ? 1 : 0);
   }).catch(() => 0);
-  const n = Math.max(found ?? 0, dom);
+  const n = found !== null ? found : dom; // a captured response is the truth; the DOM is only a fallback
   if (!n) throw new Error(found === null ? "no-citation (chat response not captured, no DOM source)" : "no-citation (reply carries no sources)");
   return { ...r, kind: `cited sources=${n}` };
 }
