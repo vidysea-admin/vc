@@ -624,10 +624,10 @@
       ownedThreads = r.body.threads.slice(0,50).filter(function (t) { return t && validId(t.threadId); });
       drawThreads(); return true;
     }
-    // t057 run8 C6: the API decides a candidate only from the thread that proposed it (profile-facts requireCandidateThread -> 409 memory_changed)
+    // t057 run8 C6: the API decides a candidate only from the thread that proposed it (profile-facts requireCandidateThread -> 409 memory_changed); a threadless candidate never matches
     function foreignCandidate(item) {
       var p = item.pendingChange;
-      return !!(p && typeof p.threadId === 'string' && p.threadId && p.threadId !== selectedThread);
+      return !!(p && (typeof p.threadId !== 'string' || !p.threadId || p.threadId !== selectedThread));
     }
     function candidateFor(item) {
       var p = item.pendingChange;

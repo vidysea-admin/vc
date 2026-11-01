@@ -611,7 +611,7 @@ test("VA18 phone width: the default placement (before any drag) is CSS-fit to th
 const AUTH_BASE = '/api/v1/student/ai-counsellor/vc';
 const AUTH_CFG = (extra) => ({ mode: 'proxy', key: '', turnUrl: AUTH_BASE + '/threads', authenticated: {basePath: AUTH_BASE}, ...extra });
 const threadList = {threads:[{threadId:'owned-1',createdAt:'2026-10-27T10:00:00Z',lastActivityAt:'2026-10-27T10:00:00Z'}]};
-const pendingProfile = (version=2) => ({memory:{items:[{factId:'fact-1',key:'preferred_country',value:'India',status:'confirmed',source:'chat',readOnly:false,pendingChange:{candidateId:'candidate-'+version,version:'version-'+version,value:'Germany',proposedAt:'2026-10-27T10:00:00Z'}}]}});
+const pendingProfile = (version=2) => ({memory:{items:[{factId:'fact-1',key:'preferred_country',value:'India',status:'confirmed',source:'chat',readOnly:false,pendingChange:{candidateId:'candidate-'+version,version:'version-'+version,value:'Germany',proposedAt:'2026-10-27T10:00:00Z',threadId:'owned-1'}}]}});
 function authFetch(over) {
   const calls=[];
   const f=async (url,init) => {
@@ -741,8 +741,9 @@ test('t057 run8 voice: a spoken confirm answer that gets no final line is closed
 
 test('t057 run8 C6: a candidate proposed in another thread shows no Confirm/Reject (the API answers 409 for it); one from this thread does',async()=>{
   const item=(threadId,status)=>({factId:'fact-1',key:'target_country',value:status==='proposed'?'Canada':'India',status,readOnly:false,pendingChange:{candidateId:'cand-9',version:'v-9',value:'Canada',proposedAt:'2026-11-01T10:00:00Z',threadId}});
-  for (const status of ['confirmed','proposed']) {
-    const f=authFetch((url)=>url.endsWith('/profile')?resp(200,{memory:{items:[item('owned-0',status)]}}):undefined);
+  // a candidate with no threadId also gets 409 (profile-facts.ts:256-257 compares it with the request thread)
+  for (const [threadId,status] of [['owned-0','confirmed'],['owned-0','proposed'],[undefined,'confirmed']]) {
+    const f=authFetch((url)=>url.endsWith('/profile')?resp(200,{memory:{items:[item(threadId,status)]}}):undefined);
     const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
     const box=byClass(q.shadow,'memory');
     assert.equal(box.findAll(n=>n.tagName==='BUTTON'&&/^(Confirm|Reject)$/.test(n.textContent)).length,0,status+': no Confirm/Reject for another thread\'s candidate');
