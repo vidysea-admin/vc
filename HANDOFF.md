@@ -1,43 +1,75 @@
-# Session Handoff — VC T057/S13 — 2026-10-27T18:37:31.453Z
+# Session Handoff — VC DevOps handover — 2026-11-02T00:11+05:30
 
 ## TL;DR
-Approved live-connected goal remains ACTIVE and incomplete. S13 independent plan APPROVED; local source repairs/builds/browser evidence progressed, final independent acceptance NOT RUN. Do not push or claim deployed/live. Read qa/evidence/s13-root-integration.md and qa/evidence/s13-final-inputs.json first. Original T057cycle2/S12 failures/costs remain; S13 checker repair round0.
+- The local Vidysea student flow is validated in the browser: chat, memory propose → confirm → recall, and voice (run 8c). It is pushed to `vidysea/main` at b1ecb6ae.
+- Nothing is deployed. The next unit, **devops-handover**, is APPROVED by Umesh but not built yet: a DevOps README plus 4 small fixes.
+- Two builder requests are ready to dispatch. The old 2026-10-27 handoff is superseded; its history is in git.
 
-## Active task
-Actual deployed Pathlynks+Vidysea+Admin login/chat/voice/personal facts/confirmed memory/history/logout isolation. Core isolated checkout D:/vc/.worktrees/vc-completion, branch codex/vc-completion, HEAD184b6a583eaf0ec11a8bf5b2295e84e90f8be15f. Four host checkouts remain under D:/vc/.worktrees. No new commits; remote VCmain3ef1d3470d29f08fb06421d825d13f18e11e3e3f freshly confirmed.
+## Where things are
+- **Work checkout:** `D:/vc/.worktrees/vc-completion`, branch `codex/vc-completion`.
+- **Root `D:/vc`:** paused. It holds many uncommitted files (the Pathlynks wiring and others). They are NOT this branch's work, so do not stage or push them blindly.
+- **Remotes:** `vidysea` = https://github.com/vidysea-admin/vc.git (the real one; earlier pushes used `git push vidysea <sha>:refs/heads/main`). `origin` = umeshsugara-ai/vc.
+- **Never commit `qa/.6c-green`.** The 6c push gate runs where the stamp is (see memory).
 
-## Done this session
-D121 and independent plan APPROVED; repair no-text guards, exact pending publication/certificates, decision/policy invalidation and reader/export fences; ambiguous commit and lease takeover tests. Native shortlist51/max50. Existing blue-white UI preserved; browser-found New chat draft loss fixed in existing function. Host public asset build vars, student mic/CSP, immutable commit asset routes and existing release docs updated. Detailed commands/results in root report:191core,52port,50widget PASS; real local Mongo2/2, fake mic4/4; both full production builds PASS. Fresh Vidysea baseline94/current94/0added (typecheck still red). Actual built Admin UI local super-admin create/rotate/revoke and viewer403 verified. Synthetic host/browser proof only; no S13 provider call.
+## Approved plan (Umesh, 2026-11-02)
+Full text: `qa/.delivery/briefs/devops-handover-plan.md`. Manifest: `qa/manifests/devops-handover.md` (status in-progress, criteria H1 to H4).
+- **Deploy shape:** Ubuntu + systemd + nginx, reusing `infra/ubuntu/`. No Docker.
+- **Fix scope:** only what blocks DevOps.
+  - **H1:** `GET /health` (200 `{"status":"ok"}`) and `GET /ready` (Mongo ping: 200, or 503 `{"status":"unavailable"}`), plus nginx exact locations. Brief: `qa/.delivery/briefs/gl-c-health-route.md`.
+  - **H2:** `.env.example` gets every env name the API reads, including `VC_GATE_APPROVER`.
+  - **H3:**
+    - `apps/web` gets a `start` script.
+    - Root `engines.node` becomes `>=20.16`, because `process.getBuiltinModule` needs it.
+    - `packageManager` pins pnpm.
+    - `tsx` moves to `apps/api` dependencies.
+  - **H4 (docs-lane):** a new `docs/DEVOPS-HANDOVER.md`: an ordered, owner-tagged runbook modelled on `D:/KnowledgeBase/docs/DEVOPS-HANDOVER.md`.
+- **Ready requests:**
+  - `qa/.delivery/requests/dh-a-fixes-req.json` covers H1 to H3. Its handoff is generated: `qa/.delivery/context/0254e960…handoff.json`.
+  - `qa/.delivery/requests/dh-b-readme-req.json` covers H4. Its handoff failed with "task acceptance required"; fix the request shape and regenerate.
+  - Generate with `node D:/ai_os/.claude/skills/maker/tools/tick.mjs --delivery handoff <req.json>`, then dispatch each with `COMPACT_HANDOFF {path, sha256}` only.
+  - The builders own disjoint files, so they can run in parallel.
+- **After build:**
+  1. A cold-read agent reads only the README and lists the questions it cannot answer; fix the README until the list is empty.
+  2. Fact-check every env name and path in the README.
+  3. Senior review and one checker (tier S).
+  4. 6c gate.
+  5. Push **only on a new yes from Umesh**.
 
-## In progress / blocked
-Managed dispatch blocked: plan-only workflow T057-S13-plan-20261027 registered featureT057 in D:/vc/qa/.delivery scope, so T057-S13-makers-20261027 admission refuses existingfeaturelineage. No5makers launched. Supported resume cannot change task count/ownership/input paths; do not silently rename/reset state or use native bypass. Pending async user question requests explicit metadata correction with original lineage/costs/deadline retained. Planreview receipt324f8ad2ae0a5e8bf11db12de31716c32b1d1df83e4782e4537a5975d5abdd2e. Original common finite deadline2026-10-27T19:07:47.507Z; do not silently renew. Maker/checker policy .17/.3 hashes unchanged. Second async question: exact DevOps-approved VC_VOICE_MODEL; .env key exists but model unset. Fresh paid approval still required after model+pricing-reviewed probe; do not invent an approval receipt.
+## Findings this session (keep; they answer Umesh's "why does it break on the server")
+- **The code is Node 20 + TypeScript, NOT Python.** There is no Claude Code dependency at runtime.
+  - Reviews: ai-engineer Approve, senior-software-engineer Warning "runs with steps".
+  - `SKILL.md` files under `skills/` are prompt templates read by our own loader (`packages/engine/src/skills/loader.ts`).
+  - Voice tools are real Gemini function calls; text chat routes tools by rules; the MCP packages run in-process.
+- **Server break causes:**
+  - `VC_GATE_APPROVER` unset; it must be `Umesh`.
+  - Folders copied instead of `git clone` (`skills/`, `qa/gates/`, `qa/evidence/p1-a10-diag/` and `config/` are read at boot).
+  - Required env missing: `MONGODB_URL`, `VC_JWT_ISSUER` plus a key source, `VC_LLM_PROVIDER` (no default, never `mock`).
+  - The server IP is not on the Mongo allow-list, so the service crash-loops.
+  - Node is older than 20.16.
+  - pnpm is unpinned.
+  - `node_modules` was copied from Windows.
+  - `pnpm install --prod` drops `tsx`.
+- **KB (DevOps already took it live):** still broken. vidysea.com/knowledgebase → 302 to the raw IP `https://34.47.136.12:8081/`. The redeploy in `D:/KnowledgeBase/docs/DEVOPS-REDEPLOY-2026-11-01.md` was never executed.
+- **Network:**
+  - The machine IP is 122.161.79.226. VC Mongo and the Pathlynks DB time out (`qa/evidence/t057/network-2026-11-01.md`).
+  - The Pathlynks port in that request (27017) disagrees with `config/sources.json` (Postgres 5432). Verify it before sending.
+- **Later, not blocking:**
+  - A shared schema validator for voice tool args.
+  - An alert and an outage message when the safety screen is down (otherwise every turn gets the crisis message).
+  - A boot test with `qa/gates` or `skills/` absent.
+  - The `if (destroyed) return;` guard in `pollProfileAfterTurn`.
 
-## Next steps
-1. Resolve managed metadata correction only through an authorized supported path; preserve plan/S12/S13 receipts, task cycles, counters and shared deadline. Update stale prepared maker handoffs so they do not rebuild root-completed work.
-2. Frozen310inputs include executableQA. Fresh independent blind/security/data/AI review still required; no checkerPASS from plan approval/selftests. Both host builds complete; no need repeat unchanged builds. Required final collection/backstop not yet run.
-3. Both-platform real PostgreSQL16.15 driver/TLS/SQL fixture PASS (s13-real-postgres-both-platforms.txt); local cluster stopped. Production schema/role and full real host app/SQLAlchemy/account/consent and deployedKB unknown. Team must provision truthful eligible identities and read-only source settings. Source-policy compatibility/migration requires review before production writes.
-4. Real voice probe existing qa/.delivery/requests/completion-real-voice.mts defaultsdryrun0calls; explicit model, authoritative finished event, exact spoken question and real local DBreadback remain unproven. Paid execute needs fresh bounded approval; old allowance consumed.
-5. Resolve actual centralAPI/Admin and externalAWSimage/pipeline; reviewed push -> DevOps approved deployment -> actual live journeys. GitHubdeployment0 is not no-manual-deployment proof.
+## Open, owned by others
+- **DevOps:** KB redeploy, VC Mongo and Pathlynks allow-lists, host, DNS, TLS, `/etc/vc/vc.env`.
+- **Umesh:**
+  - Go decision.
+  - Yes to the Pathlynks wiring PR.
+  - Rotate DB_PASS.
+  - Supply the Vidysea production frontend origin.
+  - Supply the KB public base URL.
 
-## Runtime state
-Last observed listeners: current local API5390/Guide5392/adminrelay5409 owned node45708 (exec38150); Vidysea router5401 python27644(exec89085); wrapper5402 node984(existingexec35303); builtAdmin5410 node22492(exec62171); Mongo58049 mongod61372(existing broker ownership must be reverified before stopping). Demo5184 olderpreview retained/unknowncurrentPID. All localhost/synthetic. No owned heavytest/build process active. Browser tabs: oldGuide5192, Vidysea5402 signedout, Guide5392Voicepanel, Admin5410 signedout. Do not treat old5192 as updatedS13 runtime. Runtime/link/Mongo files contain ephemeral credentials, NEVER commit. No student production data or real microphone used.
-
-## Verification / safety
-Main279productfiles + Gitindex unchanged (s13-main-preservation-final.json). MainTASKS/HANDOFF pointer refresh only; original main row preserved in rootreport. D121 additions-onlyPASS; validatorPASSbyvacuity. No enforcement file changes. No stage/stash/reset/commit main, no all-QA staging. This handoff is not acceptance and does not close the active goal. Preserved old handoff in .handoffs/.
-
-Latest continuation 2026-10-27T18:53:03.376Z: real PostgreSQL driver fixtures for both platforms PASS; port package typecheckPASS. Temporary server15432 stopped, runtime/credentials ignored. Public Pathlynks/Vidysea homepages loaded with no shared VC widget; logged-in/deployed identity still unverified. Reviewfreeze310; previous309 retained. Main279files/index unchanged. See appended real-driver/public deployment checkpoint. No S13paid/provider/push/deploy action.
-
-Closeout verification 2026-10-27T18:54:54.869Z: exact current310-input hashes match; main279product files/index unchanged; DECISIONS diff84additions/0deletions (includes retained prior authorized entries, D121 already appended this session). No new decision/enforcement edits. Independent release/collection/backstop remains pending, so landplane commit step is withheld under user checker-before-release gate; no stage-all. Playwright request proof: Guide5392=200, Vidysea5402=200, Admin5410/login=200; API5390 responds404to/health (not a configured health route, not a health PASS). Restricted Node fetch gotEACCES and is not server-down evidence. Public tabs4Pathlynks,5Vidysea; no authenticated production session. Local PG15432 is stopped. Existing preview runtimes left available for inspection.
-
-## Admin source/usage continuation — 2026-10-27T19:03:12.008Z
-
-Built local Admin was signed in with existing synthetic fixture superadmin. Source qa-vidysea-db Test returned the truthful missing-password message and Audit recorded sources.test/Failed. No secret was set and no external source sync was attempted. Dashboard site filters returned Pathlynks6chat/0voice and Vidysea6chat/3voice, matching visible charts/rows and a separate read-only aggregate of actual localhost virtual_counsellor.turn_usage (s13-admin-mongo-usage-parity.json). Counts are turn rows, not unique threads; tokens/cost0 came from mock providers and do not prove real billing. Existing source/sync success and production connectivity remain unverified. Screenshots: s13-admin-source-unconfigured.png, s13-admin-usage-filter.png, s13-admin-source-audit.png. Signed out.
-
-Capability errors retained: browser VM require()/dynamic import are unavailable; no repeated VM-import attempts after2. Standard browser form tools then succeeded. Cloud target discovery: aws/gcloud CLIs absent; DockerCLI exists but daemon availability remains previously unproven. Exact GitHub Actions NEXT_PUBLIC_VC_WIDGET_BASE_URL variable request returned404; absence versus permission cannot be distinguished, no endpoint inferred. Existing Pathlynks production_frontend workflow auto-deploys to EKS pathlynks-prod; Vidysea buildspec still targets uat/vidysea-user-frontend ECR, so actual production ECS/image mapping requires DevOps evidence. No cloud mutation/push/deploy.
-
-Blocked audit 2026-10-27T19:04:29.044Z: same reviewer-admission/model/target/approval gates retained across3consecutive goal turns. Useful local progress completed in each; current remaining acceptance/release work requires user/external input. Full goal incomplete; blocked is not PASS or scope reduction. Original finite deadline19:07:47.507Z retained, no auto-renewal, S13repairround0. See s13-blocked-audit.json. No running maker/checker handle is being waited on: managed plan attempts are incomplete/success, no final-review attempt was admitted.
-
-
-2026-10-28 real-access checkpoint: see qa/evidence/s13-root-integration.md final section and s13-public-live.json. Both supplied production logins work. Vidysea production read-only DB connection works with repo-confirmed lowercase username; own student profile exists but preferences/shortlist/assessments are empty. Both central VC bridge probes404 and shared SDK absent. Pathlynks DB TCP times out. Earlier missing-account/Vidysea-access claims are superseded by this evidence. No source code/push/deploy in this diagnostic turn.
-
-- 2026-10-29 T-057 Vidysea walk: step02 logged-out cause = /api/v1/session/ 308->307 to absolute http://localhost:8000 (gateway builds Location from rewritten Host), blocked by CSP connect-src. Fix in place: demo-only (VC_DEMO_LOCAL) connect-src adds localhost:8000 in vc-vidysea-frontend next.config.mjs:252; skipTrailingSlashRedirect tried and reverted. Unverified until next walk. Evidence: qa/evidence/t057/vidysea-walk-diagnosis.md
+## Safety
+- No product code changed this session after b1ecb6ae.
+- No secrets printed. No production writes.
+- Mongo writes are allowed only to `virtual_counsellor`, and only from `d:/vc`.
+- The maker loop was un-paused (`qa/.paused` removed). The new session resumes it with `/maker continue "D:\vc\.worktrees\vc-completion"`.
