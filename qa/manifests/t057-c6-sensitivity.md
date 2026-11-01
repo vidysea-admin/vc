@@ -1,6 +1,6 @@
 # t057-c6-sensitivity - C6 memory: keep facts Gemini labels sensitivity "normal"
 
-Status: ready-for-check
+Status: checked-PASS (verdict 67aa4577)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: M (shared engine schema + LLM skill prompt)
