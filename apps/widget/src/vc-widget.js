@@ -608,7 +608,7 @@
     function validId(id) { return typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id); }
     function clearHistory() {
       hist.forEach(function (h) { if (h.node.parentNode) h.node.parentNode.removeChild(h.node); });
-      hist = []; liveLine = {user:null,assistant:null}; lastBot = null; crisisLine = null; crisisHasMsg = false;
+      hist = []; liveLine = {user:null,assistant:null}; liveText = {user:"",assistant:""}; lastBot = null; crisisLine = null; crisisHasMsg = false;
     }
     function drawThreads() {
       threadSelect.textContent = '';
@@ -916,7 +916,7 @@
       if (!input.disabled) input.focus(); else close.focus();
     }
     // pc-voice V3: the mic button. Added only when the add-on has loaded (voice.js) and the config allows voice; the text chat works either way.
-    var voiceCtl = null, micBtn = null, liveLine = { user: null, assistant: null }, lastBot = null, crisisLine = null, crisisHasMsg = false;
+    var voiceCtl = null, micBtn = null, liveLine = { user: null, assistant: null }, liveText = { user: "", assistant: "" }, lastBot = null, crisisLine = null, crisisHasMsg = false;
     function attachVoice(lib, deps) {
       if (destroyed || (auth && !authValid) || micBtn || !lib || typeof lib.create !== "function" || !voiceAvailable(cfg)) return false;
       micBtn = el(doc, "button", "mic");
@@ -945,12 +945,15 @@
         transcript: function (t) {
           if (destroyed) return;
           var line = liveLine[t.role];
+          // t057 run8: partials are delta chunks (the provider sends only the newest words), so the live line appends them; the final line replaces it
+          var text = t.final ? t.text : (line && liveText[t.role] ? (liveText[t.role] + " " + t.text).trim() : String(t.text).trim());
+          liveText[t.role] = t.final ? "" : text;
           if (!line) {
-            line = add(t.role === "user" ? "me" : "bot", t.text);
+            line = add(t.role === "user" ? "me" : "bot", text);
             liveLine[t.role] = line;
             if (t.role === "assistant") lastBot = line;
           } else {
-            setLine(line, t.text);
+            setLine(line, text);
           }
           if (t.final) liveLine[t.role] = null;
           log.scrollTop = log.scrollHeight;
@@ -974,7 +977,7 @@
         },
         ended: function () {
           if (auth) { refreshProfile(); refreshThreads(); }
-          liveLine.user = liveLine.assistant = null; crisisLine = null; crisisHasMsg = false;
+          liveLine.user = liveLine.assistant = null; liveText.user = liveText.assistant = ""; crisisLine = null; crisisHasMsg = false;
           if (!busy && !waitTimer && !dead) status.textContent = "Voice ended.";
         }
       };

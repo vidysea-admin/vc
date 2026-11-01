@@ -137,6 +137,39 @@ async function sendText(q, text) {
 }
 const px = (v) => parseFloat(v);
 
+test("t057 run8 voice: partial transcripts are delta chunks, so the live line grows instead of showing only the newest chunk", async () => {
+  const V = require("../src/voice.js");
+  const q = setup({ mode: "proxy", key: "", turnUrl: "/api/vc", voice: true, voiceProxy: "/api/voice/session" });
+  q.h.open();
+  let socket;
+  class Socket { constructor() { socket = this; this.readyState = 0; } send() {} close() { this.readyState = 3; } }
+  const deps = {
+    fetch: async () => resp(201, { token: "token.signature", wsUrl: "wss://vc.example.org/stream", expiresAt: "2030-01-01T00:00:00Z", threadId: "owned-thread" }),
+    WebSocket: Socket,
+    mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+    audio: { capture() { return () => {}; }, close() {} },
+  };
+  assert.equal(q.h.attachVoice(V, deps), true);
+  q.h.setMode("voice");
+  byLabel(q.shadow, "Start voice conversation").fire("click");
+  await new Promise((resolve) => setImmediate(resolve));
+  socket.readyState = 1; socket.onopen();
+  const say = (m) => socket.onmessage({ data: JSON.stringify(m) });
+  say({ type: "transcript.partial", eventId: "p1", role: "user", text: "Which" });
+  say({ type: "transcript.partial", eventId: "p2", role: "user", text: "course suits me?" });
+  assert.match(q.log.textContent, /Which course suits me\?/);
+  say({ type: "transcript.final", eventId: "p3", role: "user", text: "Which course suits me?" });
+  say({ type: "transcript.partial", eventId: "p4", role: "assistant", text: "Computer" });
+  say({ type: "transcript.partial", eventId: "p5", role: "assistant", text: "Science is" });
+  say({ type: "transcript.partial", eventId: "p6", role: "assistant", text: "a strong option." });
+  assert.match(q.log.textContent, /Computer Science is a strong option\./, "the live reply shows every chunk so far");
+  say({ type: "transcript.final", eventId: "p7", role: "assistant", text: "Computer Science is a strong option." });
+  assert.equal(q.log.textContent.split("Computer Science is a strong option.").length - 1, 1, "the final line replaces the live line, never duplicates it");
+  say({ type: "transcript.partial", eventId: "p8", role: "assistant", text: "Next" });
+  assert.equal(q.log.textContent.split("Computer Science").length - 1, 1, "a new turn starts a fresh line, not appended to the last one");
+  assert.match(q.log.textContent, /Next/);
+});
+
 test("Q5: proxy Chat/Voice/Chat retains typed and voice history, releases the mic and makes fallback text usable", async () => {
   const V = require("../src/voice.js");
   const q = setup({ mode: "proxy", key: "", turnUrl: "/api/vc", voice: true, voiceProxy: "/api/voice/session" });

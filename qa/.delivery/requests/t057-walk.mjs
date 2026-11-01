@@ -1,5 +1,7 @@
 // T-057 headed walk (NOT run by the author; the main session runs it).
-//   node walk.mjs pathlynks|vidysea [--no-crisis] [--no-memory]
+//   node walk.mjs pathlynks|vidysea [--no-crisis] [--no-memory] [--voice]
+//   --voice (vidysea, C10): Chrome gets a fake mic that plays VC_WALK_VOICE_WAV once; one Live voice turn runs after
+//   open-widget. Printed: transcript lengths, binary audio frames received and the session length (never text or audio).
 // cwd does not matter: playwright is resolved from D:/vc/.worktrees/vc-completion/apps/web.
 //
 // Safety: credentials are read from the worktree .env at runtime and never printed or put in a
@@ -65,6 +67,13 @@ const P = {
   crisis: "I want to kill myself", // canonical crisis string used by apps/api/tests/anonymous-route.test.ts:524
 };
 
+const VOICE_WAV = process.env.VC_WALK_VOICE_WAV;
+if (flags.has("--voice") && (!VOICE_WAV || !fs.existsSync(VOICE_WAV))) {
+  console.error("--voice needs VC_WALK_VOICE_WAV pointing at an existing WAV file");
+  process.exit(2);
+}
+let audioFrames = 0;
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let nn = 0;
 let page;
@@ -95,7 +104,7 @@ async function step(name, fn) {
 
 // Poll until a NEW reply exists (count > before), the composer is idle, and the reply text is
 // unchanged for ~2 s. Up to 60 s (KB /search takes ~14 s). Returns length and kind only, never text.
-async function waitForReply({ replies, before, idle, timeoutMs = 60000 }) {
+async function waitForReply({ replies, before, idle, timeoutMs = 60000, stableMs = 2000 }) {
   const t0 = Date.now();
   let last = null, stableSince = 0;
   while (Date.now() - t0 < timeoutMs) {
@@ -105,7 +114,7 @@ async function waitForReply({ replies, before, idle, timeoutMs = 60000 }) {
       const text = (await node.innerText().catch(() => "")).trim();
       const busy = idle ? !(await idle()) : false;
       if (text && !busy) {
-        if (text === last) { if (Date.now() - stableSince >= 2000) {
+        if (text === last) { if (Date.now() - stableSince >= stableMs) {
           const kind = ((await node.getAttribute("class").catch(() => "")) || "").match(/\b(bot|crisis|err|note)\b/)?.[1];
           return { len: text.length, ms: Date.now() - t0, kind };
         } } else { last = text; stableSince = Date.now(); }
@@ -175,6 +184,34 @@ async function plAsk(text) {
   });
 }
 
+// C5 citation gate (demo-contract C5: ">=1 KB citation"). The Quest Guide bubble renders reply text only (AIChatWidget.jsx:901),
+// so the source is read from the /ai/chat response JSON (sources|citations array, also under .data) with a DOM fallback
+// (a link or "Sources" text next to the last bubble). Counts only, never text. Zero => FAIL no-citation.
+async function plAskCited(text) {
+  const w = pl();
+  let found = null; // null = /ai/chat response not seen
+  const onResp = async (resp) => {
+    try {
+      if (resp.request().method() !== "POST" || !new URL(resp.url()).pathname.endsWith("/ai/chat")) return;
+      const j = await resp.json();
+      let n = 0;
+      for (const o of [j, j && j.data]) for (const k of ["sources", "citations"]) if (o && Array.isArray(o[k])) n += o[k].length;
+      found = (found ?? 0) + n;
+    } catch { /* body unreadable */ }
+  };
+  page.on("response", onResp);
+  let r;
+  try { r = await plAsk(text); await sleep(500); } finally { page.off("response", onResp); }
+  const last = w.replies.nth((await w.replies.count()) - 1);
+  const dom = await last.evaluate((el) => {
+    const scope = el.parentElement || el;
+    return scope.querySelectorAll("a[href]").length + (/(^|\n)\s*Sources?:/i.test(scope.innerText || "") ? 1 : 0);
+  }).catch(() => 0);
+  const n = Math.max(found ?? 0, dom);
+  if (!n) throw new Error(found === null ? "no-citation (chat response not captured, no DOM source)" : "no-citation (reply carries no sources)");
+  return { ...r, kind: `cited sources=${n}` };
+}
+
 async function walkPathlynks() {
   await step("login", async () => {
     // Real login page: /signin renders components/auth/SignInForm.jsx; GlobalForm fields
@@ -207,7 +244,7 @@ async function walkPathlynks() {
   await step("open-widget", async () => { await plOpenWidget(); });
 
   await step("c4-careers", async () => { await plOpenWidget(); return plAsk(P.careers); });
-  await step("c5-kb-university", async () => plAsk(P.kb));
+  await step("c5-kb-university", async () => plAskCited(P.kb));
   await step("combined-report", async () => plAsk(P.report));
 
   if (!flags.has("--no-memory")) {
@@ -326,6 +363,51 @@ async function vyAsk(text) {
   });
 }
 
+// C5 citation gate: an ok reply (.m.bot) whose bubble holds a non-empty ".src" block ("Sources: title · title", links when href;
+// vc-widget.js linksBlock :520-537, appended to the bubble :557-558). A .m.note (no_sourced_answer, may still show linked
+// sources) / .m.err / .m.crisis reply is never a KB-sourced answer => FAIL no-citation. Counts only, never text.
+async function vyAskCited(text) {
+  const r = await vyAsk(text);
+  if (r.kind !== "bot") throw new Error(`no-citation (reply kind=${r.kind || "unknown"}, not a sourced answer)`);
+  const w = vy();
+  const last = w.replies.nth((await w.replies.count()) - 1);
+  const s = await last.evaluate((el) => {
+    const src = el.querySelector(".src");
+    if (!src) return { items: 0, links: 0 };
+    const rest = (src.innerText || "").replace(/^\s*Sources:\s*/i, "").trim();
+    return { items: rest ? rest.split(" · ").length : 0, links: src.querySelectorAll("a[href]").length };
+  });
+  if (!s.items) throw new Error("no-citation (bot reply has no Sources block)");
+  return { ...r, kind: `bot cited sources=${s.items} links=${s.links}` };
+}
+
+// C10: one spoken question through the widget mic (Chrome fake capture plays the WAV once), answered by the Live model.
+// OK needs a user transcript, a new assistant line and spoken audio (binary frames on the voice socket).
+async function vyVoice() {
+  const w = await vyOpenWidget();
+  const mic = page.locator("[data-vc-widget] button.mic");
+  await mic.waitFor({ state: "visible", timeout: 20000 });
+  const mine = page.locator("[data-vc-widget] .log .m.me");
+  const me0 = await mine.count();
+  const before = await w.replies.count();
+  audioFrames = 0;
+  const t0 = Date.now();
+  await mic.click();
+  await page.locator('[data-vc-widget] button.mic[aria-pressed="true"]').waitFor({ timeout: 20000 });
+  const r = await waitForReply({ replies: w.replies, before, idle: async () => audioFrames > 0, timeoutMs: 90000, stableMs: 6000 });
+  const heard = (await mine.count()) > me0;
+  const userLen = heard ? (await mine.nth((await mine.count()) - 1).innerText().catch(() => "")).trim().length : 0;
+  await sleep(4000); // let the spoken answer finish before stopping
+  await mic.click().catch(() => {});
+  await page.locator('[data-vc-widget] button.mic[aria-pressed="false"]').waitFor({ timeout: 20000 }).catch(() => {});
+  const sessionMs = Date.now() - t0;
+  // run8: voice partials stream in chunks, so the length is read again once the answer has finished and the mic is off
+  const finalLen = (await w.replies.nth((await w.replies.count()) - 1).innerText().catch(() => "")).trim().length;
+  if (!heard) throw new Error("no user transcript (the fake mic was not heard)");
+  if (!audioFrames) throw new Error("no spoken audio frames received");
+  return { ...r, len: Math.max(r.len, finalLen), kind: `voice userTranscript=${userLen}ch audioFrames=${audioFrames} sessionMs=${sessionMs}`, ms: sessionMs };
+}
+
 async function walkVidysea() {
   await step("login", async () => {
     // /login -> components/auth/Login.js: #email (:169, text input), #password (:194), submit button (:228-229).
@@ -358,8 +440,9 @@ async function walkVidysea() {
   });
 
   await step("open-widget", async () => { await vyOpenWidget(); });
+  if (flags.has("--voice")) await step("c10-voice", vyVoice);
   await step("c3-careers", async () => { await vyOpenWidget(); return vyAsk(P.careers); });  // answered from the Vidysea pathlynks snapshot
-  await step("c5-kb-university", async () => vyAsk(P.kb));
+  await step("c5-kb-university", async () => vyAskCited(P.kb));
 
   if (!flags.has("--no-memory")) {
     // C6 on the shared widget: propose -> Confirm in the memory panel (vc-widget.js:641-656) -> new chat -> recall.
@@ -396,12 +479,17 @@ async function walkVidysea() {
 }
 
 // =====================================================================================
-const browser = await chromium.launch({ headless: false, channel: "chrome", slowMo: 250 });
+const voiceArgs = flags.has("--voice")
+  ? ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${VOICE_WAV}%noloop`]
+  : [];
+const browser = await chromium.launch({ headless: false, channel: "chrome", slowMo: 250, args: voiceArgs });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+if (flags.has("--voice")) await context.grantPermissions(["microphone"], { origin: BASE });
 // Skip the first-visit Career Quest tour + intro video client-side only (sessionStorage; no server write),
 // so the Quest Guide launcher is reachable (career-quest/page.jsx:350, CareerQuestStory.jsx:364,470).
 await context.addInitScript(() => { try { sessionStorage.setItem("cq_onboarding_done", "1"); sessionStorage.setItem("cq_intro_video_seen", "1"); } catch {} });
 page = await context.newPage();
+page.on("websocket", (ws) => ws.on("framereceived", (f) => { if (typeof f.payload !== "string") audioFrames += 1; }));
 // Diagnostics: API failures and slow API calls, path + status only (never bodies or query strings).
 {
   const t0 = new Map();
