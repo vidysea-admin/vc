@@ -1,6 +1,6 @@
 # Manifest: t057-voice-delta
 
-Status: ready-for-check
+Status: checked-PASS (verdict e2f01472)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: S (one widget product file plus the T-057 walk harness; no API, no security/auth/data write)
