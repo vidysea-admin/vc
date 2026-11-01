@@ -1,6 +1,6 @@
 # Manifest: t057-widget-resize
 
-Status: ready-for-check
+Status: checked-PASS (verdict 435ab9f3)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: S (one product file, UI geometry; no security/auth/data write)
