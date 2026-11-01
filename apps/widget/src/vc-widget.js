@@ -624,8 +624,14 @@
       ownedThreads = r.body.threads.slice(0,50).filter(function (t) { return t && validId(t.threadId); });
       drawThreads(); return true;
     }
+    // t057 run8 C6: the API decides a candidate only from the thread that proposed it (profile-facts requireCandidateThread -> 409 memory_changed)
+    function foreignCandidate(item) {
+      var p = item.pendingChange;
+      return !!(p && typeof p.threadId === 'string' && p.threadId && p.threadId !== selectedThread);
+    }
     function candidateFor(item) {
       var p = item.pendingChange;
+      if (foreignCandidate(item)) return null;
       if (!item.readOnly && validId(item.factId) && p && validId(p.candidateId) && typeof p.version === 'string' && p.version.length > 0 && p.version.length <= 128 && typeof p.value === 'string' && p.value.length > 0 && p.value.length <= 1000) {
         return {factId:item.factId,key:item.key,value:p.value,oldValue:item.status === 'confirmed' ? item.value : null,candidateId:p.candidateId,expectedVersion:p.version,threadId:selectedThread};
       }
@@ -656,6 +662,8 @@
         if (choice && selectedThread) {
           row.appendChild(el(doc,'p','',(choice.oldValue === null ? 'Remember ' + choice.key + ' as "' + choice.value + '"?' : 'Change ' + choice.key + ' from "' + choice.oldValue + '" to "' + choice.value + '"?') + ' Reply yes or no, or choose below.'));
           button('Confirm','confirm',choice); button('Reject','reject',choice); choices.push(choice);
+        } else if (!item.readOnly && foreignCandidate(item)) {
+          row.appendChild(el(doc,'p','','Proposed in another chat; open that chat to confirm or reject it.'));
         } else if (!item.readOnly && item.status === 'proposed' && validId(item.factId)) {
           button('Confirm','confirm',{factId:item.factId,value:item.value,threadId:selectedThread});
         }

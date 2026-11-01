@@ -452,7 +452,15 @@ async function walkVidysea() {
       const mem = page.locator('[data-vc-widget] .memory');
       for (let i = 0; i < 8; i++) {
         const confirm = mem.getByRole("button", { name: /^Confirm\b/ }).first();   // aria-label is "Confirm <key>" (vc-widget.js:649)
-        if (await confirm.isVisible().catch(() => false)) { await confirm.click(); await sleep(2500); return {}; }
+        if (await confirm.isVisible().catch(() => false)) {
+          // run8 C6: a click is not a confirm; the API can answer 409 memory_changed, so assert the decision status
+          const decided = page.waitForResponse((r) => /\/decision\b/.test(r.url()) && r.request().method() === "POST", { timeout: 20000 });
+          await confirm.click();
+          const r = await decided;
+          if (r.status() < 200 || r.status() >= 300) throw new Error(`decision returned ${r.status()}`);
+          await sleep(2500);
+          return { decision: r.status() };
+        }
         await page.locator("[data-vc-widget] button.close").click({ timeout: 2000 }).catch(() => {}); await sleep(800);   // close via the panel close button (the bubble reads "Close chat" while open, vc-widget.js:904)
         await vyOpenWidget(); await sleep(3000);                        // reopen -> refreshProfile
       }

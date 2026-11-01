@@ -739,6 +739,26 @@ test('t057 run8 voice: a spoken confirm answer that gets no final line is closed
   q.h.destroy();
 });
 
+test('t057 run8 C6: a candidate proposed in another thread shows no Confirm/Reject (the API answers 409 for it); one from this thread does',async()=>{
+  const item=(threadId,status)=>({factId:'fact-1',key:'target_country',value:status==='proposed'?'Canada':'India',status,readOnly:false,pendingChange:{candidateId:'cand-9',version:'v-9',value:'Canada',proposedAt:'2026-11-01T10:00:00Z',threadId}});
+  for (const status of ['confirmed','proposed']) {
+    const f=authFetch((url)=>url.endsWith('/profile')?resp(200,{memory:{items:[item('owned-0',status)]}}):undefined);
+    const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+    const box=byClass(q.shadow,'memory');
+    assert.equal(box.findAll(n=>n.tagName==='BUTTON'&&/^(Confirm|Reject)$/.test(n.textContent)).length,0,status+': no Confirm/Reject for another thread\'s candidate');
+    assert.match(box.textContent,/another chat/,status+': says where it was proposed');
+    assert.ok(byLabel(q.shadow,'Forget target_country'),status+': Forget stays available');
+    q.h.destroy();
+  }
+  const f=authFetch((url)=>url.endsWith('/profile')?resp(200,{memory:{items:[item('owned-1','proposed')]}}):undefined);
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+  byLabel(q.shadow,'Confirm change to target_country').fire('click');await new Promise(r=>setTimeout(r,10));
+  const d=f.calls.find(c=>c.url.endsWith('/decision'));
+  assert.ok(d,'this thread\'s candidate can be confirmed');
+  assert.deepEqual(JSON.parse(d.init.body),{action:'confirm',threadId:'owned-1',value:'Canada',candidateId:'cand-9',expectedVersion:'v-9'});
+  q.h.destroy();
+});
+
 test('S12 memory: explicit confirm/correct/forget preserve displayed binding and readonly account fields',async()=>{
   let profile=pendingProfile();const f=authFetch((url,init)=>{
     if(url.endsWith('/profile'))return resp(200,profile);
