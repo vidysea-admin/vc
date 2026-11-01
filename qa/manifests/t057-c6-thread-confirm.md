@@ -1,6 +1,6 @@
 # Manifest: t057-c6-thread-confirm
 
-Status: ready-for-check
+Status: checked-PASS (verdict bf5e0d4a)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: S (one widget product file plus the T-057 walk harness; no API, no security/auth/data write)

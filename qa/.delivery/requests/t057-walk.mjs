@@ -455,6 +455,7 @@ async function walkVidysea() {
         if (await confirm.isVisible().catch(() => false)) {
           // run8 C6: a click is not a confirm; the API can answer 409 memory_changed, so assert the decision status
           const decided = page.waitForResponse((r) => /\/decision\b/.test(r.url()) && r.request().method() === "POST", { timeout: 20000 });
+          decided.catch(() => {});   // a click that throws must not leave an unhandled rejection behind
           await confirm.click();
           const r = await decided;
           if (r.status() < 200 || r.status() >= 300) throw new Error(`decision returned ${r.status()}`);
