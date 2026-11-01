@@ -340,7 +340,7 @@
       ".panel[data-mode=voice] textarea,.panel[data-mode=voice] .send{display:none}",
       ".panel[data-mode=voice] .mic{flex:1}",
       ".grip{position:absolute;right:0;bottom:0;width:26px;height:26px;cursor:nwse-resize;touch-action:none;z-index:1;background:linear-gradient(135deg,transparent 46%,#5d6773 46%,#5d6773 56%,transparent 56%,transparent 68%,#5d6773 68%,#5d6773 78%,transparent 78%)}",
-      ".grip-tl{position:absolute;left:0;top:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;z-index:2;border-top-left-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,.85) 0,rgba(255,255,255,.85) 22%,transparent 22%,transparent 34%,rgba(255,255,255,.85) 34%,rgba(255,255,255,.85) 44%,transparent 44%)}",
+      ".grip-tl{position:absolute;left:0;top:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;z-index:2;opacity:.85;border-top-left-radius:14px;background:linear-gradient(135deg,var(--ct) 0,var(--ct) 22%,transparent 22%,transparent 34%,var(--ct) 34%,var(--ct) 44%,transparent 44%)}",
       ".foot{padding:6px 24px;font-size:.8rem;font-weight:600;text-align:center;background:#fff;border-top:1px solid #d9dde3}",
       "button:focus-visible,textarea:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #f0a100;outline-offset:2px}",
       ".sessions{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid #d9dde3}.sessions select{min-width:0;flex:1}.sessions button,.memory button{min-height:36px;font:inherit;cursor:pointer}.memory{padding:8px 12px;max-height:170px;overflow:auto;border-bottom:1px solid #d9dde3;font-size:.85rem}.memory p{margin:4px 0}.memory button{margin:4px 8px 4px 0}.sessions[hidden],.memory[hidden]{display:none}",
