@@ -1,4 +1,4 @@
-# T-057 demo: local browser end-to-end evidence (run 8c, 2026-11-01)
+# T-057 demo: local browser end-to-end evidence (runs 8c and 8m, 2026-11-01)
 
 **Scope.** This is a local run, not a deployed one. Nothing is deployed yet: there is no VC host, image or widget release.
 
@@ -31,12 +31,12 @@ The walk command was `node qa/.delivery/requests/t057-walk.mjs vidysea --voice`;
 | C3 | Careers answer (Vidysea) | **OK** | step05 reply=321ch kind=bot |
 | C4 | Pathlynks careers | **BLOCKED** | Pathlynks DB (DevOps) |
 | C5 | KB-cited university answer | **FAIL / BLOCKED** | step06 no-citation (kind=note). KB `/search` is down (DevOps redeploy). The code path itself is checker-PASS (t057-c5-pl-sources). |
-| C6 | Memory: propose → confirm → recall in a new thread | **OK** | Run 8c: step07 note 1120ch; step08 confirm, with the walk now asserting a 2xx `/decision` response; step09 recall 772ch. Correction: run 8b's "confirm OK" was a false pass. The click hit another thread's candidate and got 409 (E2E verdict 826e216b, FAIL). Fixed in t057-c6-thread-confirm (8eaf5b33 + a8b86f8e, verdict bf5e0d4a), plus dfb0f8cc (verdict 67aa4577). |
+| C6 | Memory: propose → confirm → recall in a new thread | **OK** | Run 8m (widget 8ea575d7, verdict 5ebff19f): c6-propose, c6-confirm (2xx on its own fact, 13.5 s), c6-new-thread-recall (reply mentions Canada), seen again by the independent checker. Root cause of runs 8h to 8l: the API publishes a proposal ~25 s after the reply and the widget refreshed only right after the turn; it now re-fetches at 6, 15, 30 and 60 s. Earlier false passes: run 8b (another thread's candidate, 409) and 8c (unrelated fact). The poll itself is proven by the unit test and the checker's probes; the walk cannot tell it from a reopen. |
 | C7 | Threads persist / reload history | **OK** | step11 bubbles=4. Uses the real VC Mongo this run. |
 | C8 | Student isolation | **OK** | Probe with two synthetic students under the gateway partner key: A reads its own thread 200; B on its own path 404; B header on A's path 404; B's list has 0 threads; B posting into A's thread 404; no key 401. |
 | C9 | Crisis | **OK** | step10 kind=crisis 606ch (zero-LLM crisis path) |
 | C10 | Voice question → spoken answer | **OK** | Run 8c step04: userTranscript=31ch, audioFrames=79, reply=391ch. Before the fix the reply was 4–12ch: the panel showed only the newest delta chunk. Fixed in t057-voice-delta (65f5279d + 79cc922f, verdict e2f01472). |
-| C11 | Vidysea walk end to end | **PARTIAL**: 10/11 steps OK. C5 FAILs while the KB is down. | Run 8c. Run 8b's 10/11 counted the false-pass C6. |
+| C11 | Vidysea walk end to end | **PARTIAL**: 10/11 steps OK (run 8m, without --voice). C5 FAILs while the KB search is down (DevOps). | Run 8m, and the checker's own walk (verdict 5ebff19f): steps 1-4 and 6-11 OK. C10 voice last passed in run 8c. |
 | C11-PL | Pathlynks walk | **BLOCKED** | Pathlynks DB (DevOps) and the uncommitted Pathlynks FE/BE wiring (Umesh: PR yes) |
 
 ## Extra checks

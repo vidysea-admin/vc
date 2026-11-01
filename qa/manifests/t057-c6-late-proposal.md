@@ -1,6 +1,6 @@
 # Manifest: t057-c6-late-proposal
 
-Status: ready-for-check
+Status: checked-PASS (verdict 5ebff19f)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: S (one widget product file plus its test and the walk harness; no API, no security/auth/data write)
@@ -30,7 +30,7 @@ Pre-check[L3]: 8ea575d7 node qa/.delivery/requests/t057-walk.mjs vidysea -> step
 - L2: not separately falsified by the maker; the checker should mutate each guard (destroyed, busy, thread, focus) in a copy.
 
 ## Review
-Independent review not yet run (writer does not review own output).
+senior-software-engineer on 8ea575d7: Approve. Low: a typed correction is lost if focus moves to the chat box before a tick; a tick skipped for focus is not retried. Checker low issues: add `if (destroyed) return;` at the top of pollProfileAfterTurn; port the checker probes (busy, thread, focus, timer replacement, no-poll modes) into floater.test.js; add a ~70 s wait-only phase to the walk. Logged as ledger rows, not built.
 
 ## Metrics
 builder_min=45
