@@ -15,6 +15,7 @@ import {
   type ScribeTurn,
 } from "../src/index.js";
 import { guardTurn } from "../src/guards/escalation.js";
+import { CandidateFactSchema } from "../src/scribe/schemas.js";
 import { SKILLS_DIR } from "./scribe-fixtures.js";
 
 const NOW = new Date("2026-10-19T10:30:00.000Z");
@@ -230,6 +231,24 @@ test("t057 c6: a candidate carrying a model-emitted validFrom is kept (validFrom
   const b = await run(provider([bogus]), ENGLISH, "t-1", "en");
   assert.deepEqual(b.facts, []);
   assert.match(b.dropped[0]?.reason ?? "", /malformed fact/, "any other unknown key is still rejected (.strict kept)");
+});
+
+test("t057 run7 c6: Gemini's sensitivity \"normal\" (and case/space variants of the enum) is kept as a routine fact; an unknown label is still dropped", async () => {
+  const withSens = (sensitivity: unknown) => ({ ...cand("target_country", "Canada", "computer science in Canada"), sensitivity });
+  for (const s of ["normal", "Normal", " LOW ", "Medium", "HIGH"]) {
+    const r = await run(provider([withSens(s)]), ENGLISH, "t-1", "en");
+    assert.deepEqual(r.dropped, [], `sensitivity ${JSON.stringify(s)} must not drop the fact`);
+    assert.deepEqual(r.facts.map((f) => [f.key, f.value]), [["target_country", "Canada"]]);
+  }
+  // "normal" is kept but never becomes "low": only "low" facts feed the external KB question (cards/nodes.ts).
+  const parsed = CandidateFactSchema.parse(withSens("normal"));
+  assert.equal(parsed.sensitivity, "medium");
+  assert.equal(CandidateFactSchema.parse(withSens(" LOW ")).sensitivity, "low");
+  for (const s of ["secret", "", 3, null]) {
+    const r = await run(provider([withSens(s)]), ENGLISH, "t-1", "en");
+    assert.deepEqual(r.facts, [], `sensitivity ${JSON.stringify(s)} is not a known label`);
+    assert.match(r.dropped[0]?.reason ?? "", /malformed fact/);
+  }
 });
 
 test("t057 c6: when every candidate is dropped the extractor emits one text-free fact_extraction_all_dropped event with the count", async () => {

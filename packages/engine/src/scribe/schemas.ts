@@ -106,7 +106,14 @@ export const CandidateFactSchema = z.object({
   source: z.unknown().optional(),
   confidence: z.number().min(0).max(1),
   purposeTags: z.array(z.string().min(1)).default([]),
-  sensitivity: SensitivitySchema,
+  // t057 run7 c6: Gemini labels facts "normal", and a strict-enum drop silently lost every fact. Case/space are folded and "normal"
+  // becomes "medium", never "low": only "low" facts reach the external KB query (cards/nodes.ts), and an unverified label must not
+  // widen that. Any other label is still malformed.
+  sensitivity: z.preprocess((v) => {
+    if (typeof v !== "string") return v;
+    const s = v.trim().toLowerCase();
+    return s === "normal" ? "medium" : s;
+  }, SensitivitySchema),
   // T-013 (D-020): a candidate may declare itself a "reasoning" fact (default "value" when absent —
   // legacy provider output that never mentions kind keeps working unchanged). `explains` names the
   // value-fact key a reasoning fact accounts for; verifyCandidateFact (nodes.ts) drops a reasoning
