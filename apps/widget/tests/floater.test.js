@@ -301,6 +301,22 @@ test("VA18 resize: dragging the corner changes the size, never below 300 x 380, 
   grip.fire("pointerup", { pointerId: 3 });
 });
 
+test("t057 run7 resize: the top-left grip grows the panel up and left with its bottom-right corner fixed, within the viewport and the floor", () => {
+  const q = setup();
+  q.h.open();
+  const tl = byClass(q.shadow, "grip-tl");
+  assert.ok(tl, "a top-left resize handle exists (the panel sits bottom-right, so that is the side with room to grow)");
+  assert.equal(tl.getAttribute("aria-hidden"), "true");
+  tl.fire("pointerdown", { clientX: 888, clientY: 176, pointerId: 4 }); // default rect: left 888, top 176, 380 x 540
+  tl.fire("pointermove", { clientX: 588, clientY: 26, pointerId: 4 });
+  assert.deepEqual([px(q.panel.style.left), px(q.panel.style.top), px(q.panel.style.width), px(q.panel.style.height)], [588, 26, 680, 690]);
+  tl.fire("pointermove", { clientX: -9999, clientY: -9999, pointerId: 4 });
+  assert.deepEqual([px(q.panel.style.left), px(q.panel.style.top), px(q.panel.style.width), px(q.panel.style.height)], [0, 0, 1268, 716], "stops at the top-left edge");
+  tl.fire("pointermove", { clientX: 9999, clientY: 9999, pointerId: 4 });
+  assert.deepEqual([px(q.panel.style.left), px(q.panel.style.top), px(q.panel.style.width), px(q.panel.style.height)], [968, 336, 300, 380], "never below 300 x 380, bottom-right still fixed");
+  tl.fire("pointerup", { pointerId: 4 });
+});
+
 test("VA18 resize at phone width: at 360 x 640 the panel cannot be dragged or grown past the viewport", () => {
   const q = setup({}, { vw: 360, vh: 640 });
   q.h.open();

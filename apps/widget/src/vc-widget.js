@@ -301,7 +301,7 @@
       ".root{position:fixed;right:16px;bottom:16px;z-index:2147483000;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1b1f23}",
       ".bubble{width:56px;height:56px;border-radius:50%;border:0;cursor:pointer;background:var(--c);color:var(--ct);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.3);padding:0}",
       ".bubble svg{width:28px;height:28px;fill:currentColor}",
-      ".panel{position:fixed;right:12px;bottom:84px;max-width:calc(100vw - 16px);width:min(380px,calc(100vw - 24px));height:min(560px,calc(100vh - 100px));height:min(560px,calc(100dvh - 100px));background:#f5f6f8;border:1px solid #c5cbd3;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}",
+      ".panel{position:fixed;right:12px;bottom:84px;max-width:calc(100vw - 16px);width:min(440px,calc(100vw - 24px));height:min(680px,calc(100vh - 100px));height:min(680px,calc(100dvh - 100px));background:#f5f6f8;border:1px solid #c5cbd3;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}",
       ".panel[hidden]{display:none}",
       ".head{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 14px;background:var(--c);color:var(--ct);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}",
       ".head h2{flex:1;margin:0;font-size:1rem;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
@@ -339,7 +339,8 @@
       ".mic svg{width:20px;height:20px;fill:currentColor;vertical-align:middle}",
       ".panel[data-mode=voice] textarea,.panel[data-mode=voice] .send{display:none}",
       ".panel[data-mode=voice] .mic{flex:1}",
-      ".grip{position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;touch-action:none;z-index:1;background:linear-gradient(135deg,transparent 52%,#8c96a3 52%,#8c96a3 60%,transparent 60%,transparent 72%,#8c96a3 72%,#8c96a3 80%,transparent 80%)}",
+      ".grip{position:absolute;right:0;bottom:0;width:26px;height:26px;cursor:nwse-resize;touch-action:none;z-index:1;background:linear-gradient(135deg,transparent 46%,#5d6773 46%,#5d6773 56%,transparent 56%,transparent 68%,#5d6773 68%,#5d6773 78%,transparent 78%)}",
+      ".grip-tl{position:absolute;left:0;top:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;z-index:2;border-top-left-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,.85) 0,rgba(255,255,255,.85) 22%,transparent 22%,transparent 34%,rgba(255,255,255,.85) 34%,rgba(255,255,255,.85) 44%,transparent 44%)}",
       ".foot{padding:6px 24px;font-size:.8rem;font-weight:600;text-align:center;background:#fff;border-top:1px solid #d9dde3}",
       "button:focus-visible,textarea:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #f0a100;outline-offset:2px}",
       ".sessions{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid #d9dde3}.sessions select{min-width:0;flex:1}.sessions button,.memory button{min-height:36px;font:inherit;cursor:pointer}.memory{padding:8px 12px;max-height:170px;overflow:auto;border-bottom:1px solid #d9dde3;font-size:.85rem}.memory p{margin:4px 0}.memory button{margin:4px 8px 4px 0}.sessions[hidden],.memory[hidden]{display:none}",
@@ -482,6 +483,9 @@
     var grip = el(doc, "div", "grip");
     grip.setAttribute("aria-hidden", "true"); // pointer-only resize handle; the panel is fully usable at its default size from the keyboard
     panel.appendChild(grip);
+    var gripTL = el(doc, "div", "grip-tl"); // the panel opens bottom-right, so up-and-left is the side with room to grow
+    gripTL.setAttribute("aria-hidden", "true");
+    panel.appendChild(gripTL);
     panel.setAttribute("data-mode", "chat");
     wrap.appendChild(panel);
     wrap.appendChild(bubble);
@@ -864,6 +868,12 @@
     gesture(grip, function () { return true; }, function (dx, dy, g, v) {
       // keep the top-left corner fixed: cap the size at the viewport edge first, so clampRect does not slide the panel
       return { left: g.left, top: g.top, width: Math.max(Math.min(g.width + dx, v.w - g.left), MIN_W), height: Math.max(Math.min(g.height + dy, v.h - g.top), MIN_H) };
+    });
+    gesture(gripTL, function () { return true; }, function (dx, dy, g) {
+      // keep the bottom-right corner fixed: the size is capped by the room above/left of it and floored at MIN_W x MIN_H
+      var right = g.left + g.width, bottom = g.top + g.height;
+      var w = Math.max(Math.min(g.width - dx, right), MIN_W), h = Math.max(Math.min(g.height - dy, bottom), MIN_H);
+      return { left: right - w, top: bottom - h, width: w, height: h };
     });
     if (win.addEventListener) {
       listen(win, "resize", function () {
