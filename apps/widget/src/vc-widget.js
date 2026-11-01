@@ -640,6 +640,14 @@
     async function refreshProfile() {
       var epoch = ++profileEpoch, thread = selectedThread;
       var r = await resource('/profile');
+      // t057 run8 C6: the API returns 20 minus the live Vidysea/Pathlynks facts per page and a nextCursor; a proposal on a later page was never shown
+      var more = r.ok && r.body && r.body.memory && Array.isArray(r.body.memory.items) ? r.body.memory.nextCursor : undefined;
+      for (var pg = 0; typeof more === 'string' && more && pg < 5; pg++) {
+        var nx = await resource('/profile?cursor=' + encodeURIComponent(more));
+        if (!nx.ok || !nx.body || !nx.body.memory || !Array.isArray(nx.body.memory.items)) break;
+        r.body.memory.items = r.body.memory.items.concat(nx.body.memory.items);
+        more = nx.body.memory.nextCursor;
+      }
       if (destroyed || epoch !== profileEpoch || thread !== selectedThread) return false;
       pendingChoice = null;
       memoryListeners.splice(0).forEach(function (off) { off(); });
@@ -649,7 +657,7 @@
       }
       var choices = [];
       memory.appendChild(el(doc,'strong','','Your memory'));
-      r.body.memory.items.slice(0,20).forEach(function (item) {
+      r.body.memory.items.slice(0,100).forEach(function (item) {
         if (!item || typeof item.key !== 'string' || typeof item.value !== 'string') return;
         var row = el(doc,'div');
         row.appendChild(el(doc,'p','',item.key.slice(0,128) + ': ' + item.value.slice(0,1000) + (item.readOnly ? ' (account)' : item.status === 'proposed' ? ' (awaiting confirmation)' : '')));

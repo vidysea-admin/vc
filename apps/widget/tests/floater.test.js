@@ -760,6 +760,23 @@ test('t057 run8 C6: a candidate proposed in another thread shows no Confirm/Reje
   q.h.destroy();
 });
 
+test('t057 run8 C6: the memory panel follows nextCursor, so a proposal past the first page is shown and confirmable',async()=>{
+  const row=(key,status,extra={})=>({factId:'fact-'+key,key,value:status==='proposed'?'Canada':'x',status,readOnly:false,...extra});
+  const page2=row('target_country','proposed',{pendingChange:{candidateId:'cand-3',version:'v-3',value:'Canada',proposedAt:'2026-11-01T10:00:00Z',threadId:'owned-1'}});
+  const f=authFetch((url)=>{
+    if(url.includes('/profile?cursor=CUR1'))return resp(200,{memory:{items:[page2]}});
+    if(url.endsWith('/profile'))return resp(200,{memory:{items:[row('interest','confirmed'),row('grade','confirmed')],nextCursor:'CUR1'}});
+  });
+  const q=setup(AUTH_CFG(),{fetch:f});await q.h.ready;
+  const box=byClass(q.shadow,'memory');
+  assert.match(box.textContent,/target_country/,'the second page row is listed');
+  byLabel(q.shadow,'Confirm change to target_country').fire('click');await new Promise(r=>setTimeout(r,10));
+  const d=f.calls.find(c=>c.url.endsWith('/decision'));
+  assert.ok(d,'it can be confirmed');
+  assert.equal(JSON.parse(d.init.body).candidateId,'cand-3');
+  q.h.destroy();
+});
+
 test('S12 memory: explicit confirm/correct/forget preserve displayed binding and readonly account fields',async()=>{
   let profile=pendingProfile();const f=authFetch((url,init)=>{
     if(url.endsWith('/profile'))return resp(200,profile);
