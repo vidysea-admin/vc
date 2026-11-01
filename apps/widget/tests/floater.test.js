@@ -116,7 +116,7 @@ function setup(cfgOver, opts) {
   const doc = makeDoc();
   const win = makeWin(opts.vw || 1280, opts.vh || 800);
   const fetchImpl = opts.fetch || (async () => okReply("Hello from VC."));
-  const h = W.mount(KEY_CFG(cfgOver), doc, fetchImpl, { win: win });
+  const h = W.mount(KEY_CFG(cfgOver), doc, fetchImpl, { win: win, profilePollMs: opts.profilePollMs });
   const shadow = h.host.shadowRoot;
   const q = {
     h, doc, win, shadow,
@@ -774,6 +774,20 @@ test('t057 run8 C6: the memory panel follows nextCursor, so a proposal past the 
   const d=f.calls.find(c=>c.url.endsWith('/decision'));
   assert.ok(d,'it can be confirmed');
   assert.equal(JSON.parse(d.init.body).candidateId,'cand-3');
+  q.h.destroy();
+});
+
+test('t057 run8 C6: a proposal the server publishes after the reply appears in the memory panel without a reload',async()=>{
+  let published=false;
+  const f=authFetch((url)=>{
+    if(url.endsWith('/profile'))return resp(200,{memory:{items:published?[{factId:'fact-late',key:'target_country',value:'Canada',status:'proposed',readOnly:false,pendingChange:{candidateId:'cand-9',version:'v-9',value:'Canada',proposedAt:'2026-11-01T10:00:00Z',threadId:'owned-1'}}]:[]}});
+  });
+  const q=setup(Object.assign(AUTH_CFG(),{}),{fetch:f,profilePollMs:[20,60]});await q.h.ready;
+  await sendText(q,'I want Canada');
+  assert.doesNotMatch(byClass(q.shadow,'memory').textContent,/target_country/,'extraction has not published yet at reply time');
+  published=true;await new Promise(r=>setTimeout(r,150));
+  assert.match(byClass(q.shadow,'memory').textContent,/target_country/,'the delayed refresh picked the proposal up');
+  assert.ok(byLabel(q.shadow,'Confirm change to target_country')||byLabel(q.shadow,'Confirm target_country'),'it can be confirmed');
   q.h.destroy();
 });
 

@@ -439,6 +439,15 @@ async function walkVidysea() {
       throw new Error("ChatWidget state=unavailable (check NEXT_PUBLIC_VC_WIDGET_SCRIPT_URL, /student/ai-counsellor/vc/runtime)");
   });
 
+  // run8i diagnostic: what the browser really receives for the memory panel (keys, statuses and counts only)
+  const profileSeen = [];
+  page.on("response", async (r) => {
+    if (!/\/ai-counsellor\/vc\/profile(\?|$)/.test(r.url())) return;
+    try {
+      const j = await r.json();
+      profileSeen.push({ st: r.status(), q: r.url().includes("cursor="), n: (j.memory?.items ?? []).length, next: !!j.memory?.nextCursor, keys: (j.memory?.items ?? []).map((i) => `${i.key}:${i.status}`).join(" ").slice(0, 400) });
+    } catch { profileSeen.push({ st: r.status(), parse: false }); }
+  });
   await step("open-widget", async () => { await vyOpenWidget(); });
   if (flags.has("--voice")) await step("c10-voice", vyVoice);
   await step("c3-careers", async () => { await vyOpenWidget(); return vyAsk(P.careers); });  // answered from the Vidysea pathlynks snapshot
@@ -447,12 +456,47 @@ async function walkVidysea() {
   if (!flags.has("--no-memory")) {
     // C6 on the shared widget: propose -> Confirm in the memory panel (vc-widget.js:641-656) -> new chat -> recall.
     // The widget reloads /profile when the panel opens (:962); fact extraction runs after the reply, so reopen until it shows.
+    // run8d precondition: a candidate for these facts left pending by an earlier walk lives in an old chat and was not re-proposed in run 8d
+    // (cause not yet confirmed; ISS candidate), so forget only this walk's own Canada/budget rows first, each with a 2xx check.
+    await step("c6-clean", async () => {
+      const mem = page.locator('[data-vc-widget] .memory');
+      let forgotten = 0;
+      for (let i = 0; i < 6; i++) {
+        const all = mem.getByRole("button", { name: /^Forget/ });
+        const n = await all.count().catch(() => 0);
+        let target = null;
+        for (let k = 0; k < n; k++) {
+          const b = all.nth(k);
+          const txt = await b.evaluate((el) => (el.parentElement && el.parentElement.innerText) || "").catch(() => "");
+          if (/canada|lakh|budget/i.test(txt)) { target = b; break; }
+        }
+        if (!target) break;
+        const decided = page.waitForResponse((r) => /\/decision/.test(r.url()) && r.request().method() === "POST", { timeout: 20000 });
+        decided.catch(() => {});
+        await target.click({ timeout: 5000 }).catch(() => {});
+        const r = await decided.catch(() => null);   // a click swallowed by a busy panel is retried below, not trusted
+        if (r && (r.status() < 200 || r.status() >= 300)) throw new Error(`forget returned ${r.status()}`);
+        if (r) forgotten++;
+        await sleep(3000);                            // the panel reloads and is busy until the decision settles
+      }
+      const left = await mem.getByRole("button", { name: /^Forget/ }).evaluateAll((els) => els.filter((el) => /canada|lakh|budget/i.test((el.parentElement && el.parentElement.innerText) || "")).length).catch(() => 0);
+      if (left > 0) throw new Error(`${left} stale Canada/budget row(s) could not be forgotten`);
+      return { forgotten };
+    });
     await step("c6-propose", async () => vyAsk(P.prefer));
     await step("c6-confirm", async () => {
       const mem = page.locator('[data-vc-widget] .memory');
-      for (let i = 0; i < 8; i++) {
-        const confirm = mem.getByRole("button", { name: /^Confirm\b/ }).first();   // aria-label is "Confirm <key>" (vc-widget.js:649)
-        if (await confirm.isVisible().catch(() => false)) {
+      for (let i = 0; i < 30; i++) {   // run8i: fact extraction publishes proposals one by one, 30-90 s after the reply
+        // run8 C6: confirm the fact this walk proposed (P.prefer: Canada / budget), never an unrelated candidate such as a KB-question one
+        const all = mem.getByRole("button", { name: /^Confirm/ });
+        const n = await all.count().catch(() => 0);
+        let confirm = null;
+        for (let k = 0; k < n; k++) {
+          const b = all.nth(k);
+          const txt = await b.evaluate((el) => (el.parentElement && el.parentElement.innerText) || "").catch(() => "");
+          if (/canada|lakh|budget/i.test(txt)) { confirm = b; break; }
+        }
+        if (confirm && await confirm.isVisible().catch(() => false)) {
           // run8 C6: a click is not a confirm; the API can answer 409 memory_changed, so assert the decision status
           const decided = page.waitForResponse((r) => /\/decision\b/.test(r.url()) && r.request().method() === "POST", { timeout: 20000 });
           decided.catch(() => {});   // a click that throws must not leave an unhandled rejection behind
@@ -465,12 +509,27 @@ async function walkVidysea() {
         await page.locator("[data-vc-widget] button.close").click({ timeout: 2000 }).catch(() => {}); await sleep(800);   // close via the panel close button (the bubble reads "Close chat" while open, vc-widget.js:904)
         await vyOpenWidget(); await sleep(3000);                        // reopen -> refreshProfile
       }
+      // diagnostic: row shape only (key before the colon, button labels, foreign-chat flag), never values
+      const shape = await mem.evaluate((m) => Array.from(m.children).map((r) => ({
+        k: ((r.innerText || "").split(":")[0] || "").slice(0, 28),
+        b: Array.from(r.querySelectorAll("button")).map((x) => x.getAttribute("aria-label") || x.textContent).join("|").slice(0, 80),
+        foreign: /another chat/i.test(r.innerText || ""),
+      }))).catch(() => []);
+      console.log("c6-confirm panel rows:", JSON.stringify(shape));
+      console.log("c6-confirm profile responses (last 3):", JSON.stringify(profileSeen.slice(-3)));
       throw new Error("no proposed fact appeared in the widget memory panel");
     });
     await step("c6-new-thread-recall", async () => {
       await page.locator('[data-vc-widget] button[aria-label="Start new chat"]').click();
       await sleep(2000);
-      return vyAsk(P.recall);
+      const r = await vyAsk(P.recall);
+      // run8 C6: recall must carry the confirmed fact, not just be long enough; booleans only, no student text kept
+      const w = vy();
+      const last = w.replies.nth((await w.replies.count()) - 1);
+      const txt = await last.evaluate((el) => el.innerText || "");
+      const recallsCanada = /canada/i.test(txt), recallsBudget = /20\s*(lakh|l)|2,?00,?000/i.test(txt);
+      if (!recallsCanada) throw new Error("recall reply does not mention the confirmed country");
+      return { ...r, recallsCanada, recallsBudget };
     });
   }
   if (!flags.has("--no-crisis")) await step("c9-crisis", async () => vyAsk(P.crisis));

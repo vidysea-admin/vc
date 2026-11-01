@@ -691,6 +691,20 @@
       if (choices.length === 1) pendingChoice = choices[0];
       return true;
     }
+    // t057 run8 C6: the server publishes a proposed fact some seconds AFTER the reply (detached extraction), so the refresh right after the turn misses it.
+    var profilePollTimers = [], profilePollMs = (env && Array.isArray(env.profilePollMs)) ? env.profilePollMs : [6000, 15000, 30000, 60000];
+    function pollProfileAfterTurn() {
+      var thread = selectedThread;
+      profilePollTimers.splice(0).forEach(clearTimeout);
+      profilePollMs.forEach(function (ms) {
+        profilePollTimers.push(setTimeout(function () {
+          if (destroyed || busy || thread !== selectedThread) return;
+          var ae = host.shadowRoot && host.shadowRoot.activeElement;   // never rebuild the panel under a visitor who is typing a correction
+          if (ae && memory.contains && memory.contains(ae)) return;
+          refreshProfile();
+        }, ms));
+      });
+    }
     async function decideMemory(choice, action) {
       if (destroyed || busy || !choice || choice.threadId !== selectedThread || !selectedThread) return false;
       var thread = selectedThread;
@@ -782,7 +796,7 @@
           add('err','Memory or chat state changed. Review the current choice, then retry your message.');
         } else add('err',r.status === 401 || r.status === 403 ? 'Please sign in again. Your question is kept for Retry.' : 'Could not get a reply. Your question is kept for Retry.');
       }
-      await refreshProfile();
+      await refreshProfile(); pollProfileAfterTurn();
       if (destroyed) return;
       setBusy(false); input.focus();
     }
@@ -792,6 +806,7 @@
       controllers.forEach(function (c) { c.abort(); }); controllers.clear();
       if (voiceCtl) voiceCtl.stop(); voiceCtl = null;
       if (waitTimer) clearInterval(waitTimer); waitTimer = null;
+      profilePollTimers.splice(0).forEach(clearTimeout);
       listeners.splice(0).concat(memoryListeners.splice(0)).forEach(function (off) { off(); });
       if (observer) observer.disconnect();
       clearHistory(); selectedThread = ''; ownedThreads = []; pendingTurn = null; pendingChoice = null;
