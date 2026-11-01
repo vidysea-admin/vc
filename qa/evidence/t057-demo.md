@@ -1,17 +1,17 @@
-# T-057 demo: local browser end-to-end evidence (run 8b, 2026-11-01)
+# T-057 demo: local browser end-to-end evidence (run 8c, 2026-11-01)
 
 **Scope.** This is a local run, not a deployed one. Nothing is deployed yet: there is no VC host, image or widget release.
 
 | Component | Where it ran |
 |---|---|
-| Code | `codex/vc-completion` at 79cc922f (vidysea/main is 2e84adcf) |
+| Code | `codex/vc-completion` at 5965a06b (vidysea/main is 2e84adcf; 13 commits not pushed) |
 | VC API | :8787, on the **real** `virtual_counsellor` Mongo, which is reachable again |
 | Vidysea backend gateway | :8000 |
 | Vidysea frontend | :3001 |
 | Widget | :8790, served from `apps/widget/src` |
 | Admin web | :3108 |
 
-The walk command was `node qa/.delivery/requests/t057-walk.mjs vidysea --voice`; the log is `walk-vidysea-run8b.log` in the session scratchpad. Screenshots are in `qa/evidence/t057/` (gitignored). The walk records only lengths, counts and kinds: no student text and no secrets.
+The walk command was `node qa/.delivery/requests/t057-walk.mjs vidysea --voice`; the log is `walk-vidysea-run8c.log` in the session scratchpad. Screenshots are in `qa/evidence/t057/` (gitignored). The walk records only lengths, counts and kinds: no student text and no secrets.
 
 ## Preflight (`pnpm demo:preflight`, 2026-11-01)
 
@@ -31,12 +31,12 @@ The walk command was `node qa/.delivery/requests/t057-walk.mjs vidysea --voice`;
 | C3 | Careers answer (Vidysea) | **OK** | step05 reply=321ch kind=bot |
 | C4 | Pathlynks careers | **BLOCKED** | Pathlynks DB (DevOps) |
 | C5 | KB-cited university answer | **FAIL / BLOCKED** | step06 no-citation (kind=note). KB `/search` is down (DevOps redeploy). The code path itself is checker-PASS (t057-c5-pl-sources). |
-| C6 | Memory: propose → confirm → recall in a new thread | **OK** | step07 note 1006ch, step08 confirm OK, step09 recall 894ch. Fix dfb0f8cc maps sensitivity "normal" to medium (verdict 67aa4577). |
+| C6 | Memory: propose → confirm → recall in a new thread | **OK** | Run 8c: step07 note 1120ch; step08 confirm, with the walk now asserting a 2xx `/decision` response; step09 recall 772ch. Correction: run 8b's "confirm OK" was a false pass. The click hit another thread's candidate and got 409 (E2E verdict 826e216b, FAIL). Fixed in t057-c6-thread-confirm (8eaf5b33 + a8b86f8e, verdict bf5e0d4a), plus dfb0f8cc (verdict 67aa4577). |
 | C7 | Threads persist / reload history | **OK** | step11 bubbles=4. Uses the real VC Mongo this run. |
 | C8 | Student isolation | **OK** | Probe with two synthetic students under the gateway partner key: A reads its own thread 200; B on its own path 404; B header on A's path 404; B's list has 0 threads; B posting into A's thread 404; no key 401. |
 | C9 | Crisis | **OK** | step10 kind=crisis 606ch (zero-LLM crisis path) |
-| C10 | Voice question → spoken answer | **OK** | step04 userTranscript=29ch audioFrames=62 reply=315ch. Before the fix the reply was 4–12ch: the panel showed only the newest delta chunk. Fixed in t057-voice-delta (65f5279d + 79cc922f, verdict e2f01472). |
-| C11 | Vidysea walk end to end | **OK** (10/11, C5 blocked) | run 8b |
+| C10 | Voice question → spoken answer | **OK** | Run 8c step04: userTranscript=31ch, audioFrames=79, reply=391ch. Before the fix the reply was 4–12ch: the panel showed only the newest delta chunk. Fixed in t057-voice-delta (65f5279d + 79cc922f, verdict e2f01472). |
+| C11 | Vidysea walk end to end | **PARTIAL**: 10/11 steps OK. C5 FAILs while the KB is down. | Run 8c. Run 8b's 10/11 counted the false-pass C6. |
 | C11-PL | Pathlynks walk | **BLOCKED** | Pathlynks DB (DevOps) and the uncommitted Pathlynks FE/BE wiring (Umesh: PR yes) |
 
 ## Extra checks
@@ -51,4 +51,5 @@ The walk command was `node qa/.delivery/requests/t057-walk.mjs vidysea --voice`;
 ## Fixes made during this run (all checker PASS)
 - dfb0f8cc: C6 sensitivity "normal" maps to medium.
 - a41bf67d + 259520ea: widget default size and top-left grip.
+- 8eaf5b33 + a8b86f8e: the memory panel offers no Confirm/Reject for a candidate from another or no thread (the API answers 409). The walk asserts the decision status.
 - 65f5279d + 79cc922f: the voice live line appends delta chunks; a confirm prompt closes the student's line; the walk citation check is scoped to the reply.
