@@ -1,6 +1,6 @@
 # Manifest: time-bombs-6c
 
-Status: building
+Status: merged-no-check (test-lane)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: S (test-only: fixture dates and clock injection in three existing test files; no product file)
