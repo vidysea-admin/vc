@@ -1001,6 +1001,60 @@ function readLimited(req: IncomingMessage, maxBytes: number = MAX_BODY_BYTES): P
   });
 }
 
+/** devops-handover H1: how long GET /ready waits for the dependency ping before answering 503. */
+export const READY_PING_TIMEOUT_MS = 1000;
+
+export interface HealthDeps {
+  /** One cheap round trip to the data store (startApi: `db.command({ ping: 1 })` on the virtual_counsellor client). Its result and any error are never exposed. */
+  ping: () => Promise<unknown>;
+  /** Readiness deadline in ms. Default READY_PING_TIMEOUT_MS. */
+  timeoutMs?: number;
+}
+
+const HEALTH_PATH = "/health";
+const READY_PATH = "/ready";
+
+/**
+ * devops-handover H1: the two probe routes for load balancers / ECS / EKS. Mounted OUTERMOST in startApi, so a probe needs no
+ * auth, never reaches the anonymous limiter, and is not part of the OpenAPI route table (ROUTES).
+ *   - GET /health: liveness, 200 {"status":"ok"}, no dependency call.
+ *   - GET /ready: readiness, 200 {"status":"ready"} when `ping` settles within the deadline, else 503 {"status":"unavailable"}.
+ * Bodies are fixed literals: never a host, error text, env value or version. Nothing is logged. Any other method on these
+ * two paths is a 405; every other path (including `/health/` and `/healthz`) is handed to `main` untouched.
+ */
+export function withHealthRoutes(main: ApiHandler, deps: HealthDeps): ApiHandler {
+  const timeoutMs = deps.timeoutMs ?? READY_PING_TIMEOUT_MS;
+  const ready = async (): Promise<ApiResponse> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const pinged = (async () => deps.ping())();
+      pinged.catch(() => undefined); // a ping that fails after the deadline must not become an unhandled rejection
+      await Promise.race([
+        pinged,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("deadline")), timeoutMs);
+        }),
+      ]);
+      return respond(200, { status: "ready" });
+    } catch {
+      return respond(503, { status: "unavailable" });
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  };
+  return (req) => {
+    let pathname: string | undefined;
+    try {
+      pathname = new URL(req.url, "http://vc-api.invalid").pathname;
+    } catch {
+      pathname = undefined;
+    }
+    if (pathname !== HEALTH_PATH && pathname !== READY_PATH) return main(req);
+    if (req.method.toUpperCase() !== "GET") return Promise.resolve(respond(405, { error: "method_not_allowed" }, { allow: "GET" }));
+    return pathname === HEALTH_PATH ? Promise.resolve(respond(200, { status: "ok" })) : ready();
+  };
+}
+
 /** P1 U10: a handler for HTTP `Upgrade` requests (the voice WebSocket). Without one, the server answers no upgrade. */
 export type ApiUpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => void;
 

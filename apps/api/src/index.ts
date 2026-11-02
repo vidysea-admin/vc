@@ -50,7 +50,7 @@ import {
   type OllamaRequestEstimate,
 } from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, refuseTenantClaims, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
-import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
+import { createApiHandler, createApiServer, createTenantWiring, withHealthRoutes, type ApiLogLine } from "./server.js";
 import { loadSourcesFile, mongoSourceForTenant, postgresSourceForTenant, type SourcesFile, type ProfileFact } from "@vc/schemas";
 import type { QuestDbLike } from "@vc/mcp-pathlynks";
 import { adminJwtSecretFromEnv } from "./admin-auth.js";
@@ -1119,7 +1119,8 @@ export async function startApi(
           adminLog({ level: "error", event: "admin_sources_seed_failed", error: errorLabel(err) });
         }
       }
-      const s = createApiServer(mountedHandler, {
+      // devops-handover H1: /health and /ready answer before every other wrapper (no auth, no anonymous limiter); the ping is one round trip on the virtual_counsellor Db.
+      const s = createApiServer(withHealthRoutes(mountedHandler, { ping: () => db.command({ ping: 1 }) }), {
         ...(voice ? { onUpgrade: voice.upgrade } : {}),
       });
       server = s;
