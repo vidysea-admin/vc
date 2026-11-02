@@ -303,7 +303,7 @@ test("S12: stale extraction successful cleanup never rewinds the explicit forget
  const claim=await claimChatTurn(a,{studentId:"stu-1",threadId:"owned",turnId:"t1",channel:"text",text:"I like robotics",requestHash:"synthetic-t1"},{now:new Date("2026-11-01T10:00:01Z")});
  assert.equal(claim.kind,"claimed");
  if(claim.kind!=="claimed")throw new Error("claim unavailable");
- await completeChatTurn(a,{studentId:"stu-1",threadId:"owned",turnId:"t1",leaseToken:claim.leaseToken,channel:"text",assistantText:"Lets explore robotics",response:{state:"ok",claims:[],sources:[],profileFactsUsed:[]}});
+ await completeChatTurn(a,{studentId:"stu-1",threadId:"owned",turnId:"t1",leaseToken:claim.leaseToken,channel:"text",assistantText:"Lets explore robotics",response:{state:"ok",claims:[],sources:[],profileFactsUsed:[]}},{now:new Date("2026-11-01T10:00:01Z")});
  assert.equal((await threads.listChatContext(a,{studentId:"stu-1",threadId:"owned"})).length,2);
  const fact=(await proposeProfileFact(a,{studentId:"stu-1",key:"interest",value:"robotics"},{now:t0}))!;
  const revision=await m.readStudentMemoryRevision(a,"stu-1");

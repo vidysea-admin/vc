@@ -168,8 +168,9 @@ test("Q12/I4 repair: known profile names are redacted from voice proposal keys, 
 test("Q14/I1 repair: voice memory numbers remain untrusted and cannot source factual speech", async () => {
   await withWorld(async (w, threadId) => {
     const db = tenantScopedDb(w.rawDb, "tenant-a");
-    const fact = await proposeProfileFact(db, { studentId: "stu-1", key: "budget", value: "Fee claim 987651 euros" });
-    await decideProfileFact(db, { studentId: "stu-1", factId: fact!.factId, action: "confirm" });
+    const fact = await proposeProfileFact(db, { studentId: "stu-1", key: "budget", value: "Fee claim 987651 euros" }, { now: new Date(w.clock.ms) });
+    await decideProfileFact(db, { studentId: "stu-1", factId: fact!.factId, action: "confirm" }, { now: new Date(w.clock.ms) });
+    w.clock.ms += 1000;
     const first = await w.open(adult(), threadId);
     speak(w, 0, "I heard the fee is 876542 euros");
     reply(w, 0, "You mentioned the fee 876542 euros");

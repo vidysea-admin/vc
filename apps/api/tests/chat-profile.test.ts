@@ -1238,8 +1238,8 @@ test("Q10-Q14: actual handler passes only owned completed context and confirmed 
  let policy={...DEFAULT_MEMORY_POLICY};let extracted=0;
  const w=chatWorld({deps:{memoryPolicyForTenant:async()=>policy,extractFacts:async()=>{extracted++;return[];}}});
  try{const token=await studentToken(adult());const threadId=await newThread(w,token);
- const own=w.deps.dbForTenant("tenant-a");const f=await proposeProfileFact(own,{studentId:"stu-1",key:"goal",value:"Japan"});assert.ok(f);
- await decideProfileFact(own,{studentId:"stu-1",factId:f.factId,action:"confirm"});
+ const own=w.deps.dbForTenant("tenant-a");const f=await proposeProfileFact(own,{studentId:"stu-1",key:"goal",value:"Japan"},{now:new Date(w.clock.ms)});assert.ok(f);
+ await decideProfileFact(own,{studentId:"stu-1",factId:f.factId,action:"confirm"},{now:new Date(w.clock.ms)});w.clock.ms+=1000;
  await askOnce(w,token,threadId,"memory-1");w.clock.ms+=1000;
  await askOnce(w,token,threadId,"memory-2");
  const requests=(w.provider as any).calls;
