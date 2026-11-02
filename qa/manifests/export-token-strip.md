@@ -1,6 +1,6 @@
 # Manifest: export-token-strip
 
-Status: ready-for-check
+Status: checked-PASS (dual, cycle 0: A qa/verdicts/export-token-strip.md cf60ac9a, B qa/verdicts/export-token-strip.b.md 1987a1a4)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: L (privacy/security: removes internal ownership tokens from the student export)
