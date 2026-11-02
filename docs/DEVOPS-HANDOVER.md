@@ -17,7 +17,7 @@ The Knowledge Base (KB) go-live failed in five ways, and each has an answer here
 - State lives in MongoDB database `virtual_counsellor`, plus one read-only database, `pathlynks_journey`, on the same Mongo host.
 - **M1** = anonymous chat behind TLS. Needs the host, the Mongo allow-list, the KB and the LLM key.
 - **M2** = embedded, personalised chat after partner keys exist, for the Vidysea and Pathlynks frontends.
-- nginx serves the student UI `apps/student` and the widget `apps/widget/src` as static files. No build step.
+- nginx serves the student UI `apps/student` as static files, no build step. The widget: hosts load only the three files under `/widget/releases/<sha>/` (section 9, built at M2). `apps/widget/src` is the build source copied into that directory in section 9; the nginx file also aliases three unversioned `/widget/*.js` names straight to it (section 7). VC itself (M1) loads no widget.
 
 ## 2. Checklist (owner-ordered)
 
@@ -28,12 +28,12 @@ Do the blocks in order. Owners: DevOps, Umesh, Pathlynks team, Vidysea team.
 | # | Owner | Action | Done when |
 |---|---|---|---|
 | A1 | DevOps | Provision the Ubuntu host and a DNS name. Firewall: default deny inbound. Allow 80 and 443, SSH only from admin IPs. Do not open 8080. | An external port scan shows only 80 and 443 (and SSH from admin IPs). |
-| A0 | DevOps | Install `nc` and `mongosh` (section 5, steps 1 and 1b) before A4 needs them. | `mongosh --version` and `nc -h` run. |
+| A0 | DevOps | Install the tools: `curl`, `nc`, `mongosh` (section 5, steps 1 and 1b). A2 and A4 need them. | `curl --version`, `mongosh --version` and `nc -h` run. |
 | A2 | DevOps | Find the server's public egress IP and send it to Umesh. On the server run `curl -sS https://checkip.amazonaws.com` (or any public IP echo service your team accepts), or read the NAT gateway / Elastic IP address in the cloud console. It must be static: a fixed Elastic IP or NAT gateway. If it can change, say so, because the Mongo and RDS allow-lists break when it does. | Umesh has the IP and DevOps confirms it is static. |
 | A3 | Umesh + Mongo host owner | Add that IP to the Mongo host allow-list. | The Mongo owner confirms. The ping test is B6, after `vc.env` exists. |
 | A4 | DevOps | Prove Mongo is closed (this was the KB failure). The Mongo host name comes from the Mongo owner (a host name is not secret; do not read it from `vc.env`). **Probe 1, run by DevOps from a machine outside the allow-list** (for example a laptop on a mobile hotspot, or a cloud VM in another account; never the VC server and never an admin IP that was allow-listed): `nc -vz -w 5 <VC-MONGO-HOST> 27017` must time out or be refused. **Probe 2, run by DevOps on the new VC server** (A0 done), with no credentials: `mongosh --host <VC-MONGO-HOST> --eval 'db.adminCommand({listDatabases:1})'` must fail with an authentication error. If probe 2 fails with a TLS or handshake error instead, the server may accept only TLS: repeat it as `mongosh --tls --host <VC-MONGO-HOST> --eval '...'` (add `--tlsCAFile <file>` if the Mongo owner uses a private CA) and expect the authentication error. A TLS error alone does not prove auth is on; the authentication error does. | Both behave as written. If either does not, stop and tell Umesh. |
-| A5 | Pathlynks team | Allow the server egress IP on the Pathlynks Postgres RDS, port 5432. Supply the AWS RDS CA bundle file. | The CA file is at `/etc/vc/ca/pathlynks-rds-ca.pem` (section 5, step 9); that path is `PATHLYNKS_DB_CA_FILE` (M2 only). |
-| A6 | Vidysea team | Allow the server egress IP on the Vidysea Postgres RDS, port 5432, read-only role. Supply the CA file and the role password. | The CA file is at `/etc/vc/ca/vidysea-rds-ca.pem` (section 5, step 9); that path is `VIDYSEA_DB_CA_FILE` (M2 only). |
+| A5 | Pathlynks team | Allow the server egress IP on the Pathlynks Postgres RDS, port 5432. Supply the AWS RDS CA bundle file. | DevOps has received the CA file. Step 9 of section 5 installs it as `/etc/vc/ca/pathlynks-rds-ca.pem`, the value of `PATHLYNKS_DB_CA_FILE` (M2 only). |
+| A6 | Vidysea team | Allow the server egress IP on the Vidysea Postgres RDS, port 5432, read-only role. Supply the CA file and the role password. | DevOps has received the CA file. Step 9 of section 5 installs it as `/etc/vc/ca/vidysea-rds-ca.pem`, the value of `VIDYSEA_DB_CA_FILE` (M2 only). |
 | A7 | Umesh + KB team | The KB team confirms the KB service is up and gives Umesh the base URL (section 11). | Umesh has the URL. The reachability test is B6. |
 
 ### B. Server and release
@@ -42,7 +42,7 @@ Do the blocks in order. Owners: DevOps, Umesh, Pathlynks team, Vidysea team.
 |---|---|---|---|
 | B1 | DevOps | User and directories (section 5, step 2; packages were A0). | `id vc` works. |
 | B2 | Umesh | Give DevOps the exact git sha and the clone access (section 5, step 4). | DevOps has both. |
-| B3 | DevOps | Node, clone access, clone, pnpm, `pnpm install --frozen-lockfile` (section 5, steps 3 to 7). | `node -v` is v20.16 or higher; install exits 0. |
+| B3 | DevOps | Node, clone access, clone, pnpm, `pnpm install --frozen-lockfile` (section 5, steps 3 to 7). | `node -v` prints `v22.x` (a preinstalled Node 20, or any version below 22, must be replaced: step 3); install exits 0. |
 | B4 | Umesh | Send the `vc.env` values by a private channel (section 4). | DevOps has them. |
 | B5 | DevOps | Write `/etc/vc/vc.env` (section 5, step 9). | `ls -l /etc/vc/vc.env` shows `-rw-r----- root vc`; the name check (step 9) finds no missing name. |
 | B6 | DevOps | Reachability from the server, reading the URLs from `vc.env` (section 5, step 10): Mongo ping, Mongo roles, KB. | Ping prints `1`; roles are as stated; KB prints an HTTP code. Send the output (no URL) to Umesh. |
@@ -59,18 +59,18 @@ Do the blocks in order. Owners: DevOps, Umesh, Pathlynks team, Vidysea team.
 |---|---|---|---|
 | C0 | DevOps builds; Umesh gives the sha | Build the widget release directory (section 9) from the sha Umesh approved. Do it before C5 and C6: the host builds need its URL. | Three-line `SHA256SUMS` sent to Umesh; `curl -sI https://<VC-HOST>/widget/releases/<SHA>/vc-widget.v1.js` returns `200` and `immutable`. |
 | C1 | DevOps | Run the `student-routes` gate (section 6) before any M2 variable is written. | Prints `ALLOWED` with four `ok` lines. |
-| C2 | Umesh + DevOps | Copy `vc.env` to `vc.env.prev` (section 4a), add the M2 variables (section 4d) including `VC_CHAT_ENABLED=true`, then `sudo systemctl restart vc-api`. | `sudo systemctl --no-pager status vc-api` is `active (running)` and the journal shows a new `vc_api_listening`. |
+| C2 | DevOps (one owner). Umesh does not log in unless section 11 row 21 says so | Do not start until section 11 rows 14 and 23 (student-JWT values, KB chat key) are answered: a missing value crash-loops the one process and takes M1 down too (`apps/api/src/main.ts` lines 161 to 173); `vc.env.prev` is the way back. Copy `vc.env` to `vc.env.prev` (section 4a). Write the M2 variables (section 4d) on the server from the values Umesh sent over the private channel, including `VC_CHAT_ENABLED=true` and one admin-store variable (4d), then `sudo systemctl restart vc-api`. | `sudo systemctl --no-pager status vc-api` is `active (running)` and the journal shows a new `vc_api_listening`. |
 | C3 | The person with shell and sudo on the VC server (section 9a) | `partner list --check`, then `partner add` for the two partners (section 9a). Keys print once. | Both partners show in `partner list`. |
 | C4 | Umesh | Hand each server key to its team by a private channel. | Teams confirm receipt. |
 | C5 | Pathlynks team | Deploy the Pathlynks backend with `VC_QUEST_ENABLED`, `VC_BASE_URL`, `VC_PARTNER_SERVER_KEY`, and the frontend built with `NEXT_PUBLIC_VC_WIDGET_BASE_URL` (section 9). | Pathlynks page loads the widget. |
 | C6 | Vidysea team | Deploy the Vidysea backend with `VC_STUDENT_CENTRAL_ENABLED`, `VC_BASE_URL`, `VC_PARTNER_SERVER_KEY`, and the frontend built with `NEXT_PUBLIC_VC_WIDGET_SCRIPT_URL`. | Vidysea page loads the widget. |
-| C7 | Umesh + both teams | Live walk with a TEST user on each host (voice and crisis only on a test user). | Umesh signs the walk. |
+| C7 | Umesh + both teams | Live walk with a TEST user on each host (voice and crisis only on a test user). | Umesh signs the walk. A personal question shows the test user's own data, not an "unavailable" reply. |
 
 **M2 order (the one order; section 6 and section 5 step 11 point here).** Do the steps in this order and no other:
 1. M1 has passed and Umesh has declared it (section 11, "who declares M1 passed").
 2. C0: the widget release directory exists.
 3. C1: `student-routes` prints `ALLOWED`. If it prints `REFUSED`, stop here and send the output to Umesh.
-4. C2: `vc.env.prev`, M2 variables, restart, `vc_api_listening`. `VC_CHAT_ENABLED=true` is written only now. Written earlier, with the gate refused, the service does not start (section 6).
+4. C2: `vc.env.prev`, M2 variables (with the admin-store variable, 4d), restart, `vc_api_listening`. `VC_CHAT_ENABLED=true` is written only now. Written earlier, with the gate refused, the service does not start (section 6).
 5. C3: `partner list --check`, then `partner add` x2.
 6. C4: keys handed to the teams.
 7. C5 and C6: host deploys (may run in parallel).
@@ -85,7 +85,8 @@ Roles and ports only. Real hostnames and IPs come from Umesh.
 | Out | VC Mongo host, databases `virtual_counsellor` and read-only `pathlynks_journey` | 27017 | M1 | Mongo host owner (allow-list the VC server IP) |
 | Out | Knowledge Base service (`VC_KB_BASE_URL`) | the port in that URL (the KB host has answered on 8081) | M1 | KB team |
 | Out | LLM: Ollama Cloud (`https://ollama.com/v1`) when the text chain or litellm is used | 443 | M1 | DevOps (egress) |
-| Out | Gemini API | 443 | only if `VC_LLM_PROVIDER=gemini`, voice, or grounding is on | DevOps (egress) |
+| Out | Gemini API | 443 | only if `VC_LLM_PROVIDER=gemini`, voice, or `VC_GROUNDING=gemini` (grounding, section 4e) is on | DevOps (egress) |
+| Out | The JWKS host of each `VC_JWT_JWKS_URL` / `VC_STUDENT_JWT_JWKS_URL` | 443, per URL | only if that variable is set instead of a public key | DevOps (egress) |
 | Out | Your own Ollama or LiteLLM gateway at `VC_LLM_BASE_URL` / `OLLAMA_BASE_URL` | per URL | only if used | DevOps |
 | Out | Pathlynks Postgres RDS, verified TLS | 5432 | M2 | Pathlynks team |
 | Out | Vidysea Postgres RDS, read-only role, verified TLS | 5432 | M2 | Vidysea team |
@@ -154,7 +155,7 @@ Pick the column for the provider Umesh names (section 11). "chain" means: only i
 |---|---|---|---|---|---|
 | `MONGODB_URL` | yes | yes | connection string; user with rights on `virtual_counsellor` | Umesh / Mongo owner | yes |
 | `VC_GATE_APPROVER` | yes | yes | `Umesh` | Umesh | no |
-| `VC_ANONYMOUS_ENABLED` | yes | yes | `true` (exact). The A20 gate must also pass. | Umesh | no |
+| `VC_ANONYMOUS_ENABLED` | yes | yes | `true` (lower case; surrounding spaces are trimmed, `True` or `1` stops the start). The A20 gate must also pass. | Umesh | no |
 | `VC_JWT_ISSUER` | yes | yes | text | Umesh | no |
 | `VC_JWT_AUDIENCE` | optional | optional | text. The only audience variable for counsellor tokens (`apps/api/src/auth.ts`). When set, a token's `aud` must include it; when unset, `aud` is not checked. Whether Umesh sets it: section 11. | Umesh | no |
 | `VC_JWT_ALGORITHMS` | optional | optional | default `RS256,ES256` (allowed: `RS256`, `ES256`, `HS256`). `HS256` must be the only entry and needs the HS256 secret. | Umesh | no |
@@ -167,27 +168,30 @@ Pick the column for the provider Umesh names (section 11). "chain" means: only i
 | `VC_TEXT_CHAIN` | ignored | optional | `ollama:<model>,ollama:<model>` | Umesh | no |
 | `OLLAMA_API_KEY` | no | chain | key | Umesh | yes |
 | `VC_CHAIN_MONTHLY_CAP_USD` | no | chain | positive number; with a chain the API refuses to start without it | Umesh | no |
+| `OLLAMA_PRICE_USD_PER_MTOK` | no | chain, only if needed | `<input>,<output>` USD per million tokens. Needed only when a `VC_TEXT_CHAIN` model has no built-in price (built in: `glm-5.3-flash`, `deepseek-v4.1-flash`); otherwise the API refuses to start (`packages/providers/src/index.ts` lines 2092 to 2108) | Umesh | no |
 | `VC_KB_BASE_URL` | yes | yes | KB base URL | Umesh / KB team | no |
 | `VC_KB_ANON_API_KEY` | yes | yes | search-only KB key | Umesh / KB team | yes |
 
-How the provider and the chain interact (`apps/api/src/index.ts` lines 664 to 670, `packages/providers/src/index.ts` line 212):
+How the provider and the chain interact (`apps/api/src/index.ts` lines 669 to 671, `packages/providers/src/index.ts` line 216):
 - `gemini`: one vendor for every student-facing role. A `VC_TEXT_CHAIN` left in the file is not read (one warning, `text_chain_ignored`), so `OLLAMA_API_KEY` and the cap are not needed.
 - `litellm` without a chain: the litellm provider answers students.
 - `litellm` with a chain: the chain answers students, but `VC_LLM_MODEL` and `VC_LLM_BASE_URL` are still required (the scribe and the safety classifier use the provider).
 - `VC_CHAT_ENABLED` and `VC_VOICE_ENABLED` are off when unset. Writing `false` is allowed; any other word (including a space) stops the start.
 - The `VC_JWT_*` lines are needed even for anonymous-only: the counsellor token verifier is built at startup. Never invent a placeholder HS256 secret; ask Umesh (section 11).
+- The tracing variables `LANGSMITH_TRACING`, `LANGSMITH_TRACING_V2`, `LANGCHAIN_TRACING` and `LANGCHAIN_TRACING_V2` must not be `true` (also `1`, `yes`, `on`): the anonymous, chat and voice surfaces then refuse to start. Leave them unset.
 
 ### 4d. M2 additions
 
 | Name | Value shape | Supplied by | Secret |
 |---|---|---|---|
 | `VC_CHAT_ENABLED` | `true` | Umesh | no |
+| at least one of `VC_ADMIN_MASTER_KEY` / `VC_ADMIN_JWT_SECRET` (details in 4e) | Required for M2 personal answers: the Pathlynks and Vidysea Postgres reads and the Mongo reads are built only when the admin store exists, and the store exists only if one of them is set (`apps/api/src/index.ts` lines 892 and 901). Without it the service starts but a personal answer does not work. Which one: section 11 row 24. | Umesh | yes (both are secrets) |
 | `VC_KB_API_KEY` | KB chat key (`/ask`) | Umesh / KB team | yes |
 | `VC_STUDENT_JWT_ISSUER`, `VC_STUDENT_JWT_AUDIENCE` | text | Pathlynks / Vidysea teams via Umesh | no |
 | exactly one of `VC_STUDENT_JWT_PUBLIC_KEY` / `VC_STUDENT_JWT_JWKS_URL` / `VC_STUDENT_JWT_HS256_SECRET` | as above | host teams via Umesh | HS256: yes |
 | `VC_STUDENT_JWT_ALGORITHMS`, `VC_STUDENT_JWT_CLOCK_SKEW_SEC`, `VC_STUDENT_JWT_CLAIM_TENANT`, `_CLAIM_STUDENT_ID`, `_CLAIM_ROLE`, `_CLAIM_IS_MINOR`, `_CLAIM_AGE`, `_CLAIM_GUARDIAN_CONSENT` | optional claim-name overrides | host teams via Umesh | no |
 | `VC_PARTNER_KEY_PEPPER` | 32+ characters. Changing it invalidates every partner key. | Umesh | yes |
-| `VC_RESERVED_TENANT_IDS` | every tenant id the student JWTs carry, comma or space separated. Empty blocks partner keys. | host teams via Umesh | no |
+| `VC_RESERVED_TENANT_IDS` | every tenant id the student JWTs carry, comma or space separated. Empty is accepted with a warning only (`apps/api/src/partners.ts` lines 133 to 135, 576), but then a partner id can collide with a real tenant, so list every tenant id. | host teams via Umesh | no |
 | `VC_PARTNER_OWN_TENANTS` | for example `pathlynks:pathlynks` | Umesh | no |
 | `VC_AUDIT_HMAC_KEY` | 32+ characters (erasure audit) | Umesh | yes |
 | `VC_ERASURE_APPROVER_EMAIL` | email, needed while `VC_ERASURE_AUTO_DELETE` is false | Umesh | no |
@@ -196,20 +200,20 @@ How the provider and the chain interact (`apps/api/src/index.ts` lines 664 to 67
 | `VC_PARTNER_KEY_REQUIRED` | `true` only if Umesh wants the anonymous route to need a page key. Leave unset for M1. | Umesh | no |
 
 The Postgres host, port, database and user are not env values: they are fixed in `config/sources.json` in the checkout (ids `pathlynks-db` and `vidysea-db`, `sslmode` `verify-full`). Only the password and the CA file path come from `vc.env`.
-`VC_ERASURE_AUTO_DELETE` defaults to false (`packages/db/src/erasure.ts` line 233): erasure then waits for the approver email above.
+`VC_ERASURE_AUTO_DELETE` defaults to false (`packages/db/src/erasure.ts` lines 277 to 284): erasure then waits for the approver email above.
 
 ### 4e. Voice, admin console and optional names
 
 Voice stays off until Umesh says go: `VC_VOICE_ENABLED=true`, `VC_VOICE_MODEL`, `GEMINI_API_KEY`, `VC_VOICE_WS_SECRET` (32+ bytes, secret),
-`VC_VOICE_WS_BASE_URL` (a `wss://` URL with no credentials). The voice gate and the paid allowance are Umesh's decision.
+`VC_VOICE_WS_BASE_URL` (a `wss://` URL with no credentials). Voice also needs the full `VC_STUDENT_JWT_*` set of 4d, including `VC_STUDENT_JWT_AUDIENCE` (`apps/api/src/index.ts` line 842, `apps/api/src/auth.ts` line 388), and, for personal answers, one admin-store variable. The voice gate and the paid allowance are Umesh's decision.
 
 | Name | Note |
 |---|---|
-| `VC_ADMIN_JWT_SECRET` | 32+ characters. The admin API is mounted only when it is set. Secret. |
-| `VC_ADMIN_MASTER_KEY` | base64 of exactly 32 random bytes. Any other length stops startup. Secret. |
+| `VC_ADMIN_JWT_SECRET` | 32+ characters. Either this or `VC_ADMIN_MASTER_KEY` creates the admin store that M2 needs (4d). This one also mounts the admin API (`index.ts` line 1095); the admin console itself is out of scope (section 9b). Secret. |
+| `VC_ADMIN_MASTER_KEY` | base64 of exactly 32 random bytes. Any other length stops startup. Creates the admin store without mounting the admin API, and enables the usage log. Secret. |
 | `VC_USD_INR_RATE` | number for the cost dashboard |
 | `GITHUB_TOKEN` | optional; source navigation only. Secret. |
-| `VC_ADMIN_API_URL`, `VC_WEB_MODE` | read by the admin console (`apps/web`), not by the API. `VC_WEB_MODE` must be exactly `live`. |
+| `VC_GROUNDING` | Web grounding for a question the KB cannot source. Default off: unset, empty or `off` is off; exactly `gemini` turns it on and then needs `GEMINI_API_KEY` (any other value stops the start). Only then is the Gemini egress of section 3 needed. Optional: `VC_GROUNDING_MODEL`, `VC_GROUNDING_MAX_PER_SESSION` (default 5), `VC_GROUNDING_MAX_PER_DAY` (default 500). Leave off unless Umesh says (row 26). |
 | `VC_API_PORT` | default 8080; nginx points at 8080, so leave it |
 | `VC_SPEAKERS_FILE` | `/etc/vc/speakers.json`. If set and the file is missing or invalid the launcher refuses to start. With no file, delete the line. |
 | `VC_KB_TIMEOUT_MS`, `VC_KB_BREAKER_FAILS`, `VC_KB_BREAKER_COOLDOWN_MS`, `VC_KB_ROUTE` | KB client tuning (`VC_KB_TIMEOUT_MS` is 1000 to 30000) |
@@ -222,7 +226,7 @@ Do not set the `VC_EVIDENCE_*` names from `.env.example`; they are for local tes
 
 ## 5. Host steps
 
-Each step has its expected result. Use `sudo -H -u vc` for everything that runs as the service user (`-H` sets `HOME=/opt/vc`). Replace each placeholder with the value from its source:
+Each step has its expected result. Use `sudo -H -u vc` for everything that runs as the service user (`-H` sets `HOME=/opt/vc`). Run every `sudo -u vc` command from `/` or `/opt/vc` (`cd /opt/vc` first), because sudo keeps your current directory and `vc` may not be allowed to enter it. Use bash (the Ubuntu login shell), not `sh`/dash: the `$'...'` syntax in step 9 needs bash. Replace each placeholder with the value from its source:
 
 | Placeholder | Meaning | From |
 |---|---|---|
@@ -247,12 +251,12 @@ Each step has its expected result. Use `sudo -H -u vc` for everything that runs 
    sudo mkdir -p /opt/vc /etc/vc && sudo chown vc:vc /opt/vc && sudo chmod 755 /opt/vc
    ```
    Expected: `id vc` prints the user; `ls -ld /opt/vc` shows `drwxr-xr-x vc vc`. Keep `/opt/vc` empty until step 5, or the clone fails. `/etc/vc` stays `root:root`, mode 755 (the `vc` user must be able to enter it).
-3. Node. The repo allows `>=20.16`. Node 20 is past end of life, so this runbook decides Node 22 LTS (the repo's `@types/node` is 22), from NodeSource:
+3. Node. The repo allows `>=20.16`. Node 20 is past end of life, so this runbook decides Node 22 LTS (the repo's `@types/node` is 22), from NodeSource. If Ubuntu or an image already has Node 20 or any version below 22, replace it with this one:
    ```sh
    curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh   # read it, then:
    sudo bash /tmp/nodesource_setup.sh && sudo apt install -y nodejs
    ```
-   Expected: `node -v` prints `v22.x`, which is above v20.16.
+   Expected: `node -v` prints `v22.x`.
 4. Clone access, kept outside `/opt/vc`. Umesh gives either a deploy key or an HTTPS token (section 11). **Decision: the secret file stays on the server, owned by `root:root`, mode 600, readable by root only, and every clone or fetch runs through `sudo` as root.** The `vc` user never reads it. Create files with `sudoedit` and delete editor leftovers (section 4a).
    - Git host key (both forms): `ssh-keyscan <GIT-HOST> | sudo tee /etc/vc/known_hosts >/dev/null`, then `ssh-keygen -lf /etc/vc/known_hosts`. Compare the fingerprint with the one **the owner of the git host publishes** (for a private git host, the person named in section 11). Do not go on until they match.
    - Deploy key (SSH): `sudo install -m 600 -o root -g root /dev/null /etc/vc/deploy_key`, then `sudoedit /etc/vc/deploy_key` and paste the private key.
@@ -261,7 +265,7 @@ Each step has its expected result. Use `sudo -H -u vc` for everything that runs 
      printf '#!/bin/sh\nexec cat /etc/vc/git_token\n' | sudo tee /etc/vc/git_askpass.sh >/dev/null
      sudo chown root:root /etc/vc/git_askpass.sh && sudo chmod 700 /etc/vc/git_askpass.sh
      ```
-5. Code. Use `git clone`; never copy folders by hand. The API reads `skills/`, `qa/gates/`, `qa/evidence/p1-a10-diag/` and `config/` from the checkout at boot, and a copy usually misses one.
+5. Code. Use `git clone`; never copy folders by hand. The API reads `skills/`, `qa/gates/` and `config/` from the checkout at boot, and a copy usually misses one. `qa/evidence/p1-a10-diag/` is read only by the voice gate, and only when its record `a10-voice-gate.md` says `Result: PASS` (the record points at an evidence file there); it is part of the checkout too.
    ```sh
    # SSH deploy key:
    sudo env GIT_SSH_COMMAND='ssh -i /etc/vc/deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/vc/known_hosts' git clone <VC-REPO-URL> /opt/vc
@@ -284,10 +288,11 @@ Each step has its expected result. Use `sudo -H -u vc` for everything that runs 
 8. Keep the output of `node -v` and `pnpm -C /opt/vc -v`; B11 asks for it.
 9. Environment file: create `/etc/vc/vc.env` as in section 4a, then
    `sudo chown root:vc /etc/vc/vc.env && sudo chmod 640 /etc/vc/vc.env`. A speakers file, if any, goes to `/etc/vc/speakers.json`.
-   Check without printing values (each prints names or line numbers only):
+   Duplicate names are forbidden (the systemd documentation I know does not say which line wins inside one file), so the second check lists them and you remove the extra line. Check without printing values (each prints names or line numbers only):
    ```sh
-   sudo cut -s -d= -f1 /etc/vc/vc.env | sort          # names: compare with section 4c
-   sudo grep -c $'\r' /etc/vc/vc.env                  # must print 0 (no CRLF)
+   sudo grep -vE '^[[:space:]]*([#;]|$)' /etc/vc/vc.env | cut -d= -f1 | sort            # names (comment lines skipped): compare with section 4c
+   sudo grep -vE '^[[:space:]]*([#;]|$)' /etc/vc/vc.env | cut -d= -f1 | sort | uniq -d  # duplicate names: must print nothing
+   sudo grep -c $'\r' /etc/vc/vc.env                  # must print 0 (no CRLF); needs bash
    sudo grep -nE '[[:space:]]+$' /etc/vc/vc.env | cut -d: -f1   # must print nothing (no trailing spaces)
    ```
    RDS CA files (M2 only, supplied by the Pathlynks and Vidysea teams). Path convention: the `/etc/vc/ca/` folder, owner `root:vc`, files mode 640:
@@ -303,16 +308,16 @@ Each step has its expected result. Use `sudo -H -u vc` for everything that runs 
     ```sh
     # Mongo ping: must print 1
     sudo systemd-run --pipe --wait --quiet -p User=vc -p EnvironmentFile=/etc/vc/vc.env -p PrivateTmp=yes -p Environment=HOME=/tmp \
-      /bin/sh -c 'exec mongosh "$MONGODB_URL" --quiet --eval "db.runCommand({ping:1}).ok"'
+      /bin/sh -c 'exec mongosh "$$MONGODB_URL" --quiet --eval "db.runCommand({ping:1}).ok"'
     # Mongo roles: must list readWrite on virtual_counsellor, read on pathlynks_journey, nothing else
     sudo systemd-run --pipe --wait --quiet -p User=vc -p EnvironmentFile=/etc/vc/vc.env -p PrivateTmp=yes -p Environment=HOME=/tmp \
-      /bin/sh -c 'exec mongosh "$MONGODB_URL" --quiet --eval "printjson(db.runCommand({connectionStatus:1}).authInfo.authenticatedUserRoles)"'
+      /bin/sh -c 'exec mongosh "$$MONGODB_URL" --quiet --eval "printjson(db.runCommand({connectionStatus:1}).authInfo.authenticatedUserRoles)"'
     # KB: must print an HTTP status line such as "HTTP/1.1 200 OK" (any code is fine); a timeout prints no status line and is a failure
     sudo systemd-run --pipe --wait --quiet -p User=vc -p EnvironmentFile=/etc/vc/vc.env \
-      /bin/sh -c 'curl -sS -m 10 -o /dev/null -D - "$VC_KB_BASE_URL" | head -1'
+      /bin/sh -c 'curl -sS -m 10 -o /dev/null -D - "$$VC_KB_BASE_URL" | head -1'
     ```
-    The Mongo URL is briefly visible to local users in the process list while `mongosh` runs; that is acceptable on a host used only for VC. `/ready` (section 8) repeats the ping later.
-    If a roles entry is missing or too wide, stop and tell Umesh. A KB timeout blocks M1 only if Umesh says so (section 11).
+    Write `$$` exactly as shown: `systemd-run` expands `$NAME` itself and would put the value on the command line, while `$$` reaches `sh` as `$` so the shell reads the variable. The Mongo URL is briefly visible to local users in the process list while `mongosh` runs; that is acceptable on a host used only for VC. `/ready` (section 8) repeats the ping later.
+    The roles command prints a list; expected shape `[ { role: 'readWrite', db: 'virtual_counsellor' }, { role: 'read', db: 'pathlynks_journey' } ]` (the exact spacing and quotes are Not confirmed: section 11 row 25). A role on any other database, or any other role name, counts as too wide. If a roles entry is missing or too wide, stop and tell Umesh. A KB timeout blocks M1 only if Umesh says so (section 11).
 11. Service (after sections 6 and 7 pass; at M2 follow the M2 order in section 2, where this restart is step 4 and may run only after step 3, the `student-routes` gate, printed `ALLOWED`):
     ```sh
     sudo cp /opt/vc/infra/ubuntu/vc-api.service /etc/systemd/system/    # first install only; upgrades merge by hand (section 10)
@@ -337,7 +342,7 @@ The gate records are human-written files in `qa/gates` (a signature line, two an
 
 **On refusal the whole process fails to start** (it is not "student routes off, rest running"). `apps/api/src/main.ts` prints `vc-api failed to start: GoLiveRefusedError: go-live refused for <target>: ...` and exits 1; `Restart=on-failure` then restarts it every 5 s (the crash loop in section 4b). So run the CLI check below first, and write `VC_CHAT_ENABLED=true` (or the voice flag) only after its target prints `ALLOWED`.
 
-**What the result depends on.** Only (1) the files in `/opt/vc/qa/gates`, which come with the sha; (2) the variable `VC_GATE_APPROVER`, which must equal the signer name in the `B13-signed` line (the CLI reads it from its own environment, not from `vc.env`, so pass the same value as in `vc.env`); (3) the server clock (a record dated more than 5 minutes in the future is refused, so keep NTP on). No other `vc.env` value matters.
+**What the result depends on.** Only (1) the files in `/opt/vc/qa/gates`, which come with the sha; (2) the variable `VC_GATE_APPROVER`, which must equal the signer name in the `B13-signed` line (the CLI reads it from its own environment, not from `vc.env`, so pass the same value as in `vc.env`); (3) the server clock: a gate record dated more than 5 minutes in the future is refused (`FUTURE_SKEW_MS` in `apps/api/src/go-live-gate.ts`). Check it with `timedatectl status`; it must show `System clock synchronized: yes` (keep NTP on). No other `vc.env` value matters.
 
 **One rule.** M1 may start only when the `anonymous` check prints `ALLOWED`. The `student-routes` check must print `ALLOWED` before M2 only. At M1 it may print `REFUSED`; that is fine because `VC_CHAT_ENABLED` is unset. For M2 follow the M2 order in section 2 (this gate is step 3, the restart is step 4).
 
@@ -346,7 +351,7 @@ sudo -H -u vc env VC_GATE_APPROVER=Umesh pnpm -C /opt/vc/apps/api go-live-gate a
 sudo -H -u vc env VC_GATE_APPROVER=Umesh pnpm -C /opt/vc/apps/api go-live-gate student-routes
 ```
 
-Exact expected output for `anonymous` (exit code 0). The four record names and their order come from `requirements()` in `apps/api/src/go-live-gate.ts`; `student-routes` prints the same four `ok` lines under `target=student-routes`:
+`pnpm` prints a short banner above the gate output (lines that start with `>`, with the package name, the script and the path). The banner is not exact and may differ by pnpm version; the gate lines below are exact. Expected output for `anonymous` (exit code 0). The four record names and their order come from `requirements()` in `apps/api/src/go-live-gate.ts`; `student-routes` prints the same four `ok` lines under `target=student-routes`:
 
 ```
 go-live gate (A20) target=anonymous: ALLOWED
@@ -404,7 +409,11 @@ Fields DevOps edits in the first install: only `server_name` (replace `vc.exampl
    ```
    Done when `sudo logrotate -d /etc/logrotate.d/vc-voice-stream` (a dry run) prints no error. Required before voice is switched on; do it at M1 too (see B8b). `www-data adm` fits Ubuntu's nginx; change them only if nginx runs as another account.
 
-Public URL to disk (the last `location ~ "^/widget/releases/..."` block): `https://<VC-HOST>/widget/releases/<SHA>/<file>` is `/opt/vc/releases/<SHA>/widget/<file>`, for `<file>` = `vc-widget.v1.js`, `vc-widget.js` or `vc-widget-voice.v1.js`. `<SHA>` is 40 lowercase hex characters. Any other name under `/widget/releases/` or `/widget/` answers 404.
+What serves the widget (read from `infra/ubuntu/nginx-vc.conf`):
+- Host frontends use only the release URL: `https://<VC-HOST>/widget/releases/<SHA>/<file>` is `/opt/vc/releases/<SHA>/widget/<file>`, for `<file>` = `vc-widget.v1.js`, `vc-widget.js` or `vc-widget-voice.v1.js`. `<SHA>` is 40 lowercase hex characters. These three files are the public, immutable widget.
+- `apps/widget/src` is only the build source: section 9 copies it into the release directory. It is not a URL to hand out.
+- The nginx file also still has three exact aliases, `/widget/vc-widget.v1.js`, `/widget/vc-widget.js` and `/widget/vc-widget-voice.v1.js`, that read `apps/widget/src` of the live checkout directly. They answer `200` from the first install, M1 included, and change with every checkout. Do not give them to host teams; keep or remove them is section 11 row 27. Any other name under `/widget/` answers 404.
+- VC (M1) serves no widget page of its own.
 
 Rules that must not be broken:
 - **CORS is done by the API**, per partner key and its origin list. Never add `Access-Control-*` headers, method restrictions or `X-VC-Key` / `Authorization` rewrites at nginx, a CDN or any front proxy. Preflight (`OPTIONS`) requests must reach the API.
@@ -412,6 +421,7 @@ Rules that must not be broken:
 - The site sets `X-Real-IP` from the socket address. Do not pass a client-supplied `X-Real-IP` or rely on `X-Forwarded-For`. The API has no trust-proxy setting: it reads only `X-Real-IP`.
 - If another proxy or CDN sits in front of this nginx, tell Umesh first. The per-client rate limit reads the address nginx sees.
 - `/health` and `/ready` are exact locations with no rate limit. Check your copy: `grep -n 'health' /etc/nginx/sites-available/vc`.
+- Voice logs. `/var/log/nginx/vc-voice-stream.access.log` uses the `vc_voice_stream` format of the nginx file: client address, time, method, path without query string (`$uri`), protocol, status and bytes. No token, key or query string. It is written only by the two voice stream locations, which set their own `access_log`, so the default `access.log` does not record those two. `POST /v1/public/voice/sessions` has no own `access_log`, so the default `access.log` records it, in nginx's default format (which has no token). Only the DevOps team may read both files: they are `0640 www-data adm` (the logrotate entry above), so keep the `adm` group to DevOps.
 - Leave `error_log` at nginx's default level. `grep -n error_log /etc/nginx/nginx.conf` must show no level or `error` (or `crit`, `alert`, `emerg`). Never set `warn`, `notice`, `info` or `debug`: they would print request lines that hold voice tokens.
 
 ## 8. Smoke checks
@@ -427,6 +437,8 @@ Run on the server first, then from outside. `B=https://<VC-HOST>`. These run in 
 | Unlisted path | `curl -sS -o /dev/null -w '%{http_code}\n' $B/v1/admin/x` | `404` |
 | Student UI | `curl -sS -o /dev/null -w '%{http_code}\n' $B/` | `200` |
 
+Rate limit: the `vcchat` zone allows 20 requests a minute per client address with a burst of 10 (`rate=20r/m`, `burst=10 nodelay` in the nginx file). Over the limit nginx answers `429` (`limit_req_status 429` in the file, not nginx's default 503). The anonymous turn and the OpenAPI checks share that zone, so wait a minute between repeated runs of them. `/health`, `/ready` and the static pages are not limited.
+
 Notes: the partner OpenAPI is a static, public document. `withPartnerRoutes` in `apps/api/src/partners.ts` always serves it, with or without any M2 variable or partner record, and `apps/api/tests/partners.test.ts` (K5) checks that a GET returns the document. Call it from any network that can reach `https://<VC-HOST>` (the server itself, then a machine outside); nginx rate-limits it with the `vcchat` zone. If the anonymous turn answers `404`, the route is off (`VC_ANONYMOUS_ENABLED` not `true`) or the service did not start. If it answers a degraded "try again" reply, check the KB (`VC_KB_BASE_URL`, redeploy pending) and the LLM key; do not retry in a loop. Whether a degraded reply counts as M1 passed is Umesh's call (section 11). Alerts are one JSON line on stderr: watch `sudo journalctl -u vc-api -f` for `"event":"alert_` (see `docs/runbook-golive.md`).
 
 ## 9. Widget release directory (M2)
@@ -434,18 +446,24 @@ Notes: the partner OpenAPI is a static, public document. `withPartnerRoutes` in 
 Applies at M2 (checklist row C0): **DevOps builds it; Umesh gives the sha.** Build it before the host builds in C5 and C6, which need its URL. At M1 skip it (nginx simply has no such directory). Host frontends load the widget from an immutable directory built from ONE reviewed commit. Never overwrite a released directory. Done when the three `SHA256SUMS` lines are with Umesh and the `curl -sI` check below returns `200`.
 
 ```sh
-SHA=$(sudo -H -u vc git -C /opt/vc rev-parse HEAD)   # the same 40-character sha Umesh approved
-R=/opt/vc/releases/$SHA/widget
-sudo -H -u vc mkdir -p "$R"
-sudo -H -u vc cp /opt/vc/apps/widget/src/vc-widget.js "$R/vc-widget.js"
-sudo -H -u vc cp /opt/vc/apps/widget/src/vc-widget.js "$R/vc-widget.v1.js"
-sudo -H -u vc cp /opt/vc/apps/widget/src/voice.js    "$R/vc-widget-voice.v1.js"
-sudo sh -c "cd $R && sha256sum vc-widget.js vc-widget.v1.js vc-widget-voice.v1.js > SHA256SUMS"
-cat "$R/SHA256SUMS"
-sudo chmod -R a-w,a+rX "/opt/vc/releases/$SHA"
+SHA=<the 40-character sha Umesh approved>   # typed here, never read from the checkout
+( set -eu
+  echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "SHA is not 40 lowercase hex"; exit 1; }
+  [ "$(sudo -H -u vc git -C /opt/vc rev-parse HEAD)" = "$SHA" ] || { echo "checkout is not the approved sha: stop"; exit 1; }
+  R=/opt/vc/releases/$SHA/widget
+  sudo -H -u vc mkdir -p "$R"
+  sudo -H -u vc cp /opt/vc/apps/widget/src/vc-widget.js "$R/vc-widget.js"
+  sudo -H -u vc cp /opt/vc/apps/widget/src/vc-widget.js "$R/vc-widget.v1.js"
+  sudo -H -u vc cp /opt/vc/apps/widget/src/voice.js    "$R/vc-widget-voice.v1.js"
+  sudo sh -c "cd $R && sha256sum vc-widget.js vc-widget.v1.js vc-widget-voice.v1.js > SHA256SUMS"
+  cat "$R/SHA256SUMS"
+  sudo chmod -R a-w,a+rX "/opt/vc/releases/$SHA"
+)
 ```
 
-Expected: three lines of `<64 hex>  <file>`; the first two hashes are identical. Send those lines to Umesh. The URL to disk mapping is in section 7. Check: `curl -sI $B/widget/releases/$SHA/vc-widget.v1.js` returns `200`, `Cache-Control: public, max-age=31536000, immutable`.
+The block stops with a message, and builds nothing, unless `git rev-parse HEAD` equals `SHA`.
+
+Expected: three lines of `<64 hex>  <file>`; the first two hashes are identical. Send those lines to Umesh. The URL to disk mapping is in section 7. Each release directory is named by the sha of the checkout it was built from, and is built per approved sha, independent of the sha the API runs. Check: `curl -sI $B/widget/releases/$SHA/vc-widget.v1.js` returns `200`, `Cache-Control: public, max-age=31536000, immutable`.
 
 Host build settings (set in the host repos by the host teams, not by DevOps):
 - Pathlynks: `NEXT_PUBLIC_VC_WIDGET_BASE_URL=https://<VC-HOST>/widget/releases/<SHA>`
@@ -464,6 +482,8 @@ sudo systemd-run --pipe --wait --quiet -p User=vc -p WorkingDirectory=/opt/vc -p
   /usr/bin/env pnpm -C apps/api partner add "<NAME>" --id <ID> --origin <ORIGIN>
 ```
 
+What `list --check` prints (`runPartnerCli` in `apps/api/src/partners.ts`, `apps/api/scripts/partner.ts`): on pass, exit 0 and one line per partner (id, status, key prefixes, origins, name; never a key), or `(no partners)` before the first `add`. On fail, exit 1 and one message on standard error: `N active partner(s) have an id that is currently reserved ...`, naming each id and why. With `VC_RESERVED_TENANT_IDS` empty it also prints a `warning:` line on standard error (and for `add`); that warning is not a failure, but fix it (section 4d). Later: `partner rotate <ID> --scope pub` (or `srv`) prints one new key, once; the old one stops within 60 s. `partner revoke <ID>` stops both keys within 60 s. Both run with the same `systemd-run` prefix.
+
 Values (see `docs/partner-integration.md` section 4; an id is lower-case letters, digits and hyphens, 2 to 32):
 
 | Partner | `<NAME>` | `<ID>` | `<ORIGIN>` |
@@ -471,49 +491,50 @@ Values (see `docs/partner-integration.md` section 4; an id is lower-case letters
 | Pathlynks | Not confirmed (`Pathlynks` is the obvious name) | Not confirmed (`pathlynks` is the id the docs use as their example; if it is also a JWT tenant, `VC_PARTNER_OWN_TENANTS=pathlynks:pathlynks`) | `https://pathlynks.vidysea.com` |
 | Vidysea | Not confirmed | Not confirmed | Not confirmed (section 11) |
 
-**Capturing the keys.** `partner add` prints a page key and a server key once, to standard output only (`console.log` in `partner.ts`; warnings and errors go to standard error and hold no key). The database keeps a hash only. So: run it in a plain terminal with session logging off (no `script`, no `tee`, no `> file`, no terminal recorder), copy each key straight into the private channel or a password manager, then clear the screen. The keys must never reach the journal, a ticket or chat; a lost key is rotated, not recovered.
+**Capturing the keys.** `partner add` prints a page key and a server key once, to standard output only (`console.log` in `partner.ts`; warnings and errors go to standard error and hold no key). The database keeps a hash only. So: run it in a plain terminal with session logging off (no `script`, no `tee`, no `> file`, no terminal recorder), copy each key straight into the private channel or a password manager, then clear the screen. The keys must never reach the journal, a ticket or chat; a lost key is rotated, not recovered. Where each key goes (`partner.ts` output and `docs/partner-integration.md`): the **page key** is public; it goes into the host's web page markup for the widget and works only on the public chat route from the registered origins, so it is not a secret. The **server key** is secret; it goes only into the host backend's `VC_PARTNER_SERVER_KEY` and never into a browser, repo or log.
 
-### 9b. Admin console (`apps/web`, optional for M1)
+### 9b. Admin console (`apps/web`)
 
-The admin console is a Next.js app. It has no nginx server or systemd unit, and it is **not published**: do not expose it. Build with `sudo -H -u vc pnpm -C /opt/vc/apps/web build`; start with `sudo -H -u vc pnpm -C /opt/vc/apps/web start`. The start script is
-`next start --hostname 127.0.0.1 --port 3108`, so it listens on loopback only.
-It needs `VC_WEB_MODE=live`, `MONGODB_URL` (same Mongo allow-list as the API), `VC_ADMIN_API_URL` (the API on loopback), and on the API
-`VC_ADMIN_JWT_SECRET` and `VC_ADMIN_MASTER_KEY`. Umesh creates the first admin account. Do not publish the console until Umesh chooses its host name and origin.
+For this go-live, do nothing for the admin console. It is out of scope for M1 and M2, has no unit, nginx server or host name, and is not published. Do not build, start or expose it, and do not set `VC_WEB_MODE` or `VC_ADMIN_API_URL`. The only admin-related value the API needs is the admin-store variable of 4d.
 
 ## 10. Rollback and upgrade
 
 Always note the running sha first: `sudo -H -u vc git -C /opt/vc rev-parse HEAD` (that is `<OLD-SHA>`).
 
-**Upgrade to a new sha** (Umesh gives `<NEW-SHA>`; expect about 30 s of 502 from nginx while the old process drains and the new one starts, because there is one copy only):
+**Upgrade to a new sha** (Umesh gives `<NEW-SHA>`). Stop-first form: the service is stopped before the checkout, because a checkout and install under a running process is unsafe (files change under it). **The outage is from step 2 to step 8: about the install time** (a minute or more; nginx answers 502 meanwhile). There is one copy only.
 
 | Step | Command |
 |---|---|
-| 1. Fetch as root, with the clone access of section 5 step 5 | `sudo env <the same GIT_SSH_COMMAND= or GIT_ASKPASS= prefix> git -c safe.directory=/opt/vc -C /opt/vc fetch origin`, then `sudo chown -R vc:vc /opt/vc` |
-| 2. Check out | `sudo -H -u vc git -C /opt/vc checkout <NEW-SHA>` |
-| 3. Install | `sudo -H -u vc pnpm -C /opt/vc install --frozen-lockfile` |
-| 4. Which live files changed? | `sudo -H -u vc git -C /opt/vc diff --stat <OLD-SHA> <NEW-SHA> -- infra/ubuntu/nginx-vc.conf infra/ubuntu/vc-api.service .env.example package.json` (table below) |
-| 5. Merge changed blocks by hand | per the table below; never `cp` a repo file over a live one |
-| 6. Gate re-check | section 6, `anonymous` must print `ALLOWED` |
-| 7. Restart | `sudo systemctl restart vc-api` |
-| 8. Smoke | section 8 |
+| 1. Fetch as root (safe while the service runs), with the clone access of section 5 step 5 | `sudo env <the same GIT_SSH_COMMAND= or GIT_ASKPASS= prefix> git -c safe.directory=/opt/vc -C /opt/vc fetch origin`, then `sudo chown -R vc:vc /opt/vc` |
+| 2. Stop the service (the outage starts) | `sudo systemctl stop vc-api` |
+| 3. Check out | `sudo -H -u vc git -C /opt/vc checkout <NEW-SHA>` |
+| 4. Install | `sudo -H -u vc pnpm -C /opt/vc install --frozen-lockfile` |
+| 5. Which live files changed? | `sudo -H -u vc git -C /opt/vc diff --stat <OLD-SHA> <NEW-SHA> -- infra/ubuntu/nginx-vc.conf infra/ubuntu/vc-api.service .env.example package.json` (table below) |
+| 6. Merge changed blocks by hand | per the table below; never `cp` a repo file over a live one |
+| 7. Gate re-check | section 6, `anonymous` must print `ALLOWED` |
+| 8. Start (the outage ends) | `sudo systemctl start vc-api`, then check `vc_api_listening` in the journal |
+| 9. Smoke | section 8 |
+
+If step 3 or 4 fails, do the code rollback below. The widget release directory is built per approved sha, independent of the API sha: build a new one (section 9) only when Umesh says the widget changed in `<NEW-SHA>`, right after step 4 with `SHA=<NEW-SHA>`, and leave the old one in place. Umesh tells the host teams the new release URL; DevOps does not.
 
 **Files to diff on every upgrade.** Show the change with `git diff <OLD-SHA> <NEW-SHA> -- <repo file>`, then apply only those hunks to the live file with `sudoedit`. For a sanity look, `diff -u <repo file> <live file>` also shows what certbot and `server_name` changed; those differences are expected and stay.
 
 | Repo file | Live file | After merging |
 |---|---|---|
 | `infra/ubuntu/nginx-vc.conf` | `/etc/nginx/sites-available/vc` (keep a copy first: `sudo cp -a /etc/nginx/sites-available/vc /root/vc-nginx.bak`) | `sudo nginx -t && sudo systemctl reload nginx`. If `nginx -t` fails, put the copy back. |
-| `infra/ubuntu/vc-api.service` | `/etc/systemd/system/vc-api.service` | `sudo systemctl daemon-reload`, then step 7 |
-| `.env.example` (new names only) | `/etc/vc/vc.env` | copy to `vc.env.prev` first (section 4a); ask Umesh for new values; then step 7 |
+| `infra/ubuntu/vc-api.service` | `/etc/systemd/system/vc-api.service` | `sudo systemctl daemon-reload`, then step 8 (start) |
+| `.env.example` (new names only) | `/etc/vc/vc.env` | copy to `vc.env.prev` first (section 4a); ask Umesh for new values; then step 8 |
 | the `limit_req_zone` line (section 7 step 1) | `/etc/nginx/conf.d/vc-limit.conf` | only if this runbook or `infra/ubuntu/README.md` changed it |
 | `package.json` (`engines`, `packageManager`) | none | if Node or pnpm moved, section 5 steps 3 and 6 |
 
 After a good smoke check delete `/root/vc-nginx.bak` and `vc.env.prev` (`sudo shred -u`). Also delete editor leftovers (section 4a).
 
 **Rollback:**
-- Code: `sudo -H -u vc git -C /opt/vc checkout <OLD-SHA>`, `sudo -H -u vc pnpm -C /opt/vc install --frozen-lockfile`, `sudo systemctl restart vc-api`, then section 8. If the upgrade merged nginx or unit changes, undo those hunks from the copy you kept, then reload or `daemon-reload`.
+- Code: `sudo systemctl stop vc-api`, `sudo -H -u vc git -C /opt/vc checkout <OLD-SHA>`, `sudo -H -u vc pnpm -C /opt/vc install --frozen-lockfile`, `sudo systemctl start vc-api`, then section 8. If the upgrade merged nginx or unit changes, undo those hunks from the copy you kept, then reload or `daemon-reload`.
 - Env change that broke start: restore the previous file (`sudo install -m 640 -o root -g vc /etc/vc/vc.env.prev /etc/vc/vc.env`; section 4a says when it is created), then restart.
 - Widget: the old `/opt/vc/releases/<old-sha>/widget/` directory is still there. Host teams point their build setting back to it. Never delete or edit a released directory.
 - Switch a surface off without a deploy: set `VC_CHAT_ENABLED=false` and/or `VC_VOICE_ENABLED=false` in `vc.env` and restart.
+- **M1 kill switch.** Set `VC_ANONYMOUS_ENABLED=false` (or remove the line) in `vc.env`, copy to `vc.env.prev` first, and `sudo systemctl restart vc-api`. With every surface flag off, `buildLauncherConfig` in `apps/api/src/main.ts` (line 143) returns the bare config and the service still starts: it answers `/health` and `/ready`, the anonymous route is not served (`POST /v1/public/chat/turns` answers 404 from the API), and the other `vc.env` names are still checked at start. Undo by setting the flag back to `true` (the gate must still print `ALLOWED`).
 - Data: VC deploys run no migrations. Student databases are not rolled back by a code rollback. Restore Mongo from backup only with Umesh's yes.
 - Never run `git clean` or delete `qa/gates` to "reset".
 
@@ -526,16 +547,16 @@ Nothing here is guessed. Each row needs an answer from the owner shown. "Blocks 
 | 1 | Host name for VC and who owns its DNS | Umesh / DevOps | yes |
 | 2 | Cloud or on-prem; sizing; admin IPs for SSH; which firewall tool | DevOps | yes |
 | 3 | Mongo: self-hosted or Atlas; `mongodb://` or `mongodb+srv://`; TLS CA file if private; who owns the Mongo host | Umesh / Mongo owner | yes |
-| 4 | Who creates the Mongo users (`virtual_counsellor` readWrite, `pathlynks_journey` read) and who runs the role check in step 10 | Mongo owner | yes |
+| 4 | Who creates the Mongo users (`virtual_counsellor` readWrite, `pathlynks_journey` read). DevOps runs the role check (B6) | Mongo owner | yes |
 | 5 | KB scheme, base URL and port; is plain `http` acceptable on that link; does A7 (KB redeploy pending) block M1. `vidysea.com/knowledgebase` redirected to a raw IP on 2026-11-01: do not use it | Umesh / KB team | yes |
 | 6 | Repo URL, the sha to deploy, and the clone method (deploy key or HTTPS token) | Umesh | yes |
 | 7 | The private channel for secrets and who sends the `vc.env` values | Umesh | yes |
-| 8 | `VC_LLM_PROVIDER` (gemini or litellm), model ids, whether a `VC_TEXT_CHAIN` is used, and the `VC_CHAIN_MONTHLY_CAP_USD` value | Umesh | yes |
+| 8 | `VC_LLM_PROVIDER` (gemini or litellm), model ids, whether a `VC_TEXT_CHAIN` is used, and the `VC_CHAIN_MONTHLY_CAP_USD` value; for a chain model other than `glm-5.3-flash` or `deepseek-v4.1-flash`, its `OLLAMA_PRICE_USD_PER_MTOK` | Umesh | yes |
 | 9 | Real counsellor-JWT keys for `VC_JWT_ISSUER` and `VC_JWT_*`, and whether `VC_JWT_AUDIENCE` is set. Never invent a placeholder HS256 secret; ask Umesh | Umesh | yes |
 | 10 | Whether 443 may be public at M1 before sign-off, or should be restricted to named IPs (port 80 stays open for certbot, section 7) | Umesh | yes |
 | 11 | Who declares M1 passed, and whether a degraded anonymous reply counts as a pass | Umesh | yes |
 | 12 | Backup and restore of `virtual_counsellor`; on-call contact; journald retention; whether logs may hold personal data | Umesh / DevOps | no |
-| 13 | `VC_ERASURE_AUTO_DELETE` intended value (the code default is false) and `VC_ERASURE_APPROVER_EMAIL` | Umesh | no (M2) |
+| 13 | `VC_ERASURE_AUTO_DELETE` intended value (the code default is false; section 4d) and the `VC_ERASURE_APPROVER_EMAIL` address | Umesh | no (M2) |
 | 14 | Student JWT issuer, key source (public key or JWKS), audience, and tenant ids for `VC_RESERVED_TENANT_IDS` | Pathlynks / Vidysea teams via Umesh | no (M2) |
 | 15 | The Vidysea production frontend origin (only a UAT ECR repository is known) | Vidysea team | no (M2) |
 | 16 | RDS CA files for Pathlynks and Vidysea; the Vidysea read-only role; what a student sees when a CA path is wrong (the code only returns no connection, section 5 step 9) | Pathlynks / Vidysea teams | no (M2) |
@@ -544,21 +565,26 @@ Nothing here is guessed. Each row needs an answer from the owner shown. "Blocks 
 | 19 | For a private git host: who publishes its SSH host-key fingerprint, to compare in section 5 step 4 | Git host owner (via Umesh) | yes |
 | 20 | If port 80 cannot be open to the internet: the DNS provider and its certbot DNS-01 plugin | DevOps | only then |
 | 21 | Who runs `partner add` (shell + sudo), and the names and ids of the Pathlynks and Vidysea partners (section 9a) | Umesh / DevOps | no (M2) |
-| 22 | How the Ubuntu systemd version treats a backslash, backtick, `~` or `%` in `vc.env` values (section 4a). DevOps proves it with the B6 ping and the start itself; run `systemctl --version` and send it | DevOps | no |
+| 22 | How the Ubuntu systemd version treats a backslash, backtick, `~` or `%` in `vc.env` values (section 4a), and which line wins for a duplicate name in one file. DevOps proves it with the B6 ping and the start itself; run `systemctl --version` and send it | DevOps | no |
+| 23 | The KB chat key `VC_KB_API_KEY` (4d) and the student-JWT values (row 14) must be in hand before C2 starts | Umesh / KB team | no (M2) |
+| 24 | Which admin-store variable Umesh sets for M2: `VC_ADMIN_MASTER_KEY` (store and usage log, no admin API) or `VC_ADMIN_JWT_SECRET` (also mounts the admin API), or both (4d) | Umesh | no (M2) |
+| 25 | The exact printed shape of the Mongo roles probe (section 5 step 10). The shape given is derived from the command, not from a run | DevOps (send the real output once) | no |
+| 26 | Whether `VC_GROUNDING=gemini` (web grounding) is on at go-live; default is off | Umesh | no |
+| 27 | Keep or remove the three unversioned `/widget/*.js` aliases in `infra/ubuntu/nginx-vc.conf` that serve `apps/widget/src` directly (section 7). Removing them is a change to that file, which this runbook does not make | Umesh | no |
 
-Answered from code, so not open: Ubuntu 22.04 or 24.04 and Node 22 are decided (section 5); no trust-proxy setting exists (the API reads `X-Real-IP` only); `VC_ERASURE_AUTO_DELETE` defaults to false; the Postgres host, database and user are fixed in `config/sources.json` (section 4d).
+Answered from code, so not open: Ubuntu 22.04 or 24.04 and Node 22 are decided (section 5); no trust-proxy setting exists (the API reads `X-Real-IP` only); `VC_ERASURE_AUTO_DELETE` defaults to false; the Postgres host, database and user are fixed in `config/sources.json` (section 4d); an empty `VC_RESERVED_TENANT_IDS` only warns (4d); `VC_GROUNDING` is off by default (4e); the gate clock limit is 5 minutes (section 6).
 
 ## 12. Known gaps (later, not blocking M1)
 
 - No Dockerfile, no CI, no widget release script (section 9 is manual): the install is manual on Ubuntu with systemd. The widget pop-out path `/vc-popout` is not routed; it falls through to the student page.
 - No production Langfuse stack (`infra/langfuse/` is development only). Alerts are JSON lines on stderr, with no email, Slack or webhook transport: tail journald.
 - Single replica only. Rate limits and the monthly chain cap live in process memory and reset on restart. Do not run two copies. The API binds `127.0.0.1` only and has no setting to change it.
-- The admin console has no production host, nginx server or systemd unit.
+- The admin console is out of scope for this go-live (section 9b).
 
 ## 13. What DevOps sends back
 
 1. The public URL.
-2. The server egress IP (and the IP for the admin console host, if separate).
+2. The server egress IP.
 3. `node -v` and `pnpm -v`.
 4. The git sha deployed (`sudo -H -u vc git -C /opt/vc rev-parse HEAD`).
 5. The output of the gate checks (section 6).
