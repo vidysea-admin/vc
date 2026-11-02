@@ -16,3 +16,6 @@
 2026-10-31T07:45:56+05:30 HUMAN_GATE heartbeat 7/8: T-057 BLOCKED-EXTERNAL (A KB redeploy, B Pathlynks DB allow-list, C/D Pathlynks PR+deploy); nothing buildable; dd9bbeec+a9b32ea3 unpushed (need a yes)
 2026-11-01T08:29:16+05:30 PUSHED fd45b26d..a9b32ea3 -> vidysea/main at 2026-11-01 08:28:57 IST (reflog) on Umesh's yes; push-gate: green 0425b843fe1417430c8be9dd749e1d3d674c361d (exit 0, wt6c-batch4); 6c verdict qa/verdicts/push-a9b32ea3-6c.md PASS; T-057 still BLOCKED-EXTERNAL (A, B, C/D)
 push 2e84adcf -> vidysea/main 2026-11-01T10:23:10+05:30 gate green 1cf5d00b
+2026-11-02T13:09:10+05:30 devops-handover checked-PASS closed out (H4 accepted by Umesh); 6c full-suite check dispatched; push waits on a new yes evidence=8a4fcfde
+2026-11-02T13:16:42+05:30 6c RED on 3 pre-existing wall-clock tests (same on base b1ecb6ae); devops-handover not at fault; candidate row queued; no push evidence=e21fe842
+2026-11-02T18:47:59+05:30 2026-11-02T18:47:59+05:30 untrack-6c-green done; export-token-strip coordinator A re-dispatched (prior A session died, no verdict 4h); planners for authority-guard-120-121 and pathlynks-wiring-blockers in flight; profile-facts-token-strip SERIAL on erasure.ts until export-token-strip A verdict evidence=bc6d1584
