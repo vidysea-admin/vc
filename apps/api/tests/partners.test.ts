@@ -865,6 +865,13 @@ test("K5: nginx proxies the public chat route, the student chat routes, the part
     assert.doesNotMatch(block, /proxy_set_header\s+X-VC-Key\b/i, `${name}: the key header is passed through unchanged`);
   }
   for (const block of [anon, chat, openapi, pubVoiceSessions, pubVoiceStream]) assert.match(block, /limit_req\s+zone=vcchat/);
+  // devops-handover H1: the probe routes are exact locations that are never throttled (a probe must not fail because of the limiter) and carry no CORS header.
+  for (const [name, header] of [["health", /location\s*=\s*\/health\s*{/], ["ready", /location\s*=\s*\/ready\s*{/]] as const) {
+    const probe = locationBlock(header);
+    assert.match(probe, /proxy_pass\s+http:\/\/127\.0\.0\.1:8080;/, `${name}: proxied to the API`);
+    assert.doesNotMatch(probe, /limit_req/, `${name}: a probe is never rate limited`);
+    assert.doesNotMatch(probe, /Access-Control/i, `${name}: no CORS header at nginx`);
+  }
   assert.match(pubVoiceStream, /proxy_http_version\s+1\.1;/);
   assert.match(pubVoiceStream, /proxy_set_header\s+Upgrade\s+\$http_upgrade;/);
   assert.match(pubVoiceStream, /proxy_set_header\s+Connection\s+["']?upgrade["']?;/);

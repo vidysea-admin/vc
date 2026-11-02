@@ -10,7 +10,7 @@ Type=simple
 User=vc
 Group=vc
 WorkingDirectory=/opt/vc
-# Secrets and flags live here (chmod 600, owner root:vc). Names are in .env.example; values are never in git.
+# Secrets and flags live here (chmod 640, owner root:vc). Names are in .env.example; values are never in git.
 EnvironmentFile=/etc/vc/vc.env
 ExecStart=/usr/bin/env pnpm -C apps/api start
 Restart=on-failure
