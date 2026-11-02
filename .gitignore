@@ -47,3 +47,6 @@ qa/.delivery/s13-host-build-temp/
 qa/.delivery/completion-host-link.json
 qa/evidence/s13-real-*
 qa/evidence/t057/pathlynks-*.png
+
+# 6c push-gate stamp: machine-local, never committed (ISS-sweep-20261102-1)
+qa/.6c-green
