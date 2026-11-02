@@ -2014,11 +2014,15 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
     sessions: await db.collection<SessionDoc>(COLLECTION_NAMES.sessions).find({ studentId }).toArray(),
     decisions: await db.collection<DecisionDoc | RejectReasonAuditDoc>(COLLECTION_NAMES.decisions).find({ studentId }).toArray(),
     consents: await db.collection<ConsentDoc>(COLLECTION_NAMES.consents).find({ studentId }).toArray(),
-    edges: (await db.collection(COLLECTION_NAMES.edges).find(edgeFilter(s)).toArray()) as unknown as EdgeDoc[],
-    approvalClaims: await db
+    // ISS-122: `writerToken` is the fenced writer's internal ownership token (edges.ts link()), not the student's data.
+    edges: ((await db.collection(COLLECTION_NAMES.edges).find(edgeFilter(s)).toArray()) as unknown as EdgeDoc[])
+      .map(({ writerToken: _writerToken, ...edge }) => edge),
+    // ISS-119: `lease` is the scribe recovery lease (token + expiry), an internal ownership token; the claim's decision data stays.
+    approvalClaims: (await db
       .collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions)
       .find({ studentId })
-      .toArray(),
+      .toArray())
+      .map(({ lease: _lease, ...claim }) => claim),
     transcripts,
     escalations: escalations.map((d) => ({
       escalationId: d.escalationId, sessionId: d.sessionId, studentId: d.studentId, turnId: d.turnId,

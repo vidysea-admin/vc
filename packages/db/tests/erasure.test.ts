@@ -50,6 +50,7 @@ import { TEST_ERASURE_CONFIG, confirmTwiceAndApprove } from "../src/testing.js";
 import { applyApprovedDiff, recordSessionTranscript, readSessionTranscript, resolveCitationSpan } from "../src/facts.js";
 import { DEFAULT_MONGO_CLIENT_TIMEOUT_MS } from "../src/client.js";
 import { tenantScopedDb } from "../src/tenant.js";
+import { link, type EdgeDoc } from "../src/edges.js";
 import { COLLECTION_NAMES, type FactDoc } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
 import { createFakeDb, type FakeDb, type FakeCollection } from "./fakes.js";
@@ -815,6 +816,54 @@ test("B15 export: the bundle holds all of A's facts (with history), sessions, de
   assert.equal(bundle.approvalClaims.length, 2);
   assert.deepEqual(bundle.checkpoints, { threads: [...a.threadIds].sort(), checkpointDocs: 4, writeDocs: 4 });
   const json = JSON.stringify(bundle);
+  for (const needle of identifiers(b)) assert.ok(!json.includes(needle), `export leaks B identifier ${needle}`);
+});
+
+const byIdAsc = (x: { _id: string }, y: { _id: string }) => x._id.localeCompare(y._id);
+
+test("ISS-119 export: the scribe recovery lease token is not in the bundle; every approval claim and its public decision data is still exported", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const LEASE_CANARY = "LEASE-TOKEN-CANARY-ISS119";
+  // A claim mid-run carries a lease (collections.ts ScribeResolutionDoc.lease); put one on A's first claim.
+  await db.collection(COLLECTION_NAMES.scribe_resolutions).updateOne(
+    { _id: a.threadIds[0] } as never,
+    { $set: { lease: { token: LEASE_CANARY, expiresAt: "2026-10-27T12:05:00.000Z" } } },
+  );
+  const rawClaims = coll(fakeDb, COLLECTION_NAMES.scribe_resolutions).all().filter((c) => c.studentId === a.studentId);
+  assert.ok(rawClaims.some((c) => (c.lease as { token?: string } | undefined)?.token === LEASE_CANARY), "premise: the canary lease is stored on the claim");
+
+  const bundle = await exportStudent(db, a.studentId);
+  const json = JSON.stringify(bundle);
+  assert.ok(!json.includes(LEASE_CANARY), "export leaks the scribe lease token");
+  for (const claim of bundle.approvalClaims) assert.ok(!("lease" in claim), `claim ${claim._id} still has a lease key`);
+  assert.ok(!/"lease"/.test(JSON.stringify(bundle.approvalClaims)), "no lease key at any nesting level of approvalClaims");
+  assert.equal(bundle.approvalClaims.length, 2);
+  assert.deepEqual([...bundle.approvalClaims].sort(byIdAsc), rawClaims.map(({ lease: _lease, ...rest }) => rest).sort(byIdAsc));
+  for (const needle of identifiers(b)) assert.ok(!json.includes(needle), `export leaks B identifier ${needle}`);
+});
+
+test("ISS-122 export: no edge writerToken (key or value) in the bundle; every edge and its other fields is still exported", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const WRITER_CANARY = "EDGE-WRITER-TOKEN-CANARY-ISS122";
+  // An edge written by the REAL link() with a writerToken, attached to A's student node.
+  await link(db.collection<EdgeDoc>(COLLECTION_NAMES.edges), { kind: "student", id: a.studentId }, { kind: "kb_record", id: "kb-canary" }, "canary_rel", { writerToken: WRITER_CANARY });
+  const mentionsA = (e: AnyDoc) => {
+    const j = JSON.stringify([e.from, e.to]);
+    return [a.studentId, "kb-canary", ...a.sessionIds, ...a.factIds].some((id) => j.includes(id));
+  };
+  const rawEdges = coll(fakeDb, COLLECTION_NAMES.edges).all().filter(mentionsA);
+  assert.ok(rawEdges.some((e) => e.writerToken === WRITER_CANARY), "premise: the canary edge is stored with its writerToken");
+  assert.ok(rawEdges.filter((e) => typeof e.writerToken === "string").length >= 2, "premise: the seeded fenced edges carry writerTokens too");
+
+  const bundle = await exportStudent(db, a.studentId);
+  const json = JSON.stringify(bundle);
+  assert.ok(!json.includes(WRITER_CANARY), "export leaks an edge writerToken value");
+  for (const edge of bundle.edges) assert.ok(!("writerToken" in edge), `edge ${edge._id} still has a writerToken key`);
+  assert.ok(!/"writerToken"/.test(JSON.stringify(bundle.edges)), "no writerToken key at any nesting level of edges");
+  assert.equal(bundle.edges.length, 7);
+  assert.deepEqual([...bundle.edges].sort(byIdAsc), rawEdges.map(({ writerToken: _writerToken, ...rest }) => rest).sort(byIdAsc));
+  const canaryEdge = bundle.edges.find((e) => e.rel === "canary_rel");
+  assert.deepEqual(canaryEdge && { from: canaryEdge.from, to: canaryEdge.to }, { from: { kind: "student", id: a.studentId }, to: { kind: "kb_record", id: "kb-canary" } });
   for (const needle of identifiers(b)) assert.ok(!json.includes(needle), `export leaks B identifier ${needle}`);
 });
 
