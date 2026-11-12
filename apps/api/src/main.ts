@@ -9,6 +9,9 @@
  *     by name until the KnowledgeBase team supplies one, gate Q5);
  *   - the per-client rate-limit key is the `X-Real-IP` header nginx sets from `$remote_addr` (gate Q3). `X-Forwarded-For`
  *     is never read: a client can put anything in its left entries. The server binds 127.0.0.1, so only nginx can reach it.
+ *     Cloud Run (cloudrun-deploy, opt-in): VC_BIND_HOST=0.0.0.0 with VC_CLIENT_IP_SOURCE=cloud-run binds every interface and
+ *     keys on the right-most X-Forwarded-For entry (the one Google's front end appends); any other pairing is refused. The
+ *     container maps Cloud Run's PORT onto VC_API_PORT.
  *   - a surface whose flag is on but whose configuration is missing REFUSES to start, naming the missing variable.
  *
  * `buildLauncherConfig` is pure (no network, no listening socket); `launch` is the only function that starts anything.
@@ -56,6 +59,39 @@ export function clientKeyFromRequest(req: Pick<ApiRequest, "headers">): string |
   const value = raw.trim();
   if (isIP(value) === 0) return undefined;
   return normalizeClientAddress(value);
+}
+
+/**
+ * Cloud Run mode (VC_CLIENT_IP_SOURCE=cloud-run): the client key is the RIGHT-MOST `X-Forwarded-For` entry. Google's front
+ * end appends the address it saw to whatever the client sent, so every entry to its left is client-controlled and is never
+ * read. If a Google external load balancer is ever put in front, the right-most entry becomes the balancer's own address and
+ * every client shares one bucket: stricter, never looser. A malformed list, a trailing empty entry, an address with a port,
+ * or a repeated header is `undefined` (one shared bucket). `X-Real-IP` is ignored here: without nginx a client can set it.
+ */
+export function clientKeyFromForwardedFor(req: Pick<ApiRequest, "headers">): string | undefined {
+  const raw = req.headers["x-forwarded-for"];
+  if (typeof raw !== "string") return undefined;
+  const entries = raw.split(",").map((e) => e.trim());
+  if (entries.some((e) => e === "" || isIP(e) === 0)) return undefined;
+  return normalizeClientAddress(entries[entries.length - 1]!);
+}
+
+const BIND_HOSTS = ["127.0.0.1", "0.0.0.0"] as const;
+const CLIENT_IP_SOURCES = ["x-real-ip", "cloud-run"] as const;
+
+/**
+ * The bind address and the client-key source, checked together. Default: 127.0.0.1 + X-Real-IP (nginx in front). Cloud Run:
+ * 0.0.0.0 + cloud-run. Any other pairing is refused: a public bind that trusts X-Real-IP lets a client choose its own
+ * rate-limit bucket, and cloud-run behind loopback means no proxy can be Google's front end. Errors name the variable only.
+ */
+function bindingFromEnv(env: Env): { host: (typeof BIND_HOSTS)[number]; clientKey: (req: Pick<ApiRequest, "headers">) => string | undefined } {
+  const host = present(env, "VC_BIND_HOST") ?? "127.0.0.1";
+  if (!(BIND_HOSTS as readonly string[]).includes(host)) throw new LauncherConfigError("VC_BIND_HOST must be 127.0.0.1 or 0.0.0.0");
+  const source = present(env, "VC_CLIENT_IP_SOURCE") ?? "x-real-ip";
+  if (!(CLIENT_IP_SOURCES as readonly string[]).includes(source)) throw new LauncherConfigError("VC_CLIENT_IP_SOURCE must be x-real-ip or cloud-run");
+  if (source === "cloud-run" && host !== "0.0.0.0") throw new LauncherConfigError("VC_CLIENT_IP_SOURCE=cloud-run requires VC_BIND_HOST=0.0.0.0");
+  if (source === "x-real-ip" && host === "0.0.0.0") throw new LauncherConfigError("VC_BIND_HOST=0.0.0.0 requires VC_CLIENT_IP_SOURCE=cloud-run (X-Real-IP is client-controlled without nginx)");
+  return { host: host as (typeof BIND_HOSTS)[number], clientKey: source === "cloud-run" ? clientKeyFromForwardedFor : clientKeyFromRequest };
 }
 
 function present(env: Env, name: string): string | undefined {
@@ -136,7 +172,8 @@ function voiceConfig(env: Env, deps: LauncherDeps): StartApiVoiceOptions {
  * speakers file; opens nothing. Throws `LauncherConfigError` naming the missing variable when an enabled surface lacks config.
  */
 export function buildLauncherConfig(env: Env, deps: LauncherDeps = {}): HttpOptions {
-  const http: HttpOptions = { host: "127.0.0.1" };
+  const binding = bindingFromEnv(env);
+  const http: HttpOptions = { host: binding.host };
   const anonymous = anonymousEnabledFromEnv(env);
   const chat = chatEnabledFromEnv(env);
   const voice = voiceEnabledFromEnv(env);
@@ -154,7 +191,7 @@ export function buildLauncherConfig(env: Env, deps: LauncherDeps = {}): HttpOpti
   if (anonymous) {
     requireVars(env, "VC_ANONYMOUS_ENABLED", ["VC_KB_BASE_URL", "VC_KB_ANON_API_KEY"]);
     const client = createAnonymousKbClient({ baseUrl: present(env, "VC_KB_BASE_URL")!, apiKey: present(env, "VC_KB_ANON_API_KEY")!, ...kbTimeout });
-    http.anonymous = { kb: createStudentKbPort({ client }), speakers, clientKey: clientKeyFromRequest };
+    http.anonymous = { kb: createStudentKbPort({ client }), speakers, clientKey: binding.clientKey };
   }
 
   if (chat) {

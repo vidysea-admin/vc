@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { CLIENT_KEY_HEADER, LauncherConfigError, buildLauncherConfig, clientKeyFromRequest, describeStartupError, launch, loadSpeakers } from "../src/main.js";
-import { ANONYMOUS_PATH } from "../src/anonymous.js";
+import { ANONYMOUS_PATH, normalizeClientAddress } from "../src/anonymous.js";
 import { SKILLS_DIR, cleanupGates, gatesFixture, kbAnswerProvider } from "./anonymous-fixtures.js";
 
 const KB = { VC_KB_BASE_URL: "http://127.0.0.1:1", VC_KB_ANON_API_KEY: "synthetic-anon-key", VC_KB_API_KEY: "synthetic-chat-key" };
@@ -53,6 +53,47 @@ test("b: the client key is X-Real-IP; X-Forwarded-For (any entry) is ignored", (
   assert.equal(clientKeyFromRequest(req({ "x-real-ip": ["203.0.113.9", "198.51.100.1"] })), undefined, "a repeated header is not what nginx sets");
   assert.equal(clientKeyFromRequest(req({ "x-real-ip": "::ffff:203.0.113.9" })), "203.0.113.9", "IPv4-mapped IPv6 is normalised like the socket address");
   assert.equal(clientKeyFromRequest(req({})), undefined);
+});
+
+// (c) Cloud Run mode (cloudrun-deploy): opt-in bind address and client-key source; the defaults above are unchanged.
+test("cr: VC_BIND_HOST accepts only 127.0.0.1 or 0.0.0.0 and never echoes a bad value", () => {
+  assert.equal(buildLauncherConfig({ VC_BIND_HOST: "127.0.0.1" }).host, "127.0.0.1");
+  assert.equal(buildLauncherConfig({ VC_BIND_HOST: "0.0.0.0", VC_CLIENT_IP_SOURCE: "cloud-run" }).host, "0.0.0.0");
+  for (const bad of ["::", "localhost", "10.0.0.5", "0.0.0.0 ", "SENTINELHOST"]) {
+    const env = { VC_BIND_HOST: bad, VC_CLIENT_IP_SOURCE: "cloud-run" };
+    if (bad === "0.0.0.0 ") { assert.equal(buildLauncherConfig(env).host, "0.0.0.0", "surrounding whitespace is trimmed like every other variable"); continue; }
+    assert.throws(() => buildLauncherConfig(env), (e: unknown) => e instanceof LauncherConfigError && /VC_BIND_HOST/.test(e.message) && !e.message.includes(bad));
+  }
+});
+
+test("cr: VC_CLIENT_IP_SOURCE accepts only x-real-ip or cloud-run, and each is tied to its bind address", () => {
+  assert.throws(() => buildLauncherConfig({ VC_CLIENT_IP_SOURCE: "SENTINELSRC" }), (e: unknown) => e instanceof LauncherConfigError && /VC_CLIENT_IP_SOURCE/.test(e.message) && !e.message.includes("SENTINELSRC"));
+  // cloud-run behind a loopback bind is meaningless; a public bind trusting X-Real-IP lets any client pick its own bucket
+  assert.throws(() => buildLauncherConfig({ VC_CLIENT_IP_SOURCE: "cloud-run" }), (e: unknown) => e instanceof LauncherConfigError && /VC_BIND_HOST/.test(e.message));
+  assert.throws(() => buildLauncherConfig({ VC_BIND_HOST: "0.0.0.0" }), (e: unknown) => e instanceof LauncherConfigError && /VC_CLIENT_IP_SOURCE/.test(e.message));
+  assert.throws(() => buildLauncherConfig({ VC_BIND_HOST: "0.0.0.0", VC_CLIENT_IP_SOURCE: "x-real-ip" }), (e: unknown) => e instanceof LauncherConfigError && /VC_CLIENT_IP_SOURCE/.test(e.message));
+  assert.deepEqual(buildLauncherConfig({ VC_BIND_HOST: "127.0.0.1", VC_CLIENT_IP_SOURCE: "x-real-ip" }), { host: "127.0.0.1" });
+});
+
+test("cr: in cloud-run mode the anonymous limiter keys on the X-Forwarded-For entry Google's front end appended", () => {
+  const env = { VC_BIND_HOST: "0.0.0.0", VC_CLIENT_IP_SOURCE: "cloud-run", VC_ANONYMOUS_ENABLED: "true", ...KB };
+  const key = buildLauncherConfig(env).anonymous!.clientKey!;
+  assert.equal(key(req({ "x-forwarded-for": "203.0.113.9" })), "203.0.113.9");
+  // client-supplied left entries are never the key: rotating them must not buy a fresh bucket
+  assert.equal(key(req({ "x-forwarded-for": "1.1.1.1, 203.0.113.9" })), "203.0.113.9");
+  assert.equal(key(req({ "x-forwarded-for": "9.9.9.9,8.8.8.8 ,  203.0.113.9" })), "203.0.113.9");
+  assert.equal(key(req({ "x-forwarded-for": "2001:db8::1" })), normalizeClientAddress("2001:db8::1"), "IPv6 is normalised by the same function as X-Real-IP");
+  assert.equal(key(req({ "x-forwarded-for": "::ffff:203.0.113.9" })), "203.0.113.9");
+  // X-Real-IP is client-controlled on Cloud Run (no nginx): ignored
+  assert.equal(key(req({ "x-real-ip": "203.0.113.50" })), undefined);
+  assert.equal(key(req({ "x-real-ip": "203.0.113.50", "x-forwarded-for": "203.0.113.9" })), "203.0.113.9");
+  // garbage, empty, a trailing empty entry, or a repeated header -> one shared bucket (stricter, never looser)
+  for (const bad of ["", " ", "not-an-ip", "203.0.113.9,", "203.0.113.9, junk", "203.0.113.9:443"]) assert.equal(key(req({ "x-forwarded-for": bad })), undefined, `bad XFF ${JSON.stringify(bad)}`);
+  assert.equal(key(req({ "x-forwarded-for": ["1.1.1.1", "203.0.113.9"] })), undefined);
+  assert.equal(key(req({})), undefined);
+  // the default (nginx) mode still keys on X-Real-IP only
+  const nginx = buildLauncherConfig({ VC_ANONYMOUS_ENABLED: "true", ...KB }).anonymous!.clientKey!;
+  assert.equal(nginx, clientKeyFromRequest);
 });
 
 test("b: over real HTTP through launch(), the limiter keys on X-Real-IP and a rotating X-Forwarded-For does not buy a fresh bucket", async () => {

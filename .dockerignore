@@ -1,0 +1,45 @@
+# Secrets: never in the build context, never in the image.
+.env
+.env.*
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*credentials*.json
+**/service-account*.json
+
+# Dependencies and VCS: installed fresh inside the image.
+**/node_modules
+.git
+.worktrees
+.claude
+.vscode
+.idea
+
+# Not needed at runtime.
+docs
+reports.md
+infra
+contracts
+compass_artifact_*
+**/tests
+**/*.test.ts
+**/coverage
+**/.next
+**/dist
+apps/web
+apps/student
+apps/widget
+# keep their manifests so the frozen pnpm lockfile still matches the workspace
+!apps/web/package.json
+!apps/student/package.json
+!apps/widget/package.json
+deploy
+
+# QA: only the go-live gate records and the evidence files they cite are read at runtime.
+qa
+!qa/gates
+!qa/verdicts
+!qa/evidence/**/*.md
+!qa/evidence/**/*.txt
